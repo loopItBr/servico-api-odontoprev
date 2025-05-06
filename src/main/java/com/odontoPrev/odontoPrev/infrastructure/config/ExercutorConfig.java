@@ -7,11 +7,9 @@ import java.util.concurrent.Executors;
 
 @Configuration
 public class ExercutorConfig {
-
     @Bean
     public ExecutorService executorService(){
-
-        //aqui está o pool fixo de 10 threads, o Executors é uma classe para criar diferentes tipos de thread pool
+        //cria um executor que usa uma nova virtual thread para cada tarefa
         return Executors.newVirtualThreadPerTaskExecutor();
     }
 }

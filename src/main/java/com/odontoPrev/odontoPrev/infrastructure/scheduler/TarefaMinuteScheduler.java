@@ -3,15 +3,13 @@ package com.odontoPrev.odontoPrev.infrastructure.scheduler;
 import com.odontoPrev.odontoPrev.application.port.in.ExecutarTarefaUseCase;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Component
 public class TarefaMinuteScheduler {
 
     private final ExecutarTarefaUseCase executarTarefaUseCase;
-    private final ExecutorService executorService;  //o ExecutorService é uma interface para execução de tarefas assíncronas
+    private final ExecutorService executorService;
 
     public TarefaMinuteScheduler(ExecutarTarefaUseCase executarTarefaUseCase, ExecutorService executorService) {
         this.executarTarefaUseCase = executarTarefaUseCase;
