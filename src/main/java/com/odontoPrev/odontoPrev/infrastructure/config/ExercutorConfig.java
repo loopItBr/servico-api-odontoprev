@@ -12,6 +12,6 @@ public class ExercutorConfig {
     public ExecutorService executorService(){
 
         //aqui está o pool fixo de 10 threads, o Executors é uma classe para criar diferentes tipos de thread pool
-        return Executors.newFixedThreadPool(10);
+        return Executors.newVirtualThreadPerTaskExecutor();
     }
 }
