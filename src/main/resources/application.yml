@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: odontoPrev
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+
+logging:
+  level:
+    com.odontoPrev: DEBUG
+    feign: DEBUG
+    org.springframework.cloud.openfeign: DEBUG
+
+feign:
+  client:
+    config:
+      default:
+        loggerLevel: FULL
+
+api:
+  url: https://jsonplaceholder.typicode.com
