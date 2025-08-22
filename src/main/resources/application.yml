@@ -1,20 +1,55 @@
+server:
+  port: 8080
+
 spring:
-  application:
-    name: odontoPrev
-  autoconfigure:
-    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  profiles:
+    active: hml
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
 
-logging:
-  level:
-    com.odontoPrev: DEBUG
-    feign: DEBUG
-    org.springframework.cloud.openfeign: DEBUG
+---
+spring:
+  config:
+    activate:
+      on-profile: hml
+  datasource:
+    url: jdbc:oracle:thin:@10.10.0.14:1521:TASYHML
+    username: pontetech
+    password: Qvcp889z
+    driver-class-name: oracle.jdbc.OracleDriver
 
-feign:
-  client:
-    config:
-      default:
-        loggerLevel: FULL
+odontoprev:
+  api:
+    base-url-auth: "https://apim-hml.odontoprev.com.br"
+    base-url-login: "https://apim-hml.odontoprev.com.br"
+    app-token: "X2JIUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUd nM01h"
+    user:
+      login: "13433638"
+      senha: "gWZ84t1NCX3a"
+      appid: "ODPV"
 
-api:
-  url: https://jsonplaceholder.typicode.com
+---
+spring:
+  config:
+    activate:
+      on-profile: prd
+  datasource:
+    url: jdbc:oracle:thin:@10.10.0.10:1521:TASYPRD
+    username: pontetech
+    password: Qvcp889z
+    driver-class-name: oracle.jdbc.OracleDriver
+
+odontoprev:
+  api:
+    base-url-auth: "https://apim.odontoprev.com.br"
+    base-url-login: "https://apim.odontoprev.com.br"
+    app-token: "X2JIUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUd nM01h"
+    user:
+      login: "13433638"
+      senha: "gWZ84t1NCX3a"
+      appid: "ODPV"
