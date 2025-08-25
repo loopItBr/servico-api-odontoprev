@@ -1,7 +1,7 @@
 package com.odontoPrev.odontoPrev.infrastructure.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.odontoPrev.odontoPrev.infrastructure.adapter.out.dto.EmpresaResponse;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.OdontoprevClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
 import com.odontoPrev.odontoPrev.infrastructure.repository.ControleSyncRepository;

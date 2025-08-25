@@ -1,0 +1,54 @@
+# Configurações para ambiente de DESENVOLVIMENTO
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+  # Banco de Dados - Desenvolvimento
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@10.10.0.14:1521:TASYHML}
+    username: ${DB_USERNAME:pontetech}
+    password: ${DB_PASSWORD:Qvcp889z}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:5}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_MAX_LIFETIME:1800000}
+  
+  # JPA - Desenvolvimento
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Configurações da API OdontoPrev - Desenvolvimento
+odontoprev:
+  api:
+    base-url: ${ODONTOPREV_BASE_URL:https://api-hml.odontoprev.com.br:8243}
+    base-url-auth: ${ODONTOPREV_AUTH_URL:https://api-hml.odontoprev.com.br:8243}
+    base-url-login: ${ODONTOPREV_LOGIN_URL:https://api-hml.odontoprev.com.br:8243}
+    path: ${ODONTOPREV_API_PATH:/dcms/empresa/2.0}
+    app-token: ${ODONTOPREV_APP_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h}
+    user:
+      login: ${ODONTOPREV_USER_LOGIN:13433638}
+      senha: ${ODONTOPREV_USER_SENHA:gWZ84t1NCX3a}
+      appid: ${ODONTOPREV_USER_APPID:ODPV}
+  
+  credentials:
+    token: ${ODONTOPREV_CREDENTIALS_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h}
+    empresa: ${ODONTOPREV_CREDENTIALS_EMPRESA:787392}
+    usuario: ${ODONTOPREV_CREDENTIALS_USUARIO:13433638}
+    senha: ${ODONTOPREV_CREDENTIALS_SENHA:gWZ84t1NCX3a}
+    app-id: ${ODONTOPREV_CREDENTIALS_APPID:ODPV}
+
+# Logging específico para desenvolvimento
+logging:
+  level:
+    com.odontoPrev: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    feign: DEBUG

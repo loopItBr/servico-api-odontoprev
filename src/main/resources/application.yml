@@ -1,71 +1,52 @@
-server:
-  port: 8080
-
+# Configurações comuns para todos os ambientes
 spring:
-  profiles:
-    active: hml
+  application:
+    name: servico-api-odontoprev
+  
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.OracleDialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+    open-in-view: false
 
----
-spring:
-  config:
-    activate:
-      on-profile: hml
-  datasource:
-    url: jdbc:oracle:thin:@10.10.0.14:1521:TASYHML
-    username: pontetech
-    password: Qvcp889z
-    driver-class-name: oracle.jdbc.OracleDriver
+# Configurações do servidor
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/}
+  
+# Configurações de logging
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.odontoPrev: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.web: ${LOG_LEVEL_WEB:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_SQL_PARAMS:INFO}
 
-odontoprev:
-  api:
-    base-url: "https://api-hml.odontoprev.com.br:8243"
-    base-url-auth: "https://api-hml.odontoprev.com.br:8243"
-    base-url-login: "https://api-hml.odontoprev.com.br:8243"
-    path: "/dcms/empresa/2.0"
-    app-token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUcnM01h"
-    user:
-      login: "13433638"
-      senha: "gWZ84t1NCX3a"
-      appid: "ODPV"
-  credentials:
-    token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h"
-    empresa: "787392"
-    usuario: "13433638"
-    senha: "gWZ84t1NCX3a"
-    app-id: "ODPV"
+# Configurações do Feign Client
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: ${FEIGN_CONNECT_TIMEOUT:10000}
+        readTimeout: ${FEIGN_READ_TIMEOUT:60000}
+        loggerLevel: ${FEIGN_LOG_LEVEL:BASIC}
 
----
-spring:
-  config:
-    activate:
-      on-profile: prd
-  datasource:
-    url: jdbc:oracle:thin:@10.10.0.10:1521:TASYPRD
-    username: pontetech
-    password: Qvcp889z
-    driver-class-name: oracle.jdbc.OracleDriver
+# Configurações do Scheduler
+spring.task.scheduling:
+  pool:
+    size: ${SCHEDULER_POOL_SIZE:10}
 
-odontoprev:
-  api:
-    base-url: "https://api.odontoprev.com.br:8243"
-    base-url-auth: "https://api.odontoprev.com.br:8243"
-    base-url-login: "https://api.odontoprev.com.br:8243"
-    path: "/dcms/empresa/2.0"
-    app-token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h"
-    user:
-      login: "13433638"
-      senha: "gWZ84t1NCX3a"
-      appid: "ODPV"
-  credentials:
-    token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h"
-    empresa: "787392"
-    usuario: "13433638"
-    senha: "gWZ84t1NCX3a"
-    app-id: "ODPV"
+# Configurações do Jackson
+spring.jackson:
+  serialization:
+    write-dates-as-timestamps: false
+  deserialization:
+    fail-on-unknown-properties: false
+  time-zone: America/Sao_Paulo

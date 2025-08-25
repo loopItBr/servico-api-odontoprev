@@ -1,8 +1,8 @@
 package com.odontoPrev.odontoPrev.infrastructure.client;
 
-import com.odontoPrev.odontoPrev.infrastructure.adapter.out.dto.ContratoResponse;
-import com.odontoPrev.odontoPrev.infrastructure.adapter.out.dto.EmpresaResponse;
-import com.odontoPrev.odontoPrev.infrastructure.adapter.out.dto.PlanoResponse;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.ContratoResponse;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaResponse;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.PlanoResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -11,7 +11,7 @@ import java.util.List;
 
 @FeignClient(
     name = "odontoprev-client",
-    url = "${odontoprev.api.base-url}${odontoprev.api.path}",
+    url = "${odontoprev.api.base-url:https://api-hml.odontoprev.com.br:8243}${odontoprev.api.path:/dcms/empresa/2.0}",
     configuration = {OdontoprevFeignConfig.class}
 )
 public interface OdontoprevClient {

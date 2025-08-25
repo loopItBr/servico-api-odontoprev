@@ -1,0 +1,55 @@
+# Configurações para ambiente de Homologação (HML)
+spring:
+  config:
+    activate:
+      on-profile: hml
+  
+  # Banco de Dados - Homologação Oracle
+  datasource:
+    url: jdbc:oracle:thin:@10.10.0.14:1521:TASYHML
+    username: pontetech
+    password: Qvcp889z
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  # JPA - Homologação
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+# Configurações da API OdontoPrev - Homologação
+odontoprev:
+  api:
+    base-url: https://api-hml.odontoprev.com.br:8243
+    base-url-auth: https://api-hml.odontoprev.com.br:8243
+    base-url-login: https://api-hml.odontoprev.com.br:8243
+    path: /dcms/empresa/2.0
+    app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h
+    user:
+      login: 13433638
+      senha: gWZ84t1NCX3a
+      appid: ODPV
+  
+  credentials:
+    token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h
+    empresa: 787392
+    usuario: 13433638
+    senha: gWZ84t1NCX3a
+    app-id: ODPV
+
+# Logging para homologação
+logging:
+  level:
+    root: INFO
+    com.odontoPrev: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    feign: INFO

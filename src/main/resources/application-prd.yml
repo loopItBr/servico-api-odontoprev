@@ -1,0 +1,98 @@
+# Configurações para ambiente de PRODUÇÃO
+spring:
+  config:
+    activate:
+      on-profile: prd
+  
+  # Banco de Dados - Produção
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: ${DB_MIN_IDLE:10}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${DB_LEAK_DETECTION:60000}
+  
+  # JPA - Produção
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        generate_statistics: false
+        jdbc:
+          batch_size: 30
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+
+# Configurações da API OdontoPrev - Produção
+odontoprev:
+  api:
+    base-url: ${ODONTOPREV_BASE_URL}
+    base-url-auth: ${ODONTOPREV_AUTH_URL}
+    base-url-login: ${ODONTOPREV_LOGIN_URL}
+    path: ${ODONTOPREV_API_PATH}
+    app-token: ${ODONTOPREV_APP_TOKEN}
+    user:
+      login: ${ODONTOPREV_USER_LOGIN}
+      senha: ${ODONTOPREV_USER_SENHA}
+      appid: ${ODONTOPREV_USER_APPID}
+  
+  credentials:
+    token: ${ODONTOPREV_CREDENTIALS_TOKEN}
+    empresa: ${ODONTOPREV_CREDENTIALS_EMPRESA}
+    usuario: ${ODONTOPREV_CREDENTIALS_USUARIO}
+    senha: ${ODONTOPREV_CREDENTIALS_SENHA}
+    app-id: ${ODONTOPREV_CREDENTIALS_APPID}
+
+# Logging específico para produção
+logging:
+  level:
+    root: WARN
+    com.odontoPrev: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    feign: WARN
+  
+  # Configuração de arquivo de log para produção
+  file:
+    name: ${LOG_FILE_PATH:/var/log/odontoprev/application.log}
+    max-size: ${LOG_FILE_MAX_SIZE:10MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+  
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %level - [%thread] - %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} - %level - [%thread] - %logger{36} - %msg%n"
+
+# Configurações de segurança adicionais para produção
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
+  
+  # Configurações de compressão
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    min-response-size: 1024
+
+# Configurações de performance
+spring:
+  task:
+    scheduling:
+      pool:
+        size: ${SCHEDULER_POOL_SIZE:20}
+    
+  # Cache de recursos
+  resources:
+    cache:
+      cachecontrol:
+        max-age: 3600

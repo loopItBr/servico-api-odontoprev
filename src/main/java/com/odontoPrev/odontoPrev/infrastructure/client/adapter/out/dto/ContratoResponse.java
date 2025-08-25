@@ -1,4 +1,4 @@
-package com.odontoPrev.odontoPrev.infrastructure.adapter.out.dto;
+package com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
