@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn compile:*)",
+      "Bash(java:*)",
+      "Bash(set JAVA_HOME=C:Program FilesJavajdk-21)",
+      "Bash(mvn clean:*)",
+      "Bash(mvn:*)",
+      "Bash(set JAVA_HOME=C:\\Program Files\\Java\\jdk-21)",
+      "Bash(where java)",
+      "Bash(set PATH=C:\\Program Files\\Java\\jdk-21\\bin)",
+      "Bash(%PATH%)",
+      "Bash(export:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

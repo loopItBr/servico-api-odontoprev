@@ -25,13 +25,21 @@ spring:
 
 odontoprev:
   api:
-    base-url-auth: "https://apim-hml.odontoprev.com.br"
-    base-url-login: "https://apim-hml.odontoprev.com.br"
-    app-token: "X2JIUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUd nM01h"
+    base-url: "https://api-hml.odontoprev.com.br:8243"
+    base-url-auth: "https://api-hml.odontoprev.com.br:8243"
+    base-url-login: "https://api-hml.odontoprev.com.br:8243"
+    path: "/dcms/empresa/2.0"
+    app-token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUcnM01h"
     user:
       login: "13433638"
       senha: "gWZ84t1NCX3a"
       appid: "ODPV"
+  credentials:
+    token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h"
+    empresa: "787392"
+    usuario: "13433638"
+    senha: "gWZ84t1NCX3a"
+    app-id: "ODPV"
 
 ---
 spring:
@@ -46,10 +54,18 @@ spring:
 
 odontoprev:
   api:
-    base-url-auth: "https://apim.odontoprev.com.br"
-    base-url-login: "https://apim.odontoprev.com.br"
-    app-token: "X2JIUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUd nM01h"
+    base-url: "https://api.odontoprev.com.br:8243"
+    base-url-auth: "https://api.odontoprev.com.br:8243"
+    base-url-login: "https://api.odontoprev.com.br:8243"
+    path: "/dcms/empresa/2.0"
+    app-token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h"
     user:
       login: "13433638"
       senha: "gWZ84t1NCX3a"
       appid: "ODPV"
+  credentials:
+    token: "X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h"
+    empresa: "787392"
+    usuario: "13433638"
+    senha: "gWZ84t1NCX3a"
+    app-id: "ODPV"
