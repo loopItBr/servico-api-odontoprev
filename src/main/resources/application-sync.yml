@@ -1,0 +1,24 @@
+odontoprev:
+  sync:
+    # Tamanho do lote para processamento em batch (50 empresas por lote)
+    batch-size: 50
+    
+    # Número máximo de threads para processamento paralelo (5 threads)
+    max-threads: 5
+    
+    # Configurações do scheduler (a cada 30 minutos - mais seguro)
+    cron: "0 */30 * * * *"
+    
+  credentials:
+    empresa: ${ODONTOPREV_EMPRESA:}
+    usuario: ${ODONTOPREV_USUARIO:}
+    senha: ${ODONTOPREV_SENHA:}
+    app-id: ${ODONTOPREV_APP_ID:}
+
+# Configurações de logging para monitoramento
+logging:
+  level:
+    com.odontoPrev.odontoPrev.infrastructure.client.service.ProcessamentoLoteServiceImpl: INFO
+    com.odontoPrev.odontoPrev.infrastructure.client.service.SincronizacaoOdontoprevServiceImpl: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{correlationId}] %logger{36} - %msg%n"

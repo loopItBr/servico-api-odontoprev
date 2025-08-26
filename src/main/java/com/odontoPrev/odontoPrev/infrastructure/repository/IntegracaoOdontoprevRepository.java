@@ -1,6 +1,7 @@
 package com.odontoPrev.odontoPrev.infrastructure.repository;
 
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -12,6 +13,12 @@ public interface IntegracaoOdontoprevRepository extends JpaRepository<Integracao
 
     @Query("SELECT DISTINCT i.codigoEmpresa FROM IntegracaoOdontoprev i")
     List<String> buscarCodigosEmpresasDisponiveis();
+
+    @Query("SELECT DISTINCT i.codigoEmpresa FROM IntegracaoOdontoprev i")
+    List<String> buscarCodigosEmpresasPaginado(Pageable pageable);
+
+    @Query("SELECT COUNT(DISTINCT i.codigoEmpresa) FROM IntegracaoOdontoprev i")
+    long contarTotalEmpresas();
 
     @Query("SELECT i FROM IntegracaoOdontoprev i WHERE i.codigoEmpresa = :codigoEmpresa")
     List<IntegracaoOdontoprev> buscarDadosPorCodigoEmpresa(String codigoEmpresa);

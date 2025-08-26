@@ -1,44 +1,49 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
-import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaService;
+import com.odontoPrev.odontoPrev.domain.service.ProcessamentoLoteService;
 import com.odontoPrev.odontoPrev.domain.service.SincronizacaoOdontoprevService;
-import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Implementação principal do serviço de sincronização com OdontoPrev.
- * Responsável por orquestrar o processo de sincronização.
+ * Responsável por orquestrar o processo de sincronização usando processamento em lotes.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SincronizacaoOdontoprevServiceImpl implements SincronizacaoOdontoprevService {
 
-    private final IntegracaoOdontoprevRepository integracaoRepository;
-    private final ProcessamentoEmpresaService processamentoEmpresaService;
+    private final ProcessamentoLoteService processamentoLoteService;
+    
+    @Value("${odontoprev.sync.batch-size:50}")
+    private int tamanhoBatch;
+    
+    @Value("${odontoprev.sync.max-threads:5}")
+    private int maxThreads;
 
     @Override
     @Transactional
     public void executarSincronizacao() {
         LocalDateTime inicioSincronizacao = LocalDateTime.now();
         log.info("Iniciando sincronização com OdontoPrev - {}", inicioSincronizacao);
+        log.info("Configurações: Batch size = {}, Max threads = {}", tamanhoBatch, maxThreads);
 
         try {
-            List<String> codigosEmpresas = obterCodigosEmpresas();
+            long totalEmpresas = contarTotalEmpresasUmaVez();
             
-            if (codigosEmpresas.isEmpty()) {
+            if (totalEmpresas == 0) {
                 log.info("Nenhuma empresa encontrada para sincronização");
                 return;
             }
             
-            log.info("Encontradas {} empresas para sincronização", codigosEmpresas.size());
-            processarEmpresas(codigosEmpresas);
+            log.info("Total de {} empresas serão processadas em lotes", totalEmpresas);
+            processamentoLoteService.processarEmpresasEmLotes(tamanhoBatch, maxThreads, totalEmpresas);
             
         } catch (Exception e) {
             log.error("Erro durante a sincronização com OdontoPrev: {}", e.getMessage(), e);
@@ -51,18 +56,8 @@ public class SincronizacaoOdontoprevServiceImpl implements SincronizacaoOdontopr
         }
     }
 
-    private List<String> obterCodigosEmpresas() {
-        return integracaoRepository.buscarCodigosEmpresasDisponiveis();
-    }
-
-    private void processarEmpresas(List<String> codigosEmpresas) {
-        for (String codigoEmpresa : codigosEmpresas) {
-            try {
-                processamentoEmpresaService.processar(codigoEmpresa);
-            } catch (Exception e) {
-                log.error("Erro ao processar empresa {}: {}", codigoEmpresa, e.getMessage(), e);
-                // Continua processando as demais empresas
-            }
-        }
+    private long contarTotalEmpresasUmaVez() {
+        log.debug("Contando total de empresas disponíveis - execução única");
+        return processamentoLoteService.contarTotalEmpresas();
     }
 }
