@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Implementação do serviço de processamento de empresas.
@@ -31,19 +32,29 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     public void processar(String codigoEmpresa) {
         log.debug("Processando empresa: {}", codigoEmpresa);
 
-        List<IntegracaoOdontoprev> dadosEmpresa = integracaoRepository.buscarDadosPorCodigoEmpresa(codigoEmpresa);
-        
-        if (dadosEmpresa.isEmpty()) {
-            log.warn("Nenhum dado encontrado para a empresa: {}", codigoEmpresa);
+        IntegracaoOdontoprev dadosCompletos = buscarDadosEmpresaOuSair(codigoEmpresa);
+        if (dadosCompletos == null) {
             return;
         }
-
-        IntegracaoOdontoprev dadosCompletos = dadosEmpresa.get(0);
         
-        ControleSync controleSync = gerenciadorControleSync.criarControle(codigoEmpresa, dadosCompletos);
-        controleSync = gerenciadorControleSync.salvar(controleSync);
-
+        ControleSync controleSync = criarEMSalvarControleSync(codigoEmpresa, dadosCompletos);
         buscarEProcessarResposta(controleSync, codigoEmpresa);
+    }
+
+    private IntegracaoOdontoprev buscarDadosEmpresaOuSair(String codigoEmpresa) {
+        Optional<IntegracaoOdontoprev> dadosEmpresaOpt = integracaoRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
+        
+        if (dadosEmpresaOpt.isEmpty()) {
+            log.warn("Nenhum dado encontrado para a empresa: {}", codigoEmpresa);
+            return null;
+        }
+        
+        return dadosEmpresaOpt.get();
+    }
+
+    private ControleSync criarEMSalvarControleSync(String codigoEmpresa, IntegracaoOdontoprev dadosCompletos) {
+        ControleSync controleSync = gerenciadorControleSync.criarControle(codigoEmpresa, dadosCompletos);
+        return gerenciadorControleSync.salvar(controleSync);
     }
 
     private void buscarEProcessarResposta(ControleSync controleSync, String codigoEmpresa) {
