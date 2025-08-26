@@ -2,6 +2,8 @@ package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaService;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoLoteService;
+import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
+import com.odontoPrev.odontoPrev.infrastructure.exception.*;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +11,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+
+import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.*;
 
 /**
  * Processamento de empresas em lotes paginados.
@@ -23,6 +27,11 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
     private final ProcessamentoEmpresaService processamentoEmpresaService;
 
     @Override
+    @MonitorarOperacao(
+            operacao = "PROCESSAMENTO_LOTE",
+            incluirParametros = {"tamanhoBatch", "maxThreads", "totalEmpresas"},
+            excecaoEmErro = PROCESSAMENTO_LOTE
+    )
     public void processarEmpresasEmLotes(int tamanhoBatch, int maxThreads, long totalEmpresas) {
         if (totalEmpresas == 0) {
             log.info("Nenhuma empresa encontrada para processamento");
@@ -30,19 +39,28 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
         }
 
         log.info("Processando {} empresas em lotes de {}", totalEmpresas, tamanhoBatch);
-        
         long empresasProcessadas = processarTodasAsPaginas(tamanhoBatch, totalEmpresas);
-
         log.info("Processamento finalizado: {} empresas", empresasProcessadas);
     }
 
     @Override
+    @MonitorarOperacao(
+            operacao = "BUSCA_PAGINADA",
+            incluirParametros = {"offset", "limit"},
+            logSucesso = MonitorarOperacao.NivelLog.INFO,
+            excecaoEmErro = CONSULTA_EMPRESAS
+    )
     public List<String> buscarCodigosEmpresasPaginado(int offset, int limit) {
         int numeroPagina = calcularNumeroPagina(offset, limit);
         return integracaoRepository.buscarCodigosEmpresasPaginado(PageRequest.of(numeroPagina, limit));
     }
 
     @Override
+    @MonitorarOperacao(
+            operacao = "CONTAGEM_TOTAL_EMPRESAS",
+            logSucesso = MonitorarOperacao.NivelLog.INFO,
+            excecaoEmErro = CONSULTA_EMPRESAS
+    )
     public long contarTotalEmpresas() {
         return integracaoRepository.contarTotalEmpresas();
     }
@@ -95,18 +113,15 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
         return processadasNoLote;
     }
 
+    @MonitorarOperacao(
+            operacao = "PROCESSAMENTO_EMPRESA",
+            incluirParametros = {"codigoEmpresa"},
+            logSucesso = MonitorarOperacao.NivelLog.INFO,
+            excecaoEmErro = PROCESSAMENTO_EMPRESA
+    )
     private boolean processarEmpresaComSeguranca(String codigoEmpresa) {
-        try {
-            processamentoEmpresaService.processar(codigoEmpresa);
-            return true;
-        } catch (Exception e) {
-            logErroProcessamentoEmpresa(codigoEmpresa, e);
-            return false;
-        }
-    }
-
-    private void logErroProcessamentoEmpresa(String codigoEmpresa, Exception e) {
-        log.error("Erro ao processar empresa {}: {}", codigoEmpresa, e.getMessage());
+        processamentoEmpresaService.processar(codigoEmpresa);
+        return true;
     }
 
     private void logFimLote(int numeroPagina, long empresasProcessadas, long totalEmpresas) {

@@ -21,6 +21,101 @@ public class GlobalExceptionHandler {
     @Value("${app.security.expose-error-details:false}")
     private boolean exposeErrorDetails;
 
+    @ExceptionHandler(SincronizacaoException.class)
+    public ResponseEntity<Map<String, Object>> handleSincronizacaoException(SincronizacaoException ex) {
+        String errorId = UUID.randomUUID().toString();
+        log.error("[{}] Erro de sincronização [{}]: {} - Contexto: {}", 
+                errorId, ex.getCodigoErro(), ex.getMessage(), ex.getContextoAdicional(), ex);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("erro", "Erro na sincronização OdontoPrev");
+        response.put("codigoErro", ex.getCodigoErro());
+        response.put("mensagem", getMensagemSegura(ex, "Falha durante o processo de sincronização."));
+        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());
+        response.put("contexto", ex.getContextoAdicional());
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("errorId", errorId);
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    @ExceptionHandler(AutenticacaoOdontoprevException.class)
+    public ResponseEntity<Map<String, Object>> handleAutenticacaoOdontoprevException(AutenticacaoOdontoprevException ex) {
+        String errorId = UUID.randomUUID().toString();
+        log.error("[{}] Erro de autenticação OdontoPrev [{}]: {} - Contexto: {}", 
+                errorId, ex.getCodigoErro(), ex.getMessage(), ex.getContextoAdicional(), ex);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("erro", "Falha na autenticação");
+        response.put("codigoErro", ex.getCodigoErro());
+        response.put("mensagem", "Não foi possível autenticar com a API da OdontoPrev");
+        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());
+        response.put("contexto", ex.getContextoAdicional());
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.UNAUTHORIZED.value());
+        response.put("errorId", errorId);
+        
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @ExceptionHandler(ComunicacaoApiOdontoprevException.class)
+    public ResponseEntity<Map<String, Object>> handleComunicacaoApiException(ComunicacaoApiOdontoprevException ex) {
+        String errorId = UUID.randomUUID().toString();
+        log.error("[{}] Erro de comunicação com API OdontoPrev [{}]: {} - Contexto: {}", 
+                errorId, ex.getCodigoErro(), ex.getMessage(), ex.getContextoAdicional(), ex);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("erro", "Erro de comunicação externa");
+        response.put("codigoErro", ex.getCodigoErro());
+        response.put("mensagem", "Falha na comunicação com a API da OdontoPrev");
+        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());
+        response.put("contexto", ex.getContextoAdicional());
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_GATEWAY.value());
+        response.put("errorId", errorId);
+        
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(response);
+    }
+
+    @ExceptionHandler(ConfiguracaoSincronizacaoException.class)
+    public ResponseEntity<Map<String, Object>> handleConfiguracaoException(ConfiguracaoSincronizacaoException ex) {
+        String errorId = UUID.randomUUID().toString();
+        log.error("[{}] Erro de configuração [{}]: {} - Contexto: {}", 
+                errorId, ex.getCodigoErro(), ex.getMessage(), ex.getContextoAdicional(), ex);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("erro", "Erro de configuração");
+        response.put("codigoErro", ex.getCodigoErro());
+        response.put("mensagem", getMensagemSegura(ex, "Problema na configuração da sincronização."));
+        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());
+        response.put("contexto", ex.getContextoAdicional());
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("errorId", errorId);
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    @ExceptionHandler(RecursosIndisponiveisException.class)
+    public ResponseEntity<Map<String, Object>> handleRecursosIndisponiveisException(RecursosIndisponiveisException ex) {
+        String errorId = UUID.randomUUID().toString();
+        log.error("[{}] Recursos indisponíveis [{}]: {} - Contexto: {}", 
+                errorId, ex.getCodigoErro(), ex.getMessage(), ex.getContextoAdicional(), ex);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("erro", "Recursos indisponíveis");
+        response.put("codigoErro", ex.getCodigoErro());
+        response.put("mensagem", "Recursos necessários para a sincronização estão temporariamente indisponíveis");
+        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());
+        response.put("contexto", ex.getContextoAdicional());
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+        response.put("errorId", errorId);
+        
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         String errorId = UUID.randomUUID().toString();
