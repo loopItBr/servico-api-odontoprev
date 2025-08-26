@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "vw_integracao_odontoprev")
+@Table(name = "vw_integracao_odontoprev", schema = "TASY")
 @Immutable
 @Data
 @NoArgsConstructor
@@ -18,96 +18,101 @@ import java.time.LocalDate;
 public class IntegracaoOdontoprev {
 
     @Id
-    @Column(name = "codigo_empresa")
+    @Column(name = "CODIGO_EMPRESA", nullable = true)
     private String codigoEmpresa;
 
-    @Column(name = "cnpj")
+    @Column(name = "CNPJ", nullable = true)
     private String cnpj;
 
-    @Column(name = "codigo_cliente_operadora")
+    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true)
     private String codigoClienteOperadora;
 
-    @Column(name = "nome_fantasia")
+    @Column(name = "NOME_FANTASIA", nullable = true)
     private String nomeFantasia;
 
-    @Column(name = "data_inicio_contrato")
+    @Column(name = "DATA_INICIO_CONTRATO", nullable = true)
+    @Temporal(TemporalType.DATE)
     private LocalDate dataInicioContrato;
 
-    @Column(name = "data_fim_contrato")
+    @Column(name = "DATA_FIM_CONTRATO", nullable = true)
+    @Temporal(TemporalType.DATE)
     private LocalDate dataFimContrato;
 
-    @Column(name = "data_vigencia")
+    @Column(name = "DATA_VIGENCIA", nullable = true)
+    @Temporal(TemporalType.DATE)
     private LocalDate dataVigencia;
 
-    @Column(name = "empresa_pf")
-    private Boolean empresaPf;
+    @Column(name = "EMPRESA_PF", nullable = true)
+    private String empresaPf;
 
-    @Column(name = "codigo_grupo_gerencial")
+    @Column(name = "CODIGO_GRUPO_GERENCIAL", nullable = true)
     private String codigoGrupoGerencial;
 
-    @Column(name = "codigo_marca")
+    @Column(name = "CODIGO_MARCA", nullable = true)
     private String codigoMarca;
 
-    @Column(name = "codigo_celula")
+    @Column(name = "CODIGO_CELULA", nullable = true)
     private String codigoCelula;
 
-    @Column(name = "vidas_ativas")
+    @Column(name = "VIDAS_ATIVAS", nullable = true)
     private Integer vidasAtivas;
 
-    @Column(name = "valor_ultimo_faturamento")
+    @Column(name = "VALOR_ULTIMO_FATURAMENTO", nullable = true)
     private BigDecimal valorUltimoFaturamento;
 
-    @Column(name = "sinistralidade")
+    @Column(name = "SINISTRALIDADE", nullable = true)
     private BigDecimal sinistralidade;
 
-    @Column(name = "codigo_plano")
+    @Column(name = "CODIGO_PLANO", nullable = true)
     private String codigoPlano;
 
-    @Column(name = "descricao_plano")
+    @Column(name = "DESCRICAO_PLANO", nullable = true)
     private String descricaoPlano;
 
-    @Column(name = "nome_fantasia_plano")
+    @Column(name = "NOME_FANTASIA_PLANO", nullable = true)
     private String nomeFantasiaPlano;
 
-    @Column(name = "numero_registro_ans")
+    @Column(name = "NUMERO_REGISTRO_ANS", nullable = true)
     private String numeroRegistroAns;
 
-    @Column(name = "sigla_plano")
+    @Column(name = "SIGLA_PLANO", nullable = true)
     private String siglaPlano;
 
-    @Column(name = "valor_titular")
+    @Column(name = "VALOR_TITULAR", nullable = true)
     private BigDecimal valorTitular;
 
-    @Column(name = "valor_dependente")
+    @Column(name = "VALOR_DEPENDENTE", nullable = true)
     private BigDecimal valorDependente;
 
-    @Column(name = "data_inicio_plano")
+    @Column(name = "DATA_INICIO_PLANO", nullable = true)
+    @Temporal(TemporalType.DATE)
     private LocalDate dataInicioPlano;
 
-    @Column(name = "data_fim_plano")
+    @Column(name = "DATA_FIM_PLANO", nullable = true)
+    @Temporal(TemporalType.DATE)
     private LocalDate dataFimPlano;
 
-    @Column(name = "co_participacao")
-    private Boolean coParticipacao;
+    @Column(name = "CO_PARTICIPACAO", nullable = true)
+    private String coParticipacao;
 
-    @Column(name = "tipo_negociacao")
+    @Column(name = "TIPO_NEGOCIACAO", nullable = true)
     private String tipoNegociacao;
 
-    @Column(name = "codigo_tipo_cobranca")
+    @Column(name = "CODIGO_TIPO_COBRANCA", nullable = true)
     private String codigoTipoCobranca;
 
-    @Column(name = "nome_tipo_cobranca")
+    @Column(name = "NOME_TIPO_COBRANCA", nullable = true)
     private String nomeTipoCobranca;
 
-    @Column(name = "sigla_tipo_cobranca")
+    @Column(name = "SIGLA_TIPO_COBRANCA", nullable = true)
     private String siglaTipoCobranca;
 
-    @Column(name = "numero_banco")
+    @Column(name = "NUMERO_BANCO", nullable = true)
     private String numeroBanco;
 
-    @Column(name = "nome_banco")
+    @Column(name = "NOME_BANCO", nullable = true)
     private String nomeBanco;
 
-    @Column(name = "numero_parcelas")
+    @Column(name = "NUMERO_PARCELAS", nullable = true)
     private Integer numeroParcelas;
 }
