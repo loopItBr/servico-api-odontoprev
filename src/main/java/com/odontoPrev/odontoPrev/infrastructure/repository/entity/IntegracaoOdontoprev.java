@@ -1,6 +1,9 @@
 package com.odontoPrev.odontoPrev.infrastructure.repository.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -18,10 +21,15 @@ import java.time.LocalDate;
 public class IntegracaoOdontoprev {
 
     @Id
-    @Column(name = "CODIGO_EMPRESA", nullable = true)
+    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 10)
+    @NotBlank(message = "Código da empresa é obrigatório")
+    @Size(min = 1, max = 10, message = "Código da empresa deve ter entre 1 e 10 caracteres")
+    @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Código da empresa deve conter apenas letras e números")
     private String codigoEmpresa;
 
-    @Column(name = "CNPJ", nullable = true)
+    @Column(name = "CNPJ", nullable = true, length = 18)
+    @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
+             message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
     private String cnpj;
 
     @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true)

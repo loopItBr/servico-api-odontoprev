@@ -25,8 +25,8 @@ public class SyncOdontoprevScheduler {
     private final ExecutorService executorService;
     private final AtomicBoolean sincronizacaoEmExecucao = new AtomicBoolean(false);
 
-    @Scheduled(cron = "${odontoprev.sync.cron:0 * * * * *}")
     //@Scheduled(cron = "${odontoprev.sync.cron:0 */30 * * * *}")
+    @Scheduled(cron = "${odontoprev.sync.cron:0 * * * * *}")
     public void executarSincronizacaoOdontoprev() {
 
         if (sincronizacaoJaEstaEmExecucao()) {
@@ -34,18 +34,7 @@ public class SyncOdontoprevScheduler {
             return;
         }
 
-        try {
-            log.info("Sincronização iniciada");
-            sincronizacaoService.executarSincronizacao();
-            log.info("Sincronização concluída com sucesso");
-        } catch (Exception e) {
-            log.error("Erro durante a execução da sincronização OdontoPrev: {}", 
-                    e.getMessage(), e);
-        } finally {
-            liberarControleExecucao();
-        }
-
-        /*LocalDateTime inicioScheduler = LocalDateTime.now();
+        LocalDateTime inicioScheduler = LocalDateTime.now();
         log.info("Iniciando scheduler de sincronização OdontoPrev - {}", inicioScheduler);
 
         CompletableFuture
@@ -57,7 +46,7 @@ public class SyncOdontoprevScheduler {
                     } else {
                         log.debug("Scheduler executado com sucesso");
                     }
-                });*/
+                });
     }
 
     private boolean sincronizacaoJaEstaEmExecucao() {
