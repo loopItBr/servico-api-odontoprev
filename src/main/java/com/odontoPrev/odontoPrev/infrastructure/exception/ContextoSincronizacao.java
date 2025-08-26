@@ -6,59 +6,141 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Classe utilitária para gerenciar contexto de sincronização.
- * Simplifica a criação e manipulação de contextos para logs e exceções.
+ * CLASSE UTILITÁRIA PARA CRIAR E GERENCIAR CONTEXTOS DE SINCRONIZAÇÃO
+ * 
+ * O QUE É UM "CONTEXTO":
+ * É um conjunto de informações sobre o que está acontecendo no sistema
+ * no momento de uma operação. Por exemplo: qual empresa está sendo processada,
+ * que horas começou, qual thread está executando, etc.
+ * 
+ * POR QUE PRECISAMOS DISSO:
+ * - Para debugar erros: saber exatamente o que estava acontecendo
+ * - Para monitoramento: acompanhar performance e problemas
+ * - Para logs organizados: todas as informações importantes em um lugar
+ * - Para rastreabilidade: poder investigar problemas específicos
+ * 
+ * COMO FUNCIONA:
+ * Esta classe usa o padrão "Fluent Interface" - você vai "encadeando" métodos
+ * para adicionar informações. Por exemplo:
+ * 
+ * ContextoSincronizacao.criar()
+ *    .com("empresa", "A001")
+ *    .com("lote", 5)
+ *    .comThreadInfo()
+ *    .comSucesso();
+ * 
+ * VANTAGENS:
+ * - Código mais limpo e legível
+ * - Padroniza como coletamos informações
+ * - Evita repetição de código
+ * - Facilita manutenção
  */
 @Getter
 public class ContextoSincronizacao {
     
+    // Mapa que armazena todas as informações do contexto
+    // Chave = nome da informação, Valor = valor da informação
     private final Map<String, Object> dados;
+    
+    // Momento exato em que este contexto foi criado
     private final LocalDateTime timestamp;
     
+    /**
+     * CONSTRUTOR PRIVADO - não pode ser chamado diretamente
+     * 
+     * Inicializa o contexto com timestamp automático.
+     * Use o método criar() para instanciar.
+     */
     private ContextoSincronizacao() {
+        // Registra o momento exato da criação
         this.timestamp = LocalDateTime.now();
+        
+        // Inicializa o mapa de dados
         this.dados = new HashMap<>();
+        
+        // Adiciona o timestamp como primeira informação
         this.dados.put("timestamp", timestamp);
     }
     
     /**
-     * Cria um novo contexto com timestamp automático
+     * MÉTODO FÁBRICA - cria um novo contexto vazio
+     * 
+     * Este é o ponto de entrada para criar contextos.
+     * Sempre use este método em vez de chamar o construtor diretamente.
+     * 
+     * @return Novo contexto pronto para receber informações
      */
     public static ContextoSincronizacao criar() {
         return new ContextoSincronizacao();
     }
     
     /**
-     * Cria um novo contexto com operação específica
+     * CRIA CONTEXTO JÁ COM NOME DA OPERAÇÃO
+     * 
+     * Método de conveniência que cria um contexto e já adiciona
+     * qual operação está sendo realizada.
+     * 
+     * @param operacao - Nome da operação (ex: "PROCESSAMENTO_LOTE")
+     * @return Contexto com operação já definida
      */
     public static ContextoSincronizacao criar(String operacao) {
         return criar().com("operacao", operacao);
     }
     
     /**
-     * Adiciona um par chave-valor ao contexto
+     * ADICIONA UMA INFORMAÇÃO AO CONTEXTO
+     * 
+     * Método principal para adicionar qualquer informação.
+     * Retorna o próprio contexto para permitir encadeamento.
+     * 
+     * Exemplo: contexto.com("empresa", "A001").com("lote", 5)
+     * 
+     * @param chave - Nome da informação (ex: "empresa", "lote", "erro")
+     * @param valor - Valor da informação (ex: "A001", 5, "timeout")
+     * @return O mesmo contexto para permitir encadeamento de métodos
      */
     public ContextoSincronizacao com(String chave, Object valor) {
+        // Adiciona a informação no mapa interno
         this.dados.put(chave, valor);
+        
+        // Retorna o próprio objeto para permitir encadeamento
         return this;
     }
     
     /**
-     * Adiciona múltiplos valores ao contexto
+     * ADICIONA MÚLTIPLAS INFORMAÇÕES DE UMA VEZ
+     * 
+     * Útil quando você já tem um mapa com várias informações
+     * e quer adicionar todas de uma vez.
+     * 
+     * @param valores - Mapa com múltiplas informações para adicionar
+     * @return O mesmo contexto para permitir encadeamento de métodos
      */
     public ContextoSincronizacao com(Map<String, Object> valores) {
+        // Adiciona todas as informações do mapa no contexto
         this.dados.putAll(valores);
         return this;
     }
     
     /**
-     * Adiciona informação de erro ao contexto
+     * ADICIONA INFORMAÇÕES DE ERRO AUTOMATICAMENTE
+     * 
+     * Quando acontece um erro, este método extrai automaticamente
+     * as informações mais importantes da exceção e adiciona no contexto.
+     * 
+     * INFORMAÇÕES EXTRAÍDAS:
+     * - Tipo da exceção (ex: "RuntimeException", "SQLException")  
+     * - Mensagem da exceção (ex: "Conexão recusada")
+     * - Marca o resultado como "erro"
+     * 
+     * @param e - A exceção que aconteceu
+     * @return O mesmo contexto com informações do erro adicionadas
      */
     public ContextoSincronizacao comErro(Exception e) {
         return this
-            .com("tipoErro", e.getClass().getSimpleName())
-            .com("mensagemErro", e.getMessage())
-            .com("resultado", "erro");
+            .com("tipoErro", e.getClass().getSimpleName())  // Nome da classe da exceção
+            .com("mensagemErro", e.getMessage())            // Mensagem da exceção
+            .com("resultado", "erro");                      // Marca como erro
     }
     
     /**

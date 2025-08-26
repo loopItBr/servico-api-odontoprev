@@ -3,3 +3,8 @@
 - Utilize o MapStruct para conversao de objetos
 - Utilize o Lombok: construtor, build, get, set etc
 - Inicie o projeto faça o teste, caso esteja errado corrija
+- [ ] Todas as classes têm comentários explicativos
+- [ ] Todos os métodos públicos têm comentários
+- [ ] @MonitorarOperacao aplicada onde necessário
+- [ ] Exceções customizadas implementadas
+- [ ] Código testado e funcionando

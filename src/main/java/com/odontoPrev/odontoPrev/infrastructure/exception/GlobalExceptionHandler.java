@@ -14,28 +14,88 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * TRATADOR GLOBAL DE EXCEÇÕES - CAPTURA TODOS OS ERROS DO SISTEMA
+ * 
+ * FUNÇÃO PRINCIPAL:
+ * Esta classe é como um "guarda-chuva" que captura TODOS os erros que
+ * acontecem no sistema e os transforma em respostas HTTP padronizadas.
+ * 
+ * COMO FUNCIONA:
+ * 1. Qualquer erro em qualquer parte do sistema é capturado aqui
+ * 2. O erro é analisado e classificado por tipo  
+ * 3. Uma resposta HTTP apropriada é criada
+ * 4. Logs detalhados são gerados para investigação
+ * 5. Informações sensíveis são filtradas antes de retornar ao cliente
+ * 
+ * TIPOS DE ERRO TRATADOS:
+ * - Exceções customizadas da sincronização (com contexto rico)
+ * - Erros de comunicação com APIs externas (Feign)
+ * - Erros de validação de dados (Bean Validation)
+ * - Argumentos inválidos (IllegalArgumentException)
+ * - Qualquer erro genérico não previsto
+ * 
+ * SEGURANÇA:
+ * - Nunca expõe informações sensíveis (senhas, tokens, etc.)
+ * - Adiciona ID único para cada erro (facilita rastreamento)
+ * - Sanitiza mensagens antes de enviar ao cliente
+ * - Controla nível de detalhes baseado no ambiente (dev vs prod)
+ * 
+ * OBSERVABILIDADE:
+ * - Cada erro recebe um ID único para correlação
+ * - Logs estruturados para ferramentas de monitoramento
+ * - Contexto rico para debugging
+ * - Timestamps e códigos de erro padronizados
+ */
 @Slf4j
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    // Controla se deve expor detalhes de erros (false em produção por segurança)
     @Value("${app.security.expose-error-details:false}")
     private boolean exposeErrorDetails;
 
+    /**
+     * TRATAMENTO ESPECÍFICO PARA EXCEÇÕES DE SINCRONIZAÇÃO
+     * 
+     * Captura todas as exceções customizadas relacionadas ao processo de sincronização.
+     * Estas exceções já vêm com contexto rico e informações específicas.
+     * 
+     * INFORMAÇÕES INCLUÍDAS NA RESPOSTA:
+     * - Código específico do erro (ex: BATCH_PROCESSING_ERROR)
+     * - Momento exato que o erro ocorreu
+     * - Contexto detalhado (empresa, lote, configurações, etc.)
+     * - ID único para correlação em logs/monitoramento
+     * 
+     * EXEMPLO DE RESPOSTA:
+     * {
+     *   "erro": "Erro na sincronização OdontoPrev",
+     *   "codigoErro": "COMPANY_PROCESSING_ERROR", 
+     *   "mensagem": "Falha no processamento da empresa A001",
+     *   "dataHoraOcorrencia": "2024-01-15T14:30:15",
+     *   "contexto": {"empresa": "A001", "lote": 5},
+     *   "errorId": "abc-123-def"
+     * }
+     */
     @ExceptionHandler(SincronizacaoException.class)
     public ResponseEntity<Map<String, Object>> handleSincronizacaoException(SincronizacaoException ex) {
+        // Gera ID único para rastrear este erro específico nos logs
         String errorId = UUID.randomUUID().toString();
+        
+        // Log detalhado para investigação (inclui stack trace)
         log.error("[{}] Erro de sincronização [{}]: {} - Contexto: {}", 
                 errorId, ex.getCodigoErro(), ex.getMessage(), ex.getContextoAdicional(), ex);
         
+        // Monta resposta estruturada para o cliente
         Map<String, Object> response = new HashMap<>();
         response.put("erro", "Erro na sincronização OdontoPrev");
-        response.put("codigoErro", ex.getCodigoErro());
+        response.put("codigoErro", ex.getCodigoErro());  // Código específico para identificação
         response.put("mensagem", getMensagemSegura(ex, "Falha durante o processo de sincronização."));
-        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());
-        response.put("contexto", ex.getContextoAdicional());
-        response.put("timestamp", LocalDateTime.now());
+        response.put("dataHoraOcorrencia", ex.getDataHoraOcorrencia());  // Quando aconteceu
+        response.put("contexto", ex.getContextoAdicional());  // Informações extras
+        response.put("timestamp", LocalDateTime.now());  // Quando a resposta foi gerada
         response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
-        response.put("errorId", errorId);
+        response.put("errorId", errorId);  // ID para correlação
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

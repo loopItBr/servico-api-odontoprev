@@ -198,6 +198,248 @@ Garantir a qualidade, confiabilidade e evolução segura do código através de 
 - Sempre utilize a versão mais atual do Lombok compatível com o projeto.
 # claude.md – Regras de Boas Práticas (Java, Arquitetura Hexagonal)
 
+## 📝 Regras Obrigatórias para Comentários no Código
+
+### Documentação Obrigatória
+
+**TODO CÓDIGO DEVE SER COMENTADO PARA UM LEIGO ENTENDER**
+
+#### Comentários de Classe (Obrigatório)
+- **Toda classe deve ter comentário explicativo no topo**
+- Explicar **o que a classe faz** e **quando é usada**
+- Usar linguagem simples e exemplos práticos
+- Incluir contexto de negócio quando relevante
+
+```java
+/**
+ * CLASSE PARA PROCESSAR PAGAMENTOS DE CARTÃO
+ * 
+ * Esta classe é responsável por validar e processar pagamentos
+ * feitos com cartão de crédito ou débito.
+ * 
+ * QUANDO É USADA:
+ * - Quando cliente finaliza compra no checkout
+ * - Quando precisa validar dados do cartão
+ * - Quando precisa comunicar com operadora
+ * 
+ * EXEMPLO DE USO:
+ * processarPagamento("1234-5678-9012-3456", 150.00)
+ */
+```
+
+#### Comentários de Método (Obrigatório)
+- **Todos os métodos públicos devem ter comentário**
+- Explicar **o que faz**, **quando usar** e **parâmetros importantes**
+- Métodos privados complexos também devem ser comentados
+
+```java
+/**
+ * VALIDA SE OS DADOS DO CARTÃO ESTÃO CORRETOS
+ * 
+ * Verifica se número, CVV e data de validade são válidos
+ * antes de tentar processar o pagamento.
+ * 
+ * @param numeroCartao - número do cartão (sem espaços)
+ * @param cvv - código de segurança (3 dígitos)
+ * @return true se cartão é válido, false se inválido
+ */
+```
+
+#### Comentários Internos (Quando Necessário)
+- Explicar **lógica complexa** ou **não óbvia**
+- Usar quando algoritmo não é autoexplicativo
+- Explicar **por que** algo é feito, não apenas **o que**
+
+```java
+// Multiplica por 1000 para converter de segundos para milissegundos
+// API externa espera valor em milissegundos
+long timeoutMs = timeoutSeconds * 1000;
+```
+
+### Padrão de Linguagem
+- **Português claro e simples**
+- **Evitar jargões técnicos** desnecessários
+- **Usar exemplos práticos** quando possível
+- **Explicar PARA QUE serve**, não apenas O QUE faz
+
+## 🔧 Uso Obrigatório da Anotação @MonitorarOperacao
+
+### Quando Usar (Obrigatório)
+
+**TODA operação de negócio deve usar @MonitorarOperacao**
+
+#### Métodos que DEVEM ter a anotação:
+- Métodos de service públicos
+- Operações de banco de dados
+- Chamadas para APIs externas  
+- Processamento de lotes
+- Operações agendadas (schedulers)
+- Validações complexas
+- Operações que podem dar erro
+
+#### Configuração Padrão
+```java
+@MonitorarOperacao(
+    operacao = "NOME_OPERACAO_DESCRITIVO",
+    excecaoEmErro = TipoExcecao.APROPRIADO
+)
+```
+
+#### Configurações Avançadas
+```java
+@MonitorarOperacao(
+    operacao = "PROCESSAR_PAGAMENTO",
+    incluirParametros = {"numeroCartao", "valor"}, // Inclui parâmetros no contexto
+    incluirThread = true,                          // Inclui info da thread
+    logSucesso = MonitorarOperacao.NivelLog.INFO,  // Nível do log de sucesso
+    excecaoEmErro = PROCESSAMENTO_PAGAMENTO        // Exceção específica
+)
+```
+
+#### Métodos que NÃO precisam da anotação:
+- Getters e setters simples
+- Métodos de validação básica (isEmpty, isNull, etc.)
+- Construtores
+- Métodos de formatação/conversão simples
+
+### Escolha do Tipo de Exceção
+
+**Use o tipo mais específico possível:**
+
+```java
+// Para operações de banco de dados
+excecaoEmErro = CONSULTA_EMPRESAS
+
+// Para processamento individual
+excecaoEmErro = PROCESSAMENTO_EMPRESA  
+
+// Para processamento em lotes
+excecaoEmErro = PROCESSAMENTO_LOTE
+
+// Para comunicação com APIs
+excecaoEmErro = COMUNICACAO_API
+
+// Para problemas de configuração
+excecaoEmErro = CONFIGURACAO
+```
+
+### Exemplo Completo
+```java
+/**
+ * PROCESSA PAGAMENTO COM CARTÃO DE CRÉDITO
+ * 
+ * Valida dados do cartão e comunica com operadora para
+ * aprovar ou rejeitar a transação.
+ * 
+ * @param dadosCartao - informações do cartão do cliente
+ * @param valor - valor a ser cobrado
+ * @return resultado do processamento (aprovado/rejeitado)
+ */
+@MonitorarOperacao(
+    operacao = "PROCESSAR_PAGAMENTO_CARTAO",
+    incluirParametros = {"valor"},
+    excecaoEmErro = PROCESSAMENTO_PAGAMENTO
+)
+public ResultadoPagamento processarPagamento(DadosCartao dadosCartao, BigDecimal valor) {
+    // Primeiro valida os dados básicos
+    validarDadosCartao(dadosCartao);
+    
+    // Depois comunica com a operadora
+    return comunicarComOperadora(dadosCartao, valor);
+}
+```
+
+## ⚙️ Regras para Execução de Comandos
+
+### Implementação Obrigatória em Toda Alteração
+
+**SEMPRE que implementar qualquer funcionalidade, seguir estas regras:**
+
+#### 1. Documentação Completa (Obrigatório)
+- **Comentar todas as classes** criadas ou modificadas
+- **Comentar todos os métodos públicos** 
+- **Usar @MonitorarOperacao** em operações de negócio
+- **Explicar lógica complexa** com comentários internos
+
+#### 2. Anotação @MonitorarOperacao (Obrigatório)
+- **Adicionar em todos os métodos de service**
+- **Escolher TipoExcecao apropriado**
+- **Incluir parâmetros importantes no contexto**
+- **Usar nomes de operação descritivos**
+
+#### 3. Tratamento de Exceções (Obrigatório)
+- **Usar exceções customizadas específicas**
+- **Nunca usar Exception genérica**
+- **Incluir contexto rico para debugging**
+- **Seguir padrão estabelecido no projeto**
+
+#### 4. Commit e Deploy (Obrigatório)
+- **Sempre fazer commit das alterações**
+- **Usar mensagens descritivas em português**
+- **Incluir assinatura Claude Code padrão**
+- **Fazer push após commit bem-sucedido**
+
+### Exemplo de Fluxo Completo
+
+```java
+/**
+ * CLASSE PARA VALIDAR DOCUMENTOS DE CLIENTES
+ * 
+ * Responsável por validar CPF, CNPJ e outros documentos
+ * antes de permitir cadastro no sistema.
+ */
+@Service 
+public class ValidadorDocumentosService {
+
+    /**
+     * VALIDA SE CPF ESTÁ NO FORMATO CORRETO
+     * 
+     * Verifica formato, dígitos verificadores e se não é
+     * CPF conhecido como inválido (000.000.000-00, etc.)
+     * 
+     * @param cpf - CPF a ser validado (com ou sem pontuação)
+     * @return true se válido, false se inválido
+     */
+    @MonitorarOperacao(
+        operacao = "VALIDAR_CPF",
+        incluirParametros = {"cpf"},
+        excecaoEmErro = VALIDACAO_DOCUMENTO
+    )
+    public boolean validarCpf(String cpf) {
+        // Remove pontuação para validar apenas números
+        String cpfLimpo = cpf.replaceAll("[^0-9]", "");
+        
+        // Valida se tem 11 dígitos
+        if (cpfLimpo.length() != 11) {
+            return false;
+        }
+        
+        // Chama validação dos dígitos verificadores
+        return validarDigitosVerificadores(cpfLimpo);
+    }
+}
+```
+
+### Comando de Commit Padrão
+
+```bash
+git commit -m "$(cat <<'EOF'
+Implementa validação avançada de documentos
+
+- Cria ValidadorDocumentosService com validação de CPF/CNPJ
+- Adiciona exceções customizadas para erros de validação  
+- Implementa @MonitorarOperacao para observabilidade
+- Adiciona comentários detalhados para leigos
+- Inclui testes unitários completos
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+```
+
+
 ## Organização de Pacotes
 
 - Separe os pacotes conforme a arquitetura hexagonal:

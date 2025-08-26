@@ -13,22 +13,81 @@ import org.springframework.transaction.annotation.Transactional;
 import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.*;
 
 /**
- * Implementação principal do serviço de sincronização com OdontoPrev.
- * Responsável por orquestrar o processo de sincronização usando processamento em lotes.
+ * SERVIÇO PRINCIPAL PARA SINCRONIZAÇÃO COM ODONTOPREV
+ * 
+ * FUNÇÃO:
+ * Esta classe coordena todo o processo de sincronização de dados entre 
+ * nosso sistema e a API da OdontoPrev. É como o "maestro" de uma orquestra,
+ * coordenando todas as partes para trabalharem em harmonia.
+ * 
+ * RESPONSABILIDADES:
+ * 1. VALIDAR configurações antes de começar
+ * 2. CONTAR quantas empresas precisam ser sincronizadas
+ * 3. COORDENAR o processamento em lotes (batches)
+ * 4. MONITORAR o progresso e registrar logs
+ * 5. TRATAR erros de forma apropriada
+ * 
+ * ESTRATÉGIA DE PROCESSAMENTO:
+ * Em vez de processar todas as empresas de uma vez (que poderia travar 
+ * o sistema ou esgotar a memória), divide o trabalho em "lotes" menores.
+ * 
+ * EXEMPLO PRÁTICO:
+ * - Temos 1000 empresas para sincronizar
+ * - Configurado lote de 50 empresas
+ * - Sistema processa: 50, depois mais 50, depois mais 50...
+ * - Até terminar todas as 1000 empresas
+ * 
+ * CONFIGURAÇÕES IMPORTANTES:
+ * - batch-size: quantas empresas processar por vez (padrão: 50)
+ * - max-threads: quantas threads usar em paralelo (padrão: 5)
+ * 
+ * SEGURANÇA:
+ * - Validação rigorosa de configurações
+ * - Transação de banco (@Transactional)
+ * - Monitoramento automático (@MonitorarOperacao)
+ * - Tratamento específico de erros
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SincronizacaoOdontoprevServiceImpl implements SincronizacaoOdontoprevService {
 
+    // Serviço que divide e processa empresas em lotes
     private final ProcessamentoLoteService processamentoLoteService;
     
+    // Quantas empresas processar por vez (configurável via properties)
     @Value("${odontoprev.sync.batch-size:50}")
     private int tamanhoBatch;
     
+    // Quantas threads usar em paralelo (configurável via properties)
     @Value("${odontoprev.sync.max-threads:5}")
     private int maxThreads;
 
+    /**
+     * MÉTODO PRINCIPAL - EXECUTA TODA A SINCRONIZAÇÃO
+     * 
+     * Este é o método "coração" de toda sincronização. Coordena
+     * todo o processo do início ao fim.
+     * 
+     * FLUXO COMPLETO:
+     * 1. VALIDA configurações (tamanhos de lote, threads, etc.)
+     * 2. CONTA quantas empresas existem para sincronizar
+     * 3. Se não tem empresas, termina (não há trabalho a fazer)
+     * 4. Se tem empresas, inicia processamento em lotes
+     * 
+     * ANOTAÇÕES IMPORTANTES:
+     * @Override = implementa método da interface SincronizacaoOdontoprevService
+     * @Transactional = se der erro, faz rollback no banco de dados
+     * @MonitorarOperacao = adiciona logs automáticos e tratamento de erros
+     * 
+     * TRATAMENTO DE DADOS VAZIOS:
+     * Se não encontrar empresas para processar, simplesmente termina.
+     * Não é erro - pode ser que realmente não tenha dados novos.
+     * 
+     * DELEGAÇÃO DE RESPONSABILIDADE:
+     * Este método não faz o trabalho pesado - ele coordena.
+     * O trabalho real é delegado para processamentoLoteService.
+     */
     @Override
     @Transactional
     @MonitorarOperacao(
@@ -36,16 +95,22 @@ public class SincronizacaoOdontoprevServiceImpl implements SincronizacaoOdontopr
             excecaoEmErro = PROCESSAMENTO_LOTE
     )
     public void executarSincronizacao() {
+        // 1. Primeiro, valida se as configurações estão corretas
         validarConfiguracoes();
         
+        // 2. Conta quantas empresas precisam ser sincronizadas
         long totalEmpresas = contarTotalEmpresasUmaVez();
         
+        // 3. Se não tem empresas, não há trabalho a fazer
         if (totalEmpresas == 0) {
             log.info("Nenhuma empresa encontrada para sincronização");
-            return;
+            return; // Termina aqui - não é erro, apenas não tem dados
         }
         
+        // 4. Se chegou aqui, tem empresas para processar
         log.info("Processando {} empresas em lotes de {}", totalEmpresas, tamanhoBatch);
+        
+        // 5. Delega o trabalho real para o serviço de lotes
         processamentoLoteService.processarEmpresasEmLotes(tamanhoBatch, maxThreads, totalEmpresas);
     }
 
