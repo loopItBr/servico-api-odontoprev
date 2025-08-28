@@ -26,17 +26,17 @@ spring:
 odontoprev:
   api:
     base-url: https://api-hml.odontoprev.com.br:8243
-    base-url-auth: https://api-hml.odontoprev.com.br:8243
+    base-url-auth: https://apim-hml.odontoprev.com.br
     base-url-login: https://api-hml.odontoprev.com.br:8243
     path: /dcms/empresa/2.0
-    app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h
+    app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h
     user:
       login: 13433638
       senha: gWZ84t1NCX3a
       appid: ODPV
   
   credentials:
-    token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMUsuMlJkeXowYXNBVXU2QkFkSUcnM01h
+    token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h
     empresa: 787392
     usuario: 13433638
     senha: gWZ84t1NCX3a

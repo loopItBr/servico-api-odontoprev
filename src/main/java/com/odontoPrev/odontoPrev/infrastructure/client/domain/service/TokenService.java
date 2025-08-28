@@ -43,7 +43,7 @@ public class TokenService {
             String authorization = "Basic " + credentialsToken;
             TokenRequest request = new TokenRequest();
             
-            TokenResponse response = authClient.obterToken(authorization, request);
+            TokenResponse response = authClient.obterToken(authorization, request.getGrantType());
             
             this.accessToken = response.getAccessToken();
             this.tokenExpiration = LocalDateTime.now().plusSeconds(response.getExpiresIn());
