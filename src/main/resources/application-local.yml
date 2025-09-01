@@ -25,10 +25,10 @@ spring:
 # Configurações da API OdontoPrev - Local/Desenvolvimento
 odontoprev:
   api:
-    base-url: https://api-hml.odontoprev.com.br:8243
+    base-url: https://apim-hml.odontoprev.com.br
     base-url-auth: https://apim-hml.odontoprev.com.br
-    base-url-login: https://api-hml.odontoprev.com.br:8243
-    path: /dcms/empresa/2.0
+    base-url-login: https://apim-hml.odontoprev.com.br
+    path: /empresa/2.0
     app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h
     user:
       login: 13433638

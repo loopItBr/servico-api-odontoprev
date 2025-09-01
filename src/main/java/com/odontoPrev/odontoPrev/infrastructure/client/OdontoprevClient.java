@@ -11,7 +11,7 @@ import java.util.List;
 
 @FeignClient(
     name = "odontoprev-client",
-    url = "${odontoprev.api.base-url:https://api-hml.odontoprev.com.br:8243}${odontoprev.api.path:/dcms/empresa/2.0}",
+    url = "${odontoprev.api.base-url:https://apim-hml.odontoprev.com.br}${odontoprev.api.path:/empresa/2.0/}",
     configuration = {OdontoprevFeignConfig.class}
 )
 public interface OdontoprevClient {
@@ -29,7 +29,7 @@ public interface OdontoprevClient {
     );
 
     @GetMapping(
-        value = "/empresas/{codigoEmpresa}",
+        value = "/{codigoEmpresa}",
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     EmpresaResponse obterEmpresaPorCodigo(

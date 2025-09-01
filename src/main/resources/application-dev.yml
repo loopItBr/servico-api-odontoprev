@@ -27,10 +27,10 @@ spring:
 # Configurações da API OdontoPrev - Desenvolvimento
 odontoprev:
   api:
-    base-url: ${ODONTOPREV_BASE_URL:https://api-hml.odontoprev.com.br:8243}
+    base-url: ${ODONTOPREV_BASE_URL:https://apim-hml.odontoprev.com.br}
     base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim-hml.odontoprev.com.br}
-    base-url-login: ${ODONTOPREV_LOGIN_URL:https://api-hml.odontoprev.com.br:8243}
-    path: ${ODONTOPREV_API_PATH:/dcms/empresa/2.0}
+    base-url-login: ${ODONTOPREV_LOGIN_URL:https://apim-hml.odontoprev.com.br}
+    path: ${ODONTOPREV_API_PATH:/empresa/2.0}
     app-token: ${ODONTOPREV_APP_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h}
     user:
       login: ${ODONTOPREV_USER_LOGIN:13433638}
