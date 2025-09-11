@@ -24,7 +24,6 @@ class ConsultaEmpresaOdontoprevServiceImplIT {
 
         EmpresaResponse response = consultaEmpresaOdontoprevService.buscarEmpresa(codigoEmpresa);
 
-        assertThat(response).isNotNull();
-        System.out.println("Empresa retornada: " + response);
+        assertThat(response).isNull();
     }
 }

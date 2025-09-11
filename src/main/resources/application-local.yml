@@ -25,15 +25,15 @@ spring:
 # Configurações da API OdontoPrev - Local/Desenvolvimento
 odontoprev:
   api:
-    base-url: https://apim-hml.odontoprev.com.br
-    base-url-auth: https://apim-hml.odontoprev.com.br
-    base-url-login: https://apim-hml.odontoprev.com.br
-    path: /empresa/2.0
-    app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h
+    base-url: ${ODONTOPREV_BASE_URL:https://apim-hml.odontoprev.com.br}
+    base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim-hml.odontoprev.com.br}
+    base-url-login: ${ODONTOPREV_LOGIN_URL:https://apim-hml.odontoprev.com.br}
+    path: ${ODONTOPREV_API_PATH:/empresa/2.0}
+    app-token: ${ODONTOPREV_APP_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h}
     user:
-      login: 13433638
-      senha: gWZ84t1NCX3a
-      appid: ODPV
+      login: ${ODONTOPREV_USER_LOGIN:13433638}
+      senha: ${ODONTOPREV_USER_SENHA:gWZ84t1NCX3a}
+      appid: ${ODONTOPREV_USER_APPID:ODPV}
   
   credentials:
     token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h

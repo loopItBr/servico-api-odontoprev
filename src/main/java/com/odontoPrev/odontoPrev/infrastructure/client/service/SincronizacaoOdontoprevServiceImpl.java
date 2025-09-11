@@ -89,7 +89,6 @@ public class SincronizacaoOdontoprevServiceImpl implements SincronizacaoOdontopr
      * O trabalho real é delegado para processamentoLoteService.
      */
     @Override
-    @Transactional
     @MonitorarOperacao(
             operacao = "SINCRONIZACAO_COMPLETA",
             excecaoEmErro = PROCESSAMENTO_LOTE

@@ -87,7 +87,7 @@ public class SyncOdontoprevScheduler {
      * - Se não estiver configurada, usar "0 * * * * *" (a cada minuto)
      * - Formato: segundo minuto hora dia mês dia_da_semana
      */
-    @Scheduled(cron = "${odontoprev.sync.cron:0 * * * * *}")
+    @Scheduled(fixedRate = 4000)
     @MonitorarOperacao(
             operacao = "INICIALIZACAO_SCHEDULER",
             incluirThread = true,

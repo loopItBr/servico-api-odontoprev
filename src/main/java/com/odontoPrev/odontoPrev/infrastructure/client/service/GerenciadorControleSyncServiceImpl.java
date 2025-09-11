@@ -9,6 +9,7 @@ import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdon
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -65,7 +66,11 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
     }
 
     @Override
+    @Transactional
     public ControleSync salvar(ControleSync controle) {
-        return repository.save(controle);
+        log.debug("Salvando controle sync para empresa: {}", controle.getCodigoEmpresa());
+        ControleSync saved = repository.save(controle);
+        log.debug("Controle sync salvo com ID: {}", saved.getId());
+        return saved;
     }
 }

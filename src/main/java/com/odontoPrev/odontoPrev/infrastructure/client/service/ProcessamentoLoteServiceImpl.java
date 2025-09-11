@@ -245,7 +245,7 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
      */
     private long processarLote(List<String> codigosEmpresas) {
         long processadasNoLote = 0; // Contador de sucessos nesta página
-        
+
         // Processa cada empresa individualmente
         for (String codigoEmpresa : codigosEmpresas) {
             // Processa empresa com tratamento de erro

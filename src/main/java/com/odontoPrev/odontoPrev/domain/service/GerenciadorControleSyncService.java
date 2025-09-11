@@ -6,7 +6,7 @@ import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdon
 /**
  * Interface responsável pelo gerenciamento do controle de sincronização.
  */
-public interface GerenciadorControleSyncService {
+public interface  GerenciadorControleSyncService {
     
     /**
      * Cria um novo controle de sincronização.
