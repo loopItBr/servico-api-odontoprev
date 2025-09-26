@@ -1,6 +1,7 @@
 package com.odontoPrev.odontoPrev.infrastructure.scheduler;
 
 import com.odontoPrev.odontoPrev.domain.service.SincronizacaoOdontoprevService;
+import com.odontoPrev.odontoPrev.domain.service.SincronizacaoCompletaOdontoprevService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.exception.*;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,8 @@ import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.Tip
  * odontoprev.sync.cron=0 30 * * * *  (a cada 30 minutos)
  * 
  * COMPONENTES PRINCIPAIS:
- * - SincronizacaoOdontoprevService: faz o trabalho real de sincronização
+ * - SincronizacaoCompletaOdontoprevService: faz o trabalho real de sincronização completa
+ * - SincronizacaoOdontoprevService: faz sincronização apenas de adições (legado)
  * - ExecutorService: gerencia threads para execução paralela
  * - AtomicBoolean: controla se já tem sincronização em execução
  * 
@@ -54,8 +56,11 @@ import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.Tip
 @RequiredArgsConstructor
 public class SyncOdontoprevScheduler {
 
-    // Serviço que executa a lógica real de sincronização
+    // Serviço que executa a lógica real de sincronização (apenas adições)
     private final SincronizacaoOdontoprevService sincronizacaoService;
+    
+    // Serviço que executa sincronização completa (adições + alterações + exclusões)
+    private final SincronizacaoCompletaOdontoprevService sincronizacaoCompletaService;
     
     // Pool de threads para execução assíncrona (não trava thread principal)
     private final ExecutorService executorService;
@@ -168,8 +173,9 @@ public class SyncOdontoprevScheduler {
     )
     private void executarSincronizacaoComControle() {
         try {
-            // Chama o serviço que faz o trabalho real de sincronização
-            sincronizacaoService.executarSincronizacao();
+            // Chama o serviço que faz o trabalho real de sincronização completa
+            // Inclui adições, alterações e exclusões
+            sincronizacaoCompletaService.executarSincronizacaoCompleta();
         } finally {
             // SEMPRE executa, mesmo se der erro
             // Libera o controle para permitir próximas execuções

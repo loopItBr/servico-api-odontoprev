@@ -83,6 +83,15 @@ public class ControleSync {
     private TipoOperacao tipoOperacao;
 
     /**
+     * TIPO DE CONTROLE PARA IDENTIFICAÇÃO
+     * 1 = Adição (empresas novas)
+     * 2 = Alteração (empresas modificadas)
+     * 3 = Exclusão (empresas inativadas/excluídas)
+     */
+    @Column(name = "TIPO_CONTROLE", nullable = false)
+    private Integer tipoControle;
+
+    /**
      * URL DA API QUE FOI CHAMADA
      * Registra exatamente qual endpoint da OdontoPrev foi utilizado
      * Exemplo: "/api/v1/empresas/consultar"
@@ -162,6 +171,38 @@ public class ControleSync {
      */
     public enum StatusSync {
         PENDING, SUCCESS, ERROR
+    }
+
+    /**
+     * ENUM PARA TIPOS DE CONTROLE
+     * 
+     * ADICAO: Empresas novas (valor 1)
+     * ALTERACAO: Empresas modificadas (valor 2)
+     * EXCLUSAO: Empresas inativadas/excluídas (valor 3)
+     */
+    public enum TipoControle {
+        ADICAO(1),
+        ALTERACAO(2),
+        EXCLUSAO(3);
+
+        private final Integer codigo;
+
+        TipoControle(Integer codigo) {
+            this.codigo = codigo;
+        }
+
+        public Integer getCodigo() {
+            return codigo;
+        }
+
+        public static TipoControle fromCodigo(Integer codigo) {
+            for (TipoControle tipo : values()) {
+                if (tipo.codigo.equals(codigo)) {
+                    return tipo;
+                }
+            }
+            throw new IllegalArgumentException("Código de tipo de controle inválido: " + codigo);
+        }
     }
 
 }

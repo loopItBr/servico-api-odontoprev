@@ -18,6 +18,27 @@ public interface  GerenciadorControleSyncService {
     ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados);
     
     /**
+     * Cria um controle de sincronização para operação específica.
+     * 
+     * @param codigoEmpresa código da empresa
+     * @param dados dados da integração
+     * @param tipoOperacao tipo da operação (CREATE, UPDATE, DELETE)
+     * @return controle de sincronização criado
+     */
+    ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados, ControleSync.TipoOperacao tipoOperacao);
+    
+    /**
+     * Cria um controle de sincronização com tipo de controle específico.
+     * 
+     * @param codigoEmpresa código da empresa
+     * @param dados dados da integração
+     * @param tipoOperacao tipo da operação (CREATE, UPDATE, DELETE)
+     * @param tipoControle tipo de controle (1=Adição, 2=Alteração, 3=Exclusão)
+     * @return controle de sincronização criado
+     */
+    ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados, ControleSync.TipoOperacao tipoOperacao, ControleSync.TipoControle tipoControle);
+    
+    /**
      * Atualiza o controle com sucesso.
      * 
      * @param controle controle a ser atualizado

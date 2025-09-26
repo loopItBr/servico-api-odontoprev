@@ -106,4 +106,58 @@ public interface OdontoprevClient {
         @RequestHeader("app-id") String appId,
         @PathVariable("codigoPlano") String codigoPlano
     );
+
+    /**
+     * Endpoint para adicionar uma nova empresa.
+     * Baseado na documentação: /empresas (POST)
+     */
+    @PostMapping(
+        value = "/empresas",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    String adicionarEmpresa(
+        @RequestHeader("Authorization") String authorization,
+        @RequestHeader("empresa") String empresa,
+        @RequestHeader("usuario") String usuario,
+        @RequestHeader("senha") String senha,
+        @RequestHeader("app-id") String appId,
+        @RequestBody String dadosEmpresa
+    );
+
+    /**
+     * Endpoint para alterar dados de uma empresa existente.
+     * Baseado na documentação: /empresas/alterar (PUT)
+     */
+    @PutMapping(
+        value = "/empresas/alterar",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    String alterarEmpresa(
+        @RequestHeader("Authorization") String authorization,
+        @RequestHeader("empresa") String empresa,
+        @RequestHeader("usuario") String usuario,
+        @RequestHeader("senha") String senha,
+        @RequestHeader("app-id") String appId,
+        @RequestBody String dadosEmpresa
+    );
+
+    /**
+     * Endpoint para inativar uma empresa.
+     * Baseado na documentação: /empresas/inativar (PUT)
+     */
+    @PutMapping(
+        value = "/empresas/inativar",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    String inativarEmpresa(
+        @RequestHeader("Authorization") String authorization,
+        @RequestHeader("empresa") String empresa,
+        @RequestHeader("usuario") String usuario,
+        @RequestHeader("senha") String senha,
+        @RequestHeader("app-id") String appId,
+        @RequestBody String dadosEmpresa
+    );
 }

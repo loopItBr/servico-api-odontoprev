@@ -26,13 +26,29 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
 
     @Override
     public ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados) {
+        return criarControle(codigoEmpresa, dados, ControleSync.TipoOperacao.CREATE, ControleSync.TipoControle.ADICAO);
+    }
+    
+    @Override
+    public ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados, ControleSync.TipoOperacao tipoOperacao) {
+        // Mapeia automaticamente o tipo de controle baseado na operação
+        ControleSync.TipoControle tipoControle = mapearTipoControle(tipoOperacao);
+        return criarControle(codigoEmpresa, dados, tipoOperacao, tipoControle);
+    }
+    
+    @Override
+    public ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados, ControleSync.TipoOperacao tipoOperacao, ControleSync.TipoControle tipoControle) {
         try {
             String dadosJson = objectMapper.writeValueAsString(dados);
             
+            // Define endpoint baseado no tipo de operação
+            String endpoint = determinarEndpoint(tipoOperacao, codigoEmpresa);
+            
             return ControleSync.builder()
                     .codigoEmpresa(codigoEmpresa)
-                    .tipoOperacao(ControleSync.TipoOperacao.CREATE)
-                    .endpointDestino("/empresas/" + codigoEmpresa)
+                    .tipoOperacao(tipoOperacao)
+                    .tipoControle(tipoControle.getCodigo())
+                    .endpointDestino(endpoint)
                     .dadosJson(dadosJson)
                     .statusSync(ControleSync.StatusSync.PENDING)
                     .dataCriacao(LocalDateTime.now())
@@ -42,6 +58,28 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
             log.error("Erro ao serializar dados da empresa {}: {}", codigoEmpresa, e.getMessage());
             throw new RuntimeException("Falha na criação do controle de sync", e);
         }
+    }
+    
+    /**
+     * Mapeia automaticamente o tipo de controle baseado na operação.
+     */
+    private ControleSync.TipoControle mapearTipoControle(ControleSync.TipoOperacao tipoOperacao) {
+        return switch (tipoOperacao) {
+            case CREATE -> ControleSync.TipoControle.ADICAO;
+            case UPDATE -> ControleSync.TipoControle.ALTERACAO;
+            case DELETE -> ControleSync.TipoControle.EXCLUSAO;
+        };
+    }
+    
+    /**
+     * Determina o endpoint correto baseado no tipo de operação.
+     */
+    private String determinarEndpoint(ControleSync.TipoOperacao tipoOperacao, String codigoEmpresa) {
+        return switch (tipoOperacao) {
+            case CREATE -> "/empresas/" + codigoEmpresa;
+            case UPDATE -> "/empresas/" + codigoEmpresa + "/atualizar";
+            case DELETE -> "/empresas/" + codigoEmpresa + "/excluir";
+        };
     }
 
     @Override
