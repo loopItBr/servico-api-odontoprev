@@ -50,3 +50,55 @@ spring.jackson:
   deserialization:
     fail-on-unknown-properties: false
   time-zone: America/Sao_Paulo
+
+# Configurações dos Schedulers OdontoPrev
+odontoprev:
+  # Configurações de API (URLs e paths)
+  api:
+    base-url: ${ODONTOPREV_BASE_URL:https://apim-hml.odontoprev.com.br}
+    base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim-hml.odontoprev.com.br}
+    path: ${ODONTOPREV_API_PATH:/cadastroonline-pj/1.0}
+
+    # Token OAuth2 (Basic auth para client credentials)
+    app-token: ${ODONTOPREV_APP_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h}
+
+    # Credenciais para Login Empresa (segundo passo da autenticação)
+    login:
+      app-id: ${ODONTOPREV_LOGIN_APPID:ODPV}
+      usuario: ${ODONTOPREV_LOGIN_USUARIO:13433638}
+      senha: ${ODONTOPREV_LOGIN_SENHA:gWZ84t1NCX3a}
+
+    # Credenciais para headers específicos (manter compatibilidade)
+    empresa: ${ODONTOPREV_CREDENTIALS_EMPRESA:787392}
+    usuario: ${ODONTOPREV_CREDENTIALS_USUARIO:13433638}
+    senha: ${ODONTOPREV_CREDENTIALS_SENHA:gWZ84t1NCX3a}
+    app-id: ${ODONTOPREV_CREDENTIALS_APPID:ODPV}
+
+    user:
+      login: ${ODONTOPREV_USER_LOGIN:13433638}
+      senha: ${ODONTOPREV_USER_SENHA:gWZ84t1NCX3a}
+      appid: ${ODONTOPREV_USER_APPID:ODPV}
+
+  # Configurações de credenciais (padrão antigo mantido para compatibilidade)
+  credentials:
+    token: ${ODONTOPREV_CREDENTIALS_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h}
+    empresa: ${ODONTOPREV_CREDENTIALS_EMPRESA:787392}
+    usuario: ${ODONTOPREV_CREDENTIALS_USUARIO:13433638}
+    senha: ${ODONTOPREV_CREDENTIALS_SENHA:gWZ84t1NCX3a}
+    app-id: ${ODONTOPREV_CREDENTIALS_APPID:ODPV}
+
+  scheduler:
+    empresa:
+      enabled: ${ODONTOPREV_SCHEDULER_EMPRESA_ENABLED:true}
+    beneficiario:
+      enabled: ${ODONTOPREV_SCHEDULER_BENEFICIARIO_ENABLED:true}
+
+  sync:
+    # Configurações para processamento de empresas
+    batch-size: ${ODONTOPREV_SYNC_BATCH_SIZE:50}
+    max-threads: ${ODONTOPREV_SYNC_MAX_THREADS:5}
+
+    # Configurações para processamento de beneficiários
+    beneficiario:
+      batch-size: ${ODONTOPREV_SYNC_BENEFICIARIO_BATCH_SIZE:50}
+      max-threads: ${ODONTOPREV_SYNC_BENEFICIARIO_MAX_THREADS:5}
