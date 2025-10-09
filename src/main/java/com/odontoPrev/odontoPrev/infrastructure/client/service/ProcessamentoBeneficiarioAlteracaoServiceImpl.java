@@ -9,7 +9,8 @@ import com.odontoPrev.odontoPrev.domain.service.ProcessamentoBeneficiarioAlterac
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.BeneficiarioOdontoprevFeignClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequest;
-import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequestNew;
+import com.odontoPrev.odontoPrev.infrastructure.client.service.BeneficiarioTokenService;
 import com.odontoPrev.odontoPrev.infrastructure.exception.ProcessamentoBeneficiarioException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,7 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
     private final BeneficiarioOdontoprevRepository beneficiarioRepository;
     private final ControleSyncBeneficiarioRepository controleSyncRepository;
     private final OdontoprevApiHeaderService headerService;
-    private final TokenService tokenService;
+    private final BeneficiarioTokenService beneficiarioTokenService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -80,31 +81,37 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
             }
 
             // Etapa 2: Conversão para DTO de alteração
-            BeneficiarioAlteracaoRequest request = converterParaAlteracaoRequest(beneficiario);
+            BeneficiarioAlteracaoRequestNew request = converterParaAlteracaoRequestNew(beneficiario);
 
             // Etapa 3: Criar registro de controle
             controleSync = criarRegistroControle(beneficiario, request);
 
             // Etapa 4: Chamada para API da OdontoPrev
-            log.info("Enviando alteração do beneficiário {} (cdAssociado: {}) para OdontoPrev",
+            log.info("🚀 [ALTERAÇÃO] Enviando alteração do beneficiário {} (cdAssociado: {}) para OdontoPrev",
                     codigoMatricula, cdAssociado);
 
-            String token = tokenService.obterTokenValido();
-            String authorization = "Bearer " + token;
+            // Obter tokens para autenticação dupla
+            String[] tokens = beneficiarioTokenService.obterTokensCompletos();
+            String tokenOAuth2 = tokens[0];
+            String tokenLoginEmpresa = tokens[1];
+            
+            log.info("🔑 [ALTERAÇÃO] Tokens obtidos - OAuth2: {}..., LoginEmpresa: {}...",
+                    tokenOAuth2.substring(0, Math.min(20, tokenOAuth2.length())),
+                    tokenLoginEmpresa.substring(0, Math.min(20, tokenLoginEmpresa.length())));
 
-            odontoprevClient.alterarBeneficiario(
-                    authorization,
-                    headerService.getEmpresa(),
-                    headerService.getUsuario(),
-                    headerService.getSenha(),
-                    headerService.getAppId(),
+            long inicioChamada = System.currentTimeMillis();
+            odontoprevClient.alterarBeneficiarioNew(
+                    tokenOAuth2,
+                    tokenLoginEmpresa,
                     request
             );
+            long tempoResposta = System.currentTimeMillis() - inicioChamada;
+            
+            log.info("✅ [ALTERAÇÃO] Alteração do beneficiário {} processada com sucesso em {}ms", 
+                    codigoMatricula, tempoResposta);
 
             // Etapa 5: Atualização do status no banco
             atualizarStatusSucesso(beneficiario, controleSync);
-
-            log.info("Alteração do beneficiário {} processada com sucesso", codigoMatricula);
 
         } catch (Exception e) {
             // Tratamento de erro abrangente
@@ -151,7 +158,59 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
     }
 
     /**
-     * CONVERTE ENTIDADE PARA DTO DE ALTERAÇÃO
+     * CONVERTE ENTIDADE PARA DTO DE ALTERAÇÃO (NOVA API)
+     *
+     * Mapeia campos da entidade para formato esperado pela nova API de alteração.
+     * Inclui todos os campos que podem ser alterados.
+     */
+    private BeneficiarioAlteracaoRequestNew converterParaAlteracaoRequestNew(BeneficiarioOdontoprev beneficiario) {
+        // Criar objeto Endereco com os dados
+        BeneficiarioAlteracaoRequestNew.Endereco endereco = BeneficiarioAlteracaoRequestNew.Endereco.builder()
+                .cep(beneficiario.getCep())
+                .logradouro(beneficiario.getLogradouro())
+                .numero(beneficiario.getNumero())
+                .complemento(beneficiario.getComplemento())
+                .bairro(beneficiario.getBairro())
+                .cidade(beneficiario.getCidade())
+                .uf(beneficiario.getUf())
+                .build();
+
+        // Criar objeto Beneficiario com os dados
+        BeneficiarioAlteracaoRequestNew.Beneficiario beneficiarioData = BeneficiarioAlteracaoRequestNew.Beneficiario.builder()
+                .codigoMatricula(beneficiario.getCodigoMatricula())
+                .codigoPlano(beneficiario.getCodigoPlano())
+                .cpf(beneficiario.getCpf())
+                .dataDeNascimento(beneficiario.getDataNascimento() != null ?
+                        beneficiario.getDataNascimento().toString() : null)
+                .dtVigenciaRetroativa(beneficiario.getDtVigenciaRetroativa() != null ?
+                        beneficiario.getDtVigenciaRetroativa().toString() : null)
+                .nomeBeneficiario(beneficiario.getNomeBeneficiario())
+                .nomeDaMae(beneficiario.getNomeMae())
+                .sexo(beneficiario.getSexo())
+                .telefoneCelular(beneficiario.getTelefoneCelular())
+                .telefoneResidencial(beneficiario.getTelefoneResidencial())
+                .rg(beneficiario.getRg())
+                .rgEmissor(beneficiario.getRgEmissor())
+                .estadoCivil(beneficiario.getEstadoCivil())
+                .nmCargo(beneficiario.getNmCargo())
+                .pisPasep(beneficiario.getPisPasep())
+                .email(beneficiario.getEmail())
+                .endereco(endereco)
+                .build();
+
+        return BeneficiarioAlteracaoRequestNew.builder()
+                // Campos obrigatórios para alteração
+                .cdEmpresa(beneficiario.getCodigoEmpresa())
+                .codigoAssociado(beneficiario.getCdAssociado())
+                .codigoPlano(beneficiario.getCodigoPlano())
+                .departamento(beneficiario.getDepartamento())
+                // Dados do beneficiário
+                .beneficiario(beneficiarioData)
+                .build();
+    }
+
+    /**
+     * CONVERTE ENTIDADE PARA DTO DE ALTERAÇÃO (API ANTIGA)
      *
      * Mapeia campos da entidade para formato esperado pela API de alteração.
      * Inclui todos os campos que podem ser alterados.

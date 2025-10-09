@@ -101,7 +101,7 @@ public class BeneficiarioScheduler {
      * - Logs específicos identificam como "BENEFICIARIO"
      * - Controle de execução independente (pode rodar em paralelo com empresas)
      */
-    @Scheduled(fixedRate = 5000) // Configurar via properties em produção
+    @Scheduled(fixedRate = 10000) // Executa a cada 10 segundos
     @MonitorarOperacao(
             operacao = "INICIALIZACAO_SCHEDULER_BENEFICIARIO",
             incluirThread = true,

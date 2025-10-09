@@ -89,9 +89,9 @@ odontoprev:
 
   scheduler:
     empresa:
-      enabled: ${ODONTOPREV_SCHEDULER_EMPRESA_ENABLED:true}
+      enabled: false
     beneficiario:
-      enabled: ${ODONTOPREV_SCHEDULER_BENEFICIARIO_ENABLED:true}
+      enabled: true
 
   sync:
     # Configurações para processamento de empresas

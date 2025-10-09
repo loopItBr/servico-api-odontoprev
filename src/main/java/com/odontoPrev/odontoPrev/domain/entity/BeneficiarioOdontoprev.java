@@ -169,6 +169,12 @@ public class BeneficiarioOdontoprev {
     private String cidade;
 
     /**
+     * Tipo de endereço
+     */
+    @Column(name = "tp_endereco")
+    private Long tpEndereco;
+
+    /**
      * UF do endereço (sigla do estado)
      */
     @Column(name = "uf", length = 2, nullable = false)

@@ -1,0 +1,3 @@
+-- Alterar o tamanho da coluna STATUS_SYNC para suportar valores maiores
+ALTER TABLE TASY.TB_CONTROLE_SYNC_ODONTOPREV_BENEF 
+MODIFY STATUS_SYNC VARCHAR2(20);

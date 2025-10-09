@@ -10,7 +10,6 @@ import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.BeneficiarioOdontoprevFeignClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.AssociadoInativacao;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresarialModelInativacao;
-import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
 import com.odontoPrev.odontoPrev.infrastructure.exception.ProcessamentoBeneficiarioException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +53,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
     private final BeneficiarioOdontoprevFeignClient odontoprevClient;
     private final BeneficiarioOdontoprevRepository beneficiarioRepository;
     private final ControleSyncBeneficiarioRepository controleSyncRepository;
-    private final TokenService tokenService;
+    private final BeneficiarioTokenService beneficiarioTokenService;
     private final ObjectMapper objectMapper;
 
     @Value("${odontoprev.api.login.usuario}")
@@ -94,23 +93,32 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
             // Etapa 4: Serializar EmpresarialModel para JSON string
             String empresarialModelJson = objectMapper.writeValueAsString(empresarialModel);
 
-            // Etapa 5: Obter token de autenticação
-            String token = tokenService.obterTokenValido();
+            // Etapa 5: Obter tokens para autenticação dupla
+            String[] tokens = beneficiarioTokenService.obterTokensCompletos();
+            String tokenOAuth2 = tokens[0];
+            String tokenLoginEmpresa = tokens[1];
+            
+            log.info("🔑 [EXCLUSÃO] Tokens obtidos - OAuth2: {}..., LoginEmpresa: {}...",
+                    tokenOAuth2.substring(0, Math.min(20, tokenOAuth2.length())),
+                    tokenLoginEmpresa.substring(0, Math.min(20, tokenLoginEmpresa.length())));
 
             // Etapa 6: Chamada para API da OdontoPrev
-            log.info("Enviando inativação do beneficiário {} (cdAssociado: {}) para OdontoPrev",
+            log.info("🚀 [EXCLUSÃO] Enviando inativação do beneficiário {} (cdAssociado: {}) para OdontoPrev",
                     codigoMatricula, cdAssociado);
 
+            long inicioChamada = System.currentTimeMillis();
             odontoprevClient.inativarBeneficiario(
-                    token,
-                    token,
+                    tokenOAuth2,
+                    tokenLoginEmpresa,
                     empresarialModelJson
             );
+            long tempoResposta = System.currentTimeMillis() - inicioChamada;
+            
+            log.info("✅ [EXCLUSÃO] Inativação do beneficiário {} processada com sucesso em {}ms", 
+                    codigoMatricula, tempoResposta);
 
             // Etapa 7: Atualização do status no banco
             atualizarStatusSucesso(beneficiario, controleSync);
-
-            log.info("Inativação do beneficiário {} processada com sucesso", codigoMatricula);
 
         } catch (Exception e) {
             // Tratamento de erro abrangente

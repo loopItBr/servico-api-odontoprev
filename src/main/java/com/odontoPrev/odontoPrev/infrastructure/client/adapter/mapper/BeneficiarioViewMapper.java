@@ -44,9 +44,11 @@ public interface BeneficiarioViewMapper {
      */
     @Mapping(target = "id", ignore = true) // ID será gerado automaticamente
     @Mapping(target = "cdCgcEstipulante", source = "cdCgcEstipulante") // Agora existe na view entity
-    @Mapping(target = "dataNascimento", source = "dataNascimento", qualifiedByName = "stringToLocalDate")
-    @Mapping(target = "dtVigenciaRetroativa", source = "dtVigenciaRetroativa", qualifiedByName = "dateToLocalDate")
+    @Mapping(target = "dataNascimento", source = "dataDeNascimento", qualifiedByName = "stringToLocalDate")
+    @Mapping(target = "dtVigenciaRetroativa", source = "dtVigenciaRetroativa", qualifiedByName = "stringToLocalDate")
     @Mapping(target = "nomeMae", source = "nomeDaMae")
+    @Mapping(target = "nomeBeneficiario", source = "nomeDoBeneficiario")
+    @Mapping(target = "tpEndereco", source = "tpEndereco")
     @Mapping(target = "statusSincronizacao", constant = "PENDENTE")
     @Mapping(target = "cdAssociado", ignore = true) // Inclusão não tem código associado ainda
     @Mapping(target = "idMotivoInativacao", ignore = true)
@@ -78,7 +80,7 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "codigoMatricula", ignore = true) // View de alteração não tem matrícula
     @Mapping(target = "codigoEmpresa", source = "codigoEmpresa")
     @Mapping(target = "dataNascimento", source = "dataNascimento", qualifiedByName = "stringToLocalDate")
-    @Mapping(target = "dtVigenciaRetroativa", source = "dtVigenciaRetroativa", qualifiedByName = "dateToLocalDate")
+    @Mapping(target = "dtVigenciaRetroativa", source = "dtVigenciaRetroativa", qualifiedByName = "stringToLocalDate")
     @Mapping(target = "nomeMae", source = "nomeDaMae")
     @Mapping(target = "statusSincronizacao", constant = "ALTERADO")
     @Mapping(target = "idMotivoInativacao", ignore = true)
@@ -113,7 +115,7 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "logradouro", ignore = true)
     @Mapping(target = "numero", ignore = true)
     @Mapping(target = "uf", ignore = true)
-    @Mapping(target = "nomeBeneficiario", source = "nomeBeneficiario")
+    @Mapping(target = "nomeBeneficiario", source = "nome")
     @Mapping(target = "nomeMae", ignore = true)
     @Mapping(target = "sexo", ignore = true)
     @Mapping(target = "telefoneCelular", ignore = true)
@@ -132,8 +134,8 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "rgEmissor", ignore = true)
     @Mapping(target = "cns", ignore = true)
     @Mapping(target = "statusSincronizacao", constant = "EXCLUIDO")
-    @Mapping(target = "idMotivoInativacao", source = "idMotivoInativacao")
-    @Mapping(target = "dataInativacao", source = "dataInativacao", qualifiedByName = "dateToLocalDate")
+    @Mapping(target = "idMotivoInativacao", source = "idMotivo")
+    @Mapping(target = "dataInativacao", source = "dataInativacao", qualifiedByName = "stringToLocalDate")
     @Mapping(target = "dataSincronizacao", ignore = true)
     @Mapping(target = "mensagemErro", ignore = true)
     @Mapping(target = "dataCriacao", ignore = true)
@@ -160,18 +162,35 @@ public interface BeneficiarioViewMapper {
         if (dataString == null || dataString.trim().isEmpty()) {
             return null;
         }
-        try {
-            // Formato esperado do banco: DD/MM/YYYY
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-            return LocalDate.parse(dataString, formatter);
-        } catch (Exception e) {
-            // Se falhar, tenta formato ISO
+        
+        String dataLimpa = dataString.trim();
+        
+        // Lista de formatos possíveis
+        String[] formatos = {
+            "dd/MM/yyyy",    // 08/10/2025
+            "dd-MM-yyyy",    // 08-10-2025
+            "yyyy-MM-dd",    // 2025-10-08
+            "dd/MM/yy",      // 08/10/25
+            "dd-MM-yy"       // 08-10-25
+        };
+        
+        for (String formato : formatos) {
             try {
-                return LocalDate.parse(dataString);
-            } catch (Exception ex) {
-                // Log do erro se necessário
-                return null;
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(formato);
+                return LocalDate.parse(dataLimpa, formatter);
+            } catch (Exception e) {
+                // Continua tentando outros formatos
+                continue;
             }
+        }
+        
+        // Se nenhum formato funcionou, tenta formato ISO padrão
+        try {
+            return LocalDate.parse(dataLimpa);
+        } catch (Exception ex) {
+            // Log do erro para debug
+            System.err.println("Erro ao converter data: '" + dataString + "' - " + ex.getMessage());
+            return null;
         }
     }
 

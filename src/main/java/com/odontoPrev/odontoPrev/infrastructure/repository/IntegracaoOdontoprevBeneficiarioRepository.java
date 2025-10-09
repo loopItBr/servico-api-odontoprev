@@ -43,7 +43,7 @@ public interface IntegracaoOdontoprevBeneficiarioRepository extends JpaRepositor
      * @param codigoPlano código do plano
      * @return lista de beneficiários do plano
      */
-    List<IntegracaoOdontoprevBeneficiario> findByCodigoPlano(String codigoPlano);
+    List<IntegracaoOdontoprevBeneficiario> findByCodigoPlano(Long codigoPlano);
 
     /**
      * BUSCA BENEFICIÁRIOS POR EMPRESA E PLANO
@@ -52,7 +52,7 @@ public interface IntegracaoOdontoprevBeneficiarioRepository extends JpaRepositor
      * @param codigoPlano código do plano
      * @return lista de beneficiários filtrados
      */
-    List<IntegracaoOdontoprevBeneficiario> findByCodigoEmpresaAndCodigoPlano(String codigoEmpresa, String codigoPlano);
+    List<IntegracaoOdontoprevBeneficiario> findByCodigoEmpresaAndCodigoPlano(String codigoEmpresa, Long codigoPlano);
 
     /**
      * BUSCA BENEFICIÁRIOS POR TIPO (TITULAR/DEPENDENTE)
@@ -72,23 +72,21 @@ public interface IntegracaoOdontoprevBeneficiarioRepository extends JpaRepositor
     List<IntegracaoOdontoprevBeneficiario> findByCodigoEmpresaAndIdentificacao(String codigoEmpresa, String identificacao);
 
     /**
-     * BUSCA BENEFICIÁRIOS COM LIMITE DE REGISTROS
+     * BUSCA TODOS OS BENEFICIÁRIOS (SEM LIMITE)
      *
-     * @param limit número máximo de registros a retornar
-     * @return lista limitada de beneficiários
+     * @return lista de todos os beneficiários
      */
-    @Query("SELECT b FROM IntegracaoOdontoprevBeneficiario b ORDER BY b.codigoMatricula ASC")
-    List<IntegracaoOdontoprevBeneficiario> findWithLimit(@Param("limit") int limit);
+    @Query(value = "SELECT * FROM VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS ORDER BY CODIGO_MATRICULA ASC", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiario> findWithLimit();
 
     /**
-     * BUSCA BENEFICIÁRIOS POR EMPRESA COM LIMITE
+     * BUSCA BENEFICIÁRIOS POR EMPRESA (SEM LIMITE)
      *
      * @param codigoEmpresa código da empresa
-     * @param limit número máximo de registros a retornar
-     * @return lista limitada de beneficiários da empresa
+     * @return lista de beneficiários da empresa
      */
-    @Query("SELECT b FROM IntegracaoOdontoprevBeneficiario b WHERE b.codigoEmpresa = :codigoEmpresa ORDER BY b.codigoMatricula ASC")
-    List<IntegracaoOdontoprevBeneficiario> findByCodigoEmpresaWithLimit(@Param("codigoEmpresa") String codigoEmpresa, @Param("limit") int limit);
+    @Query(value = "SELECT * FROM VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS WHERE CODIGO_EMPRESA = :codigoEmpresa ORDER BY CODIGO_MATRICULA ASC", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiario> findByCodigoEmpresaWithLimit(@Param("codigoEmpresa") String codigoEmpresa);
 
     /**
      * CONTA TOTAL DE BENEFICIÁRIOS PENDENTES
@@ -111,7 +109,7 @@ public interface IntegracaoOdontoprevBeneficiarioRepository extends JpaRepositor
      * @param codigoPlano código do plano
      * @return quantidade de beneficiários do plano
      */
-    long countByCodigoPlano(String codigoPlano);
+    long countByCodigoPlano(Long codigoPlano);
 
     /**
      * CONTA BENEFICIÁRIOS POR TIPO

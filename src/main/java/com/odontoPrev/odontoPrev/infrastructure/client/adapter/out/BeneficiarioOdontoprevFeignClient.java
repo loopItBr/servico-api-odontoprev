@@ -1,8 +1,13 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.adapter.out;
 
+import com.odontoPrev.odontoPrev.infrastructure.client.BeneficiarioOdontoprevFeignConfig;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequest;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequestNew;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoResponseNew;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoRequest;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoRequestNew;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponse;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponseNew;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,37 +38,18 @@ import org.springframework.web.bind.annotation.RequestPart;
  */
 @FeignClient(
     name = "beneficiario-odontoprev-client",
-    url = "${odontoprev.api.base-url}"
+    url = "${odontoprev.api.base-url}",
+    configuration = {BeneficiarioOdontoprevFeignConfig.class}
 )
 public interface BeneficiarioOdontoprevFeignClient {
 
     /**
-     * INCLUI NOVO BENEFICIÁRIO NA ODONTOPREV
+     * INCLUI NOVO BENEFICIÁRIO NA ODONTOPREV (MÉTODO ANTIGO - COMPATIBILIDADE)
      *
      * Envia dados de um novo beneficiário para cadastro no sistema
      * da OdontoPrev. Retorna o código do associado (carteirinha).
      *
      * ENDPOINT: POST {{baseUrl}}/incluir
-     *
-     * FLUXO DE FUNCIONAMENTO:
-     * 1. Recebe dados completos do beneficiário
-     * 2. Valida campos obrigatórios (feito automaticamente)
-     * 3. Envia requisição para OdontoPrev
-     * 4. Retorna cdAssociado (número da carteirinha)
-     * 5. cdAssociado deve ser salvo no banco via procedure
-     *
-     * CAMPOS OBRIGATÓRIOS:
-     * codigoMatricula, CPF, dataNascimento, dtVigenciaRetroativa,
-     * CEP, CIDADE, LOGRADOURO, NUMERO, UF, nomeBeneficiario,
-     * nomeDaMae, SEXO, telefoneCelular, telefoneResidencial,
-     * USUARIO, codigoEmpresa, codigoPlano, departamento
-     *
-     * RETORNO ESPERADO:
-     * {
-     *   "cdAssociado": "123456789",
-     *   "mensagem": "Beneficiário cadastrado com sucesso",
-     *   "status": "OK"
-     * }
      *
      * @param request dados do beneficiário a ser incluído
      * @return response contendo cdAssociado e status da operação
@@ -80,6 +66,63 @@ public interface BeneficiarioOdontoprevFeignClient {
         @RequestHeader("senha") String senha,
         @RequestHeader("app-id") String appId,
         @RequestBody BeneficiarioInclusaoRequest request
+    );
+
+    /**
+     * INCLUI NOVO BENEFICIÁRIO NA ODONTOPREV (MÉTODO NOVO - AUTENTICAÇÃO DUPLA)
+     *
+     * Envia dados de um novo beneficiário para cadastro no sistema
+     * da OdontoPrev usando autenticação dupla conforme documentação.
+     * Retorna o código do associado (carteirinha).
+     *
+     * ENDPOINT: POST {{baseUrl}}/incluir
+     *
+     * AUTENTICAÇÃO DUPLA:
+     * - Authorization: Bearer {BEARER 1} - Token OAuth2
+     * - AuthorizationOdonto: Bearer {BEARER 2} - Token Login Empresa
+     *
+     * FLUXO DE FUNCIONAMENTO:
+     * 1. Recebe dados completos do beneficiário
+     * 2. Valida campos obrigatórios (feito automaticamente)
+     * 3. Envia requisição para OdontoPrev
+     * 4. Retorna cdAssociado (número da carteirinha)
+     * 5. cdAssociado deve ser salvo no banco via procedure
+     *
+     * CAMPOS OBRIGATÓRIOS:
+     * beneficiarioTitular.beneficiario: codigoMatricula, CPF, dataDeNascimento, 
+     * dtVigenciaRetroativa, nomeBeneficiario, nomeDaMae, sexo, telefoneCelular, endereco
+     * venda: codigoEmpresa, codigoPlano, departamento
+     * usuario: usuário que realizou a movimentação
+     *
+     * RETORNO ESPERADO:
+     * {
+     *   "status": 201,
+     *   "cdMsg": 0,
+     *   "beneficiarios": {
+     *     "codigoAssociado": "123456789",
+     *     "nomeAssociado": "NOME DO BENEFICIARIO"
+     *   },
+     *   "crm": {
+     *     "protocolo": "20251008918833",
+     *     "ocorrencia": "05925307"
+     *   },
+     *   "mensagem": "inserção gerada com sucesso"
+     * }
+     *
+     * @param authorizationOAuth2 Token OAuth2 (Bearer {BEARER 1})
+     * @param authorizationOdonto Token Login Empresa (Bearer {BEARER 2})
+     * @param request dados do beneficiário a ser incluído
+     * @return response contendo cdAssociado e status da operação
+     */
+    @PostMapping(
+        value = "/cadastroonline-pj/1.0/incluir",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    BeneficiarioInclusaoResponseNew incluirBeneficiario(
+        @RequestHeader("Authorization") String authorizationOAuth2,
+        @RequestHeader("AuthorizationOdonto") String authorizationOdonto,
+        @RequestBody BeneficiarioInclusaoRequestNew request
     );
 
     /**
@@ -120,6 +163,46 @@ public interface BeneficiarioOdontoprevFeignClient {
         @RequestHeader("senha") String senha,
         @RequestHeader("app-id") String appId,
         @RequestBody BeneficiarioAlteracaoRequest request
+    );
+
+    /**
+     * ALTERA DADOS DE BENEFICIÁRIO EXISTENTE (MÉTODO NOVO - AUTENTICAÇÃO DUPLA)
+     *
+     * Atualiza informações cadastrais de um beneficiário já existente
+     * no sistema da OdontoPrev usando autenticação dupla conforme documentação.
+     *
+     * ENDPOINT: PUT {{baseUrl}}/alterar
+     *
+     * AUTENTICAÇÃO DUPLA:
+     * - Authorization: Bearer {BEARER 1} - Token OAuth2
+     * - AuthorizationOdonto: Bearer {BEARER 2} - Token Login Empresa
+     *
+     * FLUXO DE FUNCIONAMENTO:
+     * 1. Recebe dados de alteração do beneficiário
+     * 2. Valida campos obrigatórios (feito automaticamente)
+     * 3. Envia requisição para OdontoPrev
+     * 4. Retorna resposta com status da alteração
+     *
+     * CAMPOS OBRIGATÓRIOS:
+     * - cdEmpresa: Código da empresa
+     * - codigoAssociado: Carteirinha do beneficiário
+     * - codigoPlano: Código do plano
+     * - departamento: Código do departamento
+     *
+     * @param authorizationOAuth2 Token OAuth2 (Bearer 1)
+     * @param authorizationOdonto Token Login Empresa (Bearer 2)
+     * @param request Dados de alteração do beneficiário
+     * @return Resposta da alteração
+     */
+    @PutMapping(
+        value = "/cadastroonline-pj/1.0/alterar",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    BeneficiarioAlteracaoResponseNew alterarBeneficiarioNew(
+        @RequestHeader("Authorization") String authorizationOAuth2,
+        @RequestHeader("AuthorizationOdonto") String authorizationOdonto,
+        @RequestBody BeneficiarioAlteracaoRequestNew request
     );
 
     /**

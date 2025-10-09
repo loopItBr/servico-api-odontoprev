@@ -72,23 +72,21 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
     List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresaAndIdentificacao(String codigoEmpresa, String identificacao);
 
     /**
-     * BUSCA BENEFICIÁRIOS COM LIMITE DE REGISTROS
+     * BUSCA TODOS OS BENEFICIÁRIOS (SEM LIMITE)
      *
-     * @param limit número máximo de registros a retornar
-     * @return lista limitada de beneficiários
+     * @return lista de todos os beneficiários
      */
-    @Query("SELECT b FROM IntegracaoOdontoprevBeneficiarioAlteracao b ORDER BY b.codigoMatricula ASC")
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findWithLimit(@Param("limit") int limit);
+    @Query(value = "SELECT * FROM VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT ORDER BY CODIGO_MATRICULA ASC", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findWithLimit();
 
     /**
-     * BUSCA BENEFICIÁRIOS POR EMPRESA COM LIMITE
+     * BUSCA BENEFICIÁRIOS POR EMPRESA (SEM LIMITE)
      *
      * @param codigoEmpresa código da empresa
-     * @param limit número máximo de registros a retornar
-     * @return lista limitada de beneficiários da empresa
+     * @return lista de beneficiários da empresa
      */
-    @Query("SELECT b FROM IntegracaoOdontoprevBeneficiarioAlteracao b WHERE b.codigoEmpresa = :codigoEmpresa ORDER BY b.codigoMatricula ASC")
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresaWithLimit(@Param("codigoEmpresa") String codigoEmpresa, @Param("limit") int limit);
+    @Query(value = "SELECT * FROM VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE CODIGO_EMPRESA = :codigoEmpresa ORDER BY CODIGO_MATRICULA ASC", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresaWithLimit(@Param("codigoEmpresa") String codigoEmpresa);
 
     /**
      * CONTA TOTAL DE BENEFICIÁRIOS PENDENTES DE ALTERAÇÃO

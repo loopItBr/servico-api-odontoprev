@@ -3,9 +3,9 @@ package com.odontoPrev.odontoPrev.infrastructure.scheduler;
 import com.odontoPrev.odontoPrev.domain.service.SincronizacaoOdontoprevService;
 import com.odontoPrev.odontoPrev.domain.service.SincronizacaoCompletaOdontoprevService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
-import com.odontoPrev.odontoPrev.infrastructure.exception.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -53,6 +53,11 @@ import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.Tip
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(
+    name = "odontoprev.scheduler.empresa.enabled",
+    havingValue = "true",
+    matchIfMissing = false
+)
 @RequiredArgsConstructor
 public class SyncOdontoprevScheduler {
 

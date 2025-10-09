@@ -2,13 +2,10 @@ package com.odontoPrev.odontoPrev.infrastructure.repository.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.Immutable;
-
-import java.util.Date;
 
 /**
  * ENTIDADE QUE REPRESENTA OS DADOS DE INCLUSÃO DE BENEFICIÁRIOS PARA INTEGRAÇÃO COM ODONTOPREV
@@ -62,96 +59,67 @@ public class IntegracaoOdontoprevBeneficiario {
      *
      * Matrícula única do beneficiário na empresa.
      * Usado para identificar o funcionário no sistema.
-     * Formato: 00[NR_SEQUENCIA] para titular ou 00[NR_SEQ_TITULAR]-[IE_TITULARIDADE] para dependente
      */
     @Id
-    @Column(name = "CODIGOMATRICULA", nullable = false, length = 20)
+    @Column(name = "CODIGOMATRICULA", nullable = false, length = 7)
     @NotBlank(message = "Código da matrícula é obrigatório")
     private String codigoMatricula;
+
+    /**
+     * CÓDIGO DA EMPRESA DO BENEFICIÁRIO
+     *
+     * Código que identifica a empresa onde o beneficiário trabalha.
+     */
+    @Column(name = "CODIGOEMPRESA", length = 6)
+    @NotBlank(message = "Código da empresa é obrigatório")
+    private String codigoEmpresa;
+
+    /**
+     * CÓDIGO DO PLANO ODONTOLÓGICO
+     *
+     * Identifica qual plano o beneficiário possui.
+     */
+    @Column(name = "CODIGOPLANO")
+    private Long codigoPlano;
 
     /**
      * CPF DO BENEFICIÁRIO
      *
      * Documento de identificação pessoal do beneficiário.
-     * Campo obrigatório para cadastro na OdontoPrev.
      */
     @Column(name = "CPF", length = 14)
     @NotBlank(message = "CPF é obrigatório")
-    @Pattern(regexp = "^\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}$|^\\d{11}$",
-             message = "CPF deve estar no formato XXX.XXX.XXX-XX ou XXXXXXXXXXX")
     private String cpf;
 
     /**
      * DATA DE NASCIMENTO DO BENEFICIÁRIO
      *
      * Data de nascimento usada para cálculos de idade e elegibilidade.
-     * IMPORTANTE: Este campo vem como String do banco (formato DD/MM/YYYY)
-     * devido à função PLS_OBTER_DADOS_SEGURADO retornar String
      */
-    @Column(name = "DATANASCIMENTO")
-    private String dataNascimento;
+    @Column(name = "DATADENASCIMENTO", length = 10)
+    private String dataDeNascimento;
 
     /**
      * DATA DE VIGÊNCIA RETROATIVA
      *
-     * Data a partir da qual o beneficiário tem direito ao plano,
-     * podendo ser retroativa à data de admissão.
-     * Este campo é uma Date real do banco (DT_CONTRATACAO)
+     * Data a partir da qual o beneficiário tem direito ao plano.
      */
-    @Column(name = "DTVIGENCIARETROATIVA")
-    @Temporal(TemporalType.DATE)
-    private Date dtVigenciaRetroativa;
+    @Column(name = "DTVIGENCIARETROATIVA", length = 10)
+    private String dtVigenciaRetroativa;
 
     /**
-     * CEP DO ENDEREÇO DO BENEFICIÁRIO
+     * NOME DO BENEFICIÁRIO
      *
-     * Código de endereçamento postal do beneficiário.
+     * Nome completo do beneficiário.
      */
-    @Column(name = "CEP", length = 9)
-    @Pattern(regexp = "^\\d{5}-\\d{3}$|^\\d{8}$",
-             message = "CEP deve estar no formato XXXXX-XXX ou XXXXXXXX")
-    private String cep;
-
-    /**
-     * CIDADE DE RESIDÊNCIA DO BENEFICIÁRIO
-     */
-    @Column(name = "CIDADE", length = 100)
-    private String cidade;
-
-    /**
-     * LOGRADOURO DO ENDEREÇO DO BENEFICIÁRIO
-     *
-     * Nome da rua, avenida, travessa, etc.
-     */
-    @Column(name = "LOGRADOURO", length = 200)
-    private String logradouro;
-
-    /**
-     * NÚMERO DO ENDEREÇO DO BENEFICIÁRIO
-     */
-    @Column(name = "NUMERO", length = 10)
-    private String numero;
-
-    /**
-     * UNIDADE FEDERATIVA (ESTADO) DO BENEFICIÁRIO
-     */
-    @Column(name = "UF", length = 2)
-    @Pattern(regexp = "^[A-Z]{2}$", message = "UF deve conter 2 letras maiúsculas")
-    private String uf;
-
-    /**
-     * NOME COMPLETO DO BENEFICIÁRIO
-     *
-     * Nome completo conforme documento de identificação.
-     */
-    @Column(name = "NOMEBENEFICIARIO", length = 200)
+    @Column(name = "NOMEDOBENEFICIARIO", length = 200)
     @NotBlank(message = "Nome do beneficiário é obrigatório")
-    private String nomeBeneficiario;
+    private String nomeDoBeneficiario;
 
     /**
      * NOME DA MÃE DO BENEFICIÁRIO
      *
-     * Nome completo da mãe, usado para identificação adicional.
+     * Nome completo da mãe do beneficiário.
      */
     @Column(name = "NOMEDAMAE", length = 200)
     private String nomeDaMae;
@@ -162,57 +130,7 @@ public class IntegracaoOdontoprevBeneficiario {
      * M = Masculino, F = Feminino
      */
     @Column(name = "SEXO", length = 1)
-    @Pattern(regexp = "^[MF]$", message = "Sexo deve ser M ou F")
     private String sexo;
-
-    /**
-     * TELEFONE CELULAR DO BENEFICIÁRIO
-     *
-     * Telefone móvel para contato.
-     */
-    @Column(name = "TELEFONECELULAR", length = 15)
-    private String telefoneCelular;
-
-    /**
-     * TELEFONE RESIDENCIAL DO BENEFICIÁRIO
-     *
-     * Telefone fixo para contato.
-     */
-    @Column(name = "TELEFONERESIDENCIAL", length = 15)
-    private String telefoneResidencial;
-
-    /**
-     * USUÁRIO QUE CADASTROU O BENEFICIÁRIO
-     *
-     * Nome do usuário responsável pelo cadastro.
-     */
-    @Column(name = "USUARIO", length = 50)
-    private String usuario;
-
-    /**
-     * CÓDIGO DA EMPRESA DO BENEFICIÁRIO
-     *
-     * Código que identifica a empresa onde o beneficiário trabalha.
-     */
-    @Column(name = "CODIGOEMPRESA", length = 10)
-    @NotBlank(message = "Código da empresa é obrigatório")
-    private String codigoEmpresa;
-
-    /**
-     * CÓDIGO DO PLANO ODONTOLÓGICO
-     *
-     * Identifica qual plano o beneficiário possui.
-     */
-    @Column(name = "CODIGOPLANO", length = 10)
-    private String codigoPlano;
-
-    /**
-     * DEPARTAMENTO DO BENEFICIÁRIO NA EMPRESA
-     *
-     * Setor ou departamento onde o funcionário trabalha.
-     */
-    @Column(name = "DEPARTAMENTO", length = 100)
-    private String departamento;
 
     /**
      * IDENTIFICAÇÃO DO TIPO DE BENEFICIÁRIO
@@ -220,7 +138,6 @@ public class IntegracaoOdontoprevBeneficiario {
      * T = Titular, D = Dependente
      */
     @Column(name = "IDENTIFICACAO", length = 1)
-    @Pattern(regexp = "^[TD]$", message = "Identificação deve ser T ou D")
     private String identificacao;
 
     /**
@@ -232,11 +149,19 @@ public class IntegracaoOdontoprevBeneficiario {
     private String rg;
 
     /**
+     * ÓRGÃO EMISSOR DO RG
+     *
+     * Órgão que emitiu o documento de identidade.
+     */
+    @Column(name = "RGEMISSOR", length = 40)
+    private String rgEmissor;
+
+    /**
      * ESTADO CIVIL DO BENEFICIÁRIO
      *
-     * S = Solteiro, C = Casado, D = Divorciado, V = Viúvo
+     * Estado civil do beneficiário.
      */
-    @Column(name = "ESTADOCIVIL", length = 1)
+    @Column(name = "ESTADOCIVIL", length = 50)
     private String estadoCivil;
 
     /**
@@ -248,39 +173,34 @@ public class IntegracaoOdontoprevBeneficiario {
     private String nmCargo;
 
     /**
-     * GRAU DE PARENTESCO
+     * CARTÃO NACIONAL DE SAÚDE (CNS)
      *
-     * Define se é titular ou dependente e qual o parentesco.
-     * Ex: TITULAR, CONJUGE, FILHO, etc.
+     * Número do cartão SUS do beneficiário.
      */
-    @Column(name = "GRAUPARENTESCO", length = 50)
-    private String grauParentesco;
+    @Column(name = "CNS", length = 20)
+    private String cns;
 
     /**
-     * AÇÃO A SER EXECUTADA
+     * LOGRADOURO DO ENDEREÇO DO BENEFICIÁRIO
      *
-     * I = Inclusão (sempre I para esta view)
+     * Nome da rua, avenida, travessa, etc.
      */
-    @Column(name = "ACAO", length = 1)
-    private String acao;
+    @Column(name = "LOGRADOURO", length = 40)
+    private String logradouro;
 
     /**
-     * PIS/PASEP DO BENEFICIÁRIO
-     *
-     * Programa de Integração Social / Programa de Formação do Patrimônio do Servidor Público
+     * NÚMERO DO ENDEREÇO DO BENEFICIÁRIO
      */
-    @Column(name = "PIS_PASEP", length = 15)
-    private String pisPasep;
+    @Column(name = "NUMERO", length = 10)
+    private String numero;
 
     /**
-     * DATA DE ASSOCIAÇÃO
+     * COMPLEMENTO DO ENDEREÇO
      *
-     * Data em que o beneficiário foi associado ao plano.
-     * Este campo é uma Date real do banco (DT_CONTRATACAO)
+     * Informações adicionais do endereço (apto, bloco, etc).
      */
-    @Column(name = "DATA_ASSOCIACAO")
-    @Temporal(TemporalType.DATE)
-    private Date dataAssociacao;
+    @Column(name = "COMPLEMENTO", length = 100)
+    private String complemento;
 
     /**
      * BAIRRO DO ENDEREÇO DO BENEFICIÁRIO
@@ -289,30 +209,64 @@ public class IntegracaoOdontoprevBeneficiario {
     private String bairro;
 
     /**
-     * EMAIL DO BENEFICIÁRIO
+     * CEP DO ENDEREÇO DO BENEFICIÁRIO
      *
-     * Endereço de email para comunicações.
+     * Código de endereçamento postal do beneficiário.
      */
-    @Column(name = "EMAIL", length = 150)
-    @Pattern(regexp = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$",
-             message = "Email inválido")
-    private String email;
+    @Column(name = "CEP", length = 9)
+    private String cep;
 
     /**
-     * MOTIVO DE EXCLUSÃO
-     *
-     * Código do motivo de exclusão/cancelamento.
+     * CIDADE DE RESIDÊNCIA DO BENEFICIÁRIO
      */
-    @Column(name = "MOTIVOEXCLUSAO")
-    private Integer motivoExclusao;
+    @Column(name = "CIDADE", length = 100)
+    private String cidade;
 
     /**
-     * TIPO DE EXCLUSÃO
-     *
-     * Descrição do tipo de exclusão.
+     * UNIDADE FEDERATIVA (ESTADO) DO BENEFICIÁRIO
      */
-    @Column(name = "TIPO_EXCLUSAO", length = 50)
-    private String tipoExclusao;
+    @Column(name = "UF", length = 2)
+    private String uf;
+
+    /**
+     * TIPO DE ENDEREÇO
+     *
+     * Código do tipo de endereço.
+     */
+    @Column(name = "TPENDERECO", length = 10)
+    private String tpEndereco;
+
+    /**
+     * CIDADE DO BENEFICIÁRIO
+     *
+     * Cidade específica do beneficiário.
+     */
+    @Column(name = "CIDADEBENEFICIARIO", length = 100)
+    private String cidadeBeneficiario;
+
+    /**
+     * TELEFONE CELULAR DO BENEFICIÁRIO
+     *
+     * Telefone móvel para contato.
+     */
+    @Column(name = "TELEFONECELULAR", length = 43)
+    private String telefoneCelular;
+
+    /**
+     * TELEFONE RESIDENCIAL DO BENEFICIÁRIO
+     *
+     * Telefone fixo para contato.
+     */
+    @Column(name = "TELEFONERESIDENCIAL", length = 18)
+    private String telefoneResidencial;
+
+    /**
+     * DEPARTAMENTO DO BENEFICIÁRIO NA EMPRESA
+     *
+     * Setor ou departamento onde o funcionário trabalha.
+     */
+    @Column(name = "DEPARTAMENTO")
+    private Long departamento;
 
     /**
      * NÚMERO DO BANCO
@@ -347,44 +301,20 @@ public class IntegracaoOdontoprevBeneficiario {
     private String digConta;
 
     /**
-     * DÍGITO DA AGÊNCIA
-     *
-     * Dígito verificador da agência bancária.
-     */
-    @Column(name = "DIGAGENCIA", length = 5)
-    private String digAgencia;
-
-    /**
      * TIPO DE CONTA
      *
      * Tipo da conta bancária (CC = Conta Corrente).
      */
-    @Column(name = "TIPOCONTA", length = 5)
+    @Column(name = "TIPOCONTA", length = 2)
     private String tipoConta;
 
     /**
-     * COMPLEMENTO DO ENDEREÇO
+     * USUÁRIO QUE CADASTROU O BENEFICIÁRIO
      *
-     * Informações adicionais do endereço (apto, bloco, etc).
+     * Código do usuário responsável pelo cadastro.
      */
-    @Column(name = "COMPLEMENTO", length = 100)
-    private String complemento;
-
-    /**
-     * ÓRGÃO EMISSOR DO RG
-     *
-     * Órgão que emitiu o documento de identidade.
-     */
-    @Column(name = "RGEMISSOR", length = 20)
-    private String rgEmissor;
-
-    /**
-     * CARTÃO NACIONAL DE SAÚDE (CNS)
-     *
-     * Número do cartão SUS do beneficiário.
-     */
-    @Column(name = "CNS", length = 20)
-    private String cns;
+    @Column(name = "USUARIO")
+    private Long usuario;
 
     /**
      * NÚMERO DE SEQUÊNCIA DO SEGURADO NO SISTEMA TASY
@@ -399,86 +329,14 @@ public class IntegracaoOdontoprevBeneficiario {
      *
      * Identificador da pessoa física no sistema de origem.
      */
-    @Column(name = "CD_PESSOA_FISICA")
-    private Long cdPessoaFisica;
+    @Column(name = "CD_PESSOA_FISICA", length = 10)
+    private String cdPessoaFisica;
 
     /**
      * CNPJ DO ESTIPULANTE (EMPRESA CONTRATANTE)
      *
      * CNPJ da empresa que contratou o plano odontológico.
      */
-    @Column(name = "CD_CGC_ESTIPULANTE", length = 18)
+    @Column(name = "CD_CGC_ESTIPULANTE", length = 14)
     private String cdCgcEstipulante;
-
-    /**
-     * CÓDIGO DO PAÍS EMISSOR
-     *
-     * Código do país emissor do documento.
-     */
-    @Column(name = "COD_PAIS_EMISSOR")
-    private Integer codPaisEmissor;
-
-    /**
-     * CÓDIGO DO MUNICÍPIO IBGE
-     *
-     * Código IBGE do município.
-     */
-    @Column(name = "COD_MUNICIPIO_IBGE")
-    private Integer codMunicipioIbge;
-
-    /**
-     * INDICADOR DE RESIDÊNCIA
-     *
-     * Indicador se é residência principal.
-     */
-    @Column(name = "IND_RESIDENCIA")
-    private Integer indResidencia;
-
-    /**
-     * TIPO DE ENDEREÇO
-     *
-     * Código do tipo de endereço.
-     */
-    @Column(name = "TPENDERECO")
-    private Integer tpEndereco;
-
-    /**
-     * CIDADE DE RESIDÊNCIA
-     *
-     * Nome da cidade de residência.
-     */
-    @Column(name = "CIDADE_RESIDENCIA", length = 100)
-    private String cidadeResidencia;
-
-    /**
-     * DECLARAÇÃO DE NASCIDO VIVO (DNV)
-     *
-     * Número da DNV para nascidos após 2010.
-     */
-    @Column(name = "DNV", length = 20)
-    private String dnv;
-
-    /**
-     * NÚMERO DE PORTABILIDADE
-     *
-     * Número de portabilidade se aplicável.
-     */
-    @Column(name = "NUM_PORTABILIDADE")
-    private Integer numPortabilidade;
-
-    /**
-     * TEMPO DE CONTRIBUIÇÃO
-     *
-     * Tempo de contribuição em meses.
-     */
-    @Column(name = "TEMPO_CONTRIBUICAO")
-    private Integer tempoContribuicao;
-
-    /**
-     * DIRETORIO DE PERMANÊNCIA
-     *
-     * Informação sobre permanência.
-     */
-    @Column(name = "DIR_PERMANENCIA", length = 50)
-    private String dirPermanencia;
 }
