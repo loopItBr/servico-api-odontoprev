@@ -1,5 +1,6 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
+import com.odontoPrev.odontoPrev.domain.repository.ControleSyncBeneficiarioRepository;
 import com.odontoPrev.odontoPrev.domain.service.*;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevBeneficiarioRepository;
@@ -57,6 +58,9 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
     // Repositórios para contagem
     private final IntegracaoOdontoprevBeneficiarioAlteracaoRepository alteracaoRepository;
     private final IntegracaoOdontoprevBeneficiarioExclusaoRepository exclusaoRepository;
+    
+    // Repositório de controle de sincronização
+    private final ControleSyncBeneficiarioRepository controleSyncRepository;
     
     // Mapper para conversão entre views e entidades de domínio
     private final BeneficiarioViewMapper beneficiarioViewMapper;
@@ -485,16 +489,27 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
      * PROCESSA LOTE DE INCLUSÕES
      * 
      * Processa cada beneficiário do lote atual para inclusão.
+     * Verifica se o beneficiário já foi processado com sucesso para evitar reprocessamento.
      */
     private int processarLoteInclusoes(java.util.List<com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario> beneficiarios) {
         int processadosNoLote = 0;
+        int jaProcessados = 0;
         
         for (var beneficiario : beneficiarios) {
             try {
+                // Verifica se o beneficiário já foi processado com sucesso
+                if (jaFoiProcessadoComSucesso(beneficiario.getCodigoEmpresa(), beneficiario.getCodigoMatricula(), "INCLUSAO")) {
+                    log.debug("⏭️ BENEFICIÁRIO JÁ PROCESSADO - {} ({}) já foi processado com sucesso, pulando", 
+                            beneficiario.getCodigoMatricula(), beneficiario.getNomeDoBeneficiario());
+                    jaProcessados++;
+                    continue;
+                }
+                
                 // Converte a view para entidade de domínio e processa
                 var beneficiarioDomínio = beneficiarioViewMapper.fromInclusaoView(beneficiario);
                 processamentoInclusoes.processarInclusaoBeneficiario(beneficiarioDomínio);
                 processadosNoLote++;
+                
             } catch (Exception e) {
                 log.error("Erro ao processar inclusão do beneficiário {}: {}", 
                          beneficiario.getCodigoMatricula(), e.getMessage());
@@ -502,6 +517,43 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
             }
         }
         
+        if (jaProcessados > 0) {
+            log.info("📊 RESUMO DO LOTE - Processados: {}, Já processados (pulados): {}", processadosNoLote, jaProcessados);
+        }
+        
         return processadosNoLote;
+    }
+    
+    /**
+     * VERIFICA SE BENEFICIÁRIO JÁ FOI PROCESSADO COM SUCESSO
+     * 
+     * @param codigoEmpresa código da empresa
+     * @param codigoBeneficiario código do beneficiário
+     * @param tipoOperacao tipo da operação (INCLUSAO, ALTERACAO, EXCLUSAO)
+     * @return true se já foi processado com sucesso, false caso contrário
+     */
+    private boolean jaFoiProcessadoComSucesso(String codigoEmpresa, String codigoBeneficiario, String tipoOperacao) {
+        try {
+            var controle = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiarioAndTipoOperacao(
+                    codigoEmpresa, codigoBeneficiario, tipoOperacao);
+            
+            if (controle.isPresent()) {
+                String status = controle.get().getStatusSync();
+                boolean jaProcessado = "SUCESSO".equals(status) || "SUCCESS".equals(status);
+                
+                if (jaProcessado) {
+                    log.debug("✅ BENEFICIÁRIO JÁ PROCESSADO - {}: status={}, dataSucesso={}", 
+                            codigoBeneficiario, status, controle.get().getDataSucesso());
+                }
+                
+                return jaProcessado;
+            }
+            
+            return false;
+        } catch (Exception e) {
+            log.warn("⚠️ ERRO ao verificar se beneficiário {} já foi processado: {}", 
+                    codigoBeneficiario, e.getMessage());
+            return false; // Em caso de erro, processa para não perder dados
+        }
     }
 }
