@@ -3,7 +3,6 @@ package com.odontoPrev.odontoPrev.infrastructure.client.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odontoPrev.odontoPrev.domain.entity.BeneficiarioOdontoprev;
 import com.odontoPrev.odontoPrev.domain.entity.ControleSyncBeneficiario;
-import com.odontoPrev.odontoPrev.domain.repository.BeneficiarioOdontoprevRepository;
 import com.odontoPrev.odontoPrev.domain.repository.ControleSyncBeneficiarioRepository;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoBeneficiarioExclusaoService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
@@ -51,7 +50,6 @@ import static com.odontoPrev.odontoPrev.infrastructure.exception.ProcessamentoBe
 public class ProcessamentoBeneficiarioExclusaoServiceImpl implements ProcessamentoBeneficiarioExclusaoService {
 
     private final BeneficiarioOdontoprevFeignClient odontoprevClient;
-    private final BeneficiarioOdontoprevRepository beneficiarioRepository;
     private final ControleSyncBeneficiarioRepository controleSyncRepository;
     private final BeneficiarioTokenService beneficiarioTokenService;
     private final ObjectMapper objectMapper;
@@ -236,10 +234,10 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                     .codigoBeneficiario(beneficiario.getCodigoMatricula())
                     .tipoLog("E")
                     .tipoOperacao("EXCLUSAO")
-                    .endpointDestino("/inativarAssociadoEmpresarial")
+                    .endpointDestino("/cadastroonline-pj/1.0/inativar")
                     .dadosJson(payloadJson)
-                    .statusSync("PENDING")
-                    .tentativas(1)
+                    .statusSync("PROCESSANDO")
+                    .tentativas(0)
                     .maxTentativas(3)
                     .dataUltimaTentativa(LocalDateTime.now())
                     .build();
@@ -254,53 +252,66 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
     }
 
     /**
-     * ATUALIZA STATUS DO BENEFICIÁRIO PARA SUCESSO
+     * REGISTRA TENTATIVA DE SUCESSO
+     *
+     * Atualiza o registro de controle com o resultado de sucesso.
      */
     private void atualizarStatusSucesso(BeneficiarioOdontoprev beneficiario, ControleSyncBeneficiario controle) {
-        try {
-
-            if (controle != null) {
-                controleSyncRepository.marcarComoSucesso(
-                        controle.getId(),
-                        LocalDateTime.now(),
-                        "Inativação realizada com sucesso"
-                );
+        if (controle != null) {
+            try {
+                controle.setStatusSync("SUCESSO");
+                controle.setDataSucesso(LocalDateTime.now());
+                controle.setResponseApi("Inativação realizada com sucesso");
+                controleSyncRepository.save(controle);
+                log.info("Status do beneficiário {} atualizado para SUCESSO no controle de sincronização", beneficiario.getCodigoMatricula());
+            } catch (Exception e) {
+                log.error("Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
             }
-
-            log.debug("Status atualizado para SINCRONIZADO - Beneficiário: {}",
-                    beneficiario.getCodigoMatricula());
-        } catch (Exception e) {
-            log.error("Erro ao atualizar status de sucesso: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * ATUALIZA STATUS DO BENEFICIÁRIO PARA ERRO
+     * REGISTRA TENTATIVA DE ERRO
+     *
+     * Atualiza o registro de controle com o resultado de erro.
      */
     private void atualizarStatusErro(BeneficiarioOdontoprev beneficiario, String mensagemErro, ControleSyncBeneficiario controle) {
         try {
-            beneficiarioRepository.atualizarStatusErro(
-                    beneficiario.getId(),
-                    "ERRO",
-                    mensagemErro,
-                    LocalDateTime.now()
-            );
-
-            if (controle != null) {
-                controleSyncRepository.atualizarAposTentativa(
-                        controle.getId(),
-                        "ERROR",
-                        controle.getTentativas() + 1,
-                        LocalDateTime.now(),
-                        mensagemErro,
-                        null
-                );
+            if (controle == null) {
+                // Se não existe controle, tenta criar o request para ter o JSON correto
+                String payloadJson = "{}";
+                try {
+                    // Tenta criar o request mesmo com dados inválidos para ter o JSON
+                    EmpresarialModelInativacao request = converterParaEmpresarialModel(beneficiario);
+                    payloadJson = objectMapper.writeValueAsString(request);
+                } catch (Exception e) {
+                    log.debug("Não foi possível criar request para beneficiário {}: {}", 
+                             beneficiario.getCodigoMatricula(), e.getMessage());
+                    // Mantém "{}" se não conseguir criar o request
+                }
+                
+                controle = ControleSyncBeneficiario.builder()
+                        .codigoEmpresa(beneficiario.getCodigoEmpresa())
+                        .codigoBeneficiario(beneficiario.getCodigoMatricula())
+                        .tipoLog("E") // E = Exclusão
+                        .tipoOperacao("EXCLUSAO")
+                        .endpointDestino("/cadastroonline-pj/1.0/inativar")
+                        .dadosJson(payloadJson)
+                        .statusSync("ERRO")
+                        .tentativas(1)
+                        .erroMensagem(mensagemErro)
+                        .dataUltimaTentativa(LocalDateTime.now())
+                        .build();
+            } else {
+                controle.setStatusSync("ERRO");
+                controle.setDataUltimaTentativa(LocalDateTime.now());
+                controle.setErroMensagem(mensagemErro);
             }
 
-            log.debug("Status atualizado para ERRO - Beneficiário: {}, Mensagem: {}",
-                    beneficiario.getCodigoMatricula(), mensagemErro);
+            controleSyncRepository.save(controle);
+            log.info("Status do beneficiário {} atualizado para ERRO no controle de sincronização: {}", beneficiario.getCodigoMatricula(), mensagemErro);
         } catch (Exception e) {
-            log.error("Erro ao atualizar status de erro: {}", e.getMessage(), e);
+            log.error("Erro ao registrar erro no controle: {}", e.getMessage(), e);
         }
     }
 }

@@ -95,25 +95,23 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
             log.error("❌ SINCRONIZAÇÃO BENEFICIÁRIOS: Erro na sincronização de inclusões: {}", e.getMessage());
         }
         
-        // TEMPORARIAMENTE DESABILITADO - View de alterações não existe
-        // try {
-        //     // 2. Processa alterações (atualiza dados existentes)
-        //     log.info("📝 SINCRONIZAÇÃO BENEFICIÁRIOS: Executando alterações");
-        //     int alteracoes = executarSincronizacaoAlteracoes();
-        //     log.info("✅ SINCRONIZAÇÃO BENEFICIÁRIOS: Alterações processadas: {}", alteracoes);
-        // } catch (Exception e) {
-        //     log.error("❌ SINCRONIZAÇÃO BENEFICIÁRIOS: Erro na sincronização de alterações: {}", e.getMessage());
-        // }
+        try {
+            // 2. Processa alterações (atualiza dados existentes)
+            log.info("📝 SINCRONIZAÇÃO BENEFICIÁRIOS: Executando alterações");
+            int alteracoes = executarSincronizacaoAlteracoes();
+            log.info("✅ SINCRONIZAÇÃO BENEFICIÁRIOS: Alterações processadas: {}", alteracoes);
+        } catch (Exception e) {
+            log.error("❌ SINCRONIZAÇÃO BENEFICIÁRIOS: Erro na sincronização de alterações: {}", e.getMessage());
+        }
         
-        // TEMPORARIAMENTE DESABILITADO - View de exclusões com problema de subconsulta
-        // try {
-        //     // 3. Processa inativações (inativa beneficiários)
-        //     log.info("📝 SINCRONIZAÇÃO BENEFICIÁRIOS: Executando inativações");
-        //     int inativacoes = executarSincronizacaoInativacoes();
-        //     log.info("✅ SINCRONIZAÇÃO BENEFICIÁRIOS: Inativações processadas: {}", inativacoes);
-        // } catch (Exception e) {
-        //     log.error("❌ SINCRONIZAÇÃO BENEFICIÁRIOS: Erro na sincronização de inativações: {}", e.getMessage());
-        // }
+        try {
+            // 3. Processa inativações (inativa beneficiários)
+            log.info("📝 SINCRONIZAÇÃO BENEFICIÁRIOS: Executando inativações");
+            int inativacoes = executarSincronizacaoInativacoes();
+            log.info("✅ SINCRONIZAÇÃO BENEFICIÁRIOS: Inativações processadas: {}", inativacoes);
+        } catch (Exception e) {
+            log.error("❌ SINCRONIZAÇÃO BENEFICIÁRIOS: Erro na sincronização de inativações: {}", e.getMessage());
+        }
         
         log.info("🏁 SINCRONIZAÇÃO BENEFICIÁRIOS: Sincronização completa finalizada");
     }
@@ -320,7 +318,7 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                 processadosNoLote++;
             } catch (Exception e) {
                 log.error("Erro ao processar alteração do beneficiário {}: {}", 
-                         beneficiario.getCodigoMatricula(), e.getMessage());
+                         beneficiario.getCdEmpresa(), e.getMessage());
                 // Continua processando outros beneficiários
             }
         }

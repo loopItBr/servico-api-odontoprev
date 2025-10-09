@@ -35,7 +35,7 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param codigoEmpresa código da empresa
      * @return lista de beneficiários da empresa
      */
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresa(String codigoEmpresa);
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCdEmpresa(String cdEmpresa);
 
     /**
      * BUSCA BENEFICIÁRIOS POR PLANO
@@ -43,7 +43,7 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param codigoPlano código do plano
      * @return lista de beneficiários do plano
      */
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoPlano(String codigoPlano);
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoPlano(Long codigoPlano);
 
     /**
      * BUSCA BENEFICIÁRIOS POR EMPRESA E PLANO
@@ -52,7 +52,7 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param codigoPlano código do plano
      * @return lista de beneficiários filtrados
      */
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresaAndCodigoPlano(String codigoEmpresa, String codigoPlano);
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCdEmpresaAndCodigoPlano(String cdEmpresa, Long codigoPlano);
 
     /**
      * BUSCA BENEFICIÁRIOS POR TIPO (TITULAR/DEPENDENTE)
@@ -69,14 +69,14 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param identificacao T = Titular, D = Dependente
      * @return lista de beneficiários filtrados
      */
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresaAndIdentificacao(String codigoEmpresa, String identificacao);
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCdEmpresaAndIdentificacao(String cdEmpresa, String identificacao);
 
     /**
      * BUSCA TODOS OS BENEFICIÁRIOS (SEM LIMITE)
      *
      * @return lista de todos os beneficiários
      */
-    @Query(value = "SELECT * FROM VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT ORDER BY CODIGO_MATRICULA ASC", nativeQuery = true)
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT ORDER BY CDEMPRESA", nativeQuery = true)
     List<IntegracaoOdontoprevBeneficiarioAlteracao> findWithLimit();
 
     /**
@@ -85,14 +85,15 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param codigoEmpresa código da empresa
      * @return lista de beneficiários da empresa
      */
-    @Query(value = "SELECT * FROM VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE CODIGO_EMPRESA = :codigoEmpresa ORDER BY CODIGO_MATRICULA ASC", nativeQuery = true)
-    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCodigoEmpresaWithLimit(@Param("codigoEmpresa") String codigoEmpresa);
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE CDEMPRESA = :cdEmpresa ORDER BY CDEMPRESA", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiarioAlteracao> findByCdEmpresaWithLimit(@Param("cdEmpresa") String cdEmpresa);
 
     /**
      * CONTA TOTAL DE BENEFICIÁRIOS PENDENTES DE ALTERAÇÃO
      *
      * @return quantidade total de beneficiários pendentes
      */
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT", nativeQuery = true)
     long count();
 
     /**
@@ -101,7 +102,8 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param codigoEmpresa código da empresa
      * @return quantidade de beneficiários da empresa
      */
-    long countByCodigoEmpresa(String codigoEmpresa);
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE CDEMPRESA = :cdEmpresa", nativeQuery = true)
+    long countByCdEmpresa(@Param("cdEmpresa") String cdEmpresa);
 
     /**
      * CONTA BENEFICIÁRIOS POR PLANO
@@ -109,7 +111,8 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param codigoPlano código do plano
      * @return quantidade de beneficiários do plano
      */
-    long countByCodigoPlano(String codigoPlano);
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE CODIGOPLANO = :codigoPlano", nativeQuery = true)
+    long countByCodigoPlano(@Param("codigoPlano") Long codigoPlano);
 
     /**
      * CONTA BENEFICIÁRIOS POR TIPO
@@ -117,7 +120,8 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param identificacao T = Titular, D = Dependente
      * @return quantidade de beneficiários do tipo
      */
-    long countByIdentificacao(String identificacao);
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE IDENTIFICACAO = :identificacao", nativeQuery = true)
+    long countByIdentificacao(@Param("identificacao") String identificacao);
 
     /**
      * CONTA BENEFICIÁRIOS POR EMPRESA E TIPO
@@ -126,23 +130,8 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @param identificacao T = Titular, D = Dependente
      * @return quantidade de beneficiários filtrados
      */
-    long countByCodigoEmpresaAndIdentificacao(String codigoEmpresa, String identificacao);
-
-    /**
-     * BUSCA BENEFICIÁRIOS POR CÓDIGO DE MATRÍCULA
-     *
-     * @param codigoMatricula código da matrícula
-     * @return beneficiário encontrado ou null
-     */
-    IntegracaoOdontoprevBeneficiarioAlteracao findByCodigoMatricula(String codigoMatricula);
-
-    /**
-     * BUSCA BENEFICIÁRIOS POR CPF
-     *
-     * @param cpf CPF do beneficiário
-     * @return beneficiário encontrado ou null
-     */
-    IntegracaoOdontoprevBeneficiarioAlteracao findByCpf(String cpf);
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT WHERE CDEMPRESA = :cdEmpresa AND IDENTIFICACAO = :identificacao", nativeQuery = true)
+    long countByCdEmpresaAndIdentificacao(@Param("cdEmpresa") String cdEmpresa, @Param("identificacao") String identificacao);
 
     /**
      * BUSCA BENEFICIÁRIOS POR CÓDIGO DO ASSOCIADO
@@ -151,22 +140,6 @@ public interface IntegracaoOdontoprevBeneficiarioAlteracaoRepository extends Jpa
      * @return beneficiário encontrado ou null
      */
     IntegracaoOdontoprevBeneficiarioAlteracao findByCdAssociado(String cdAssociado);
-
-    /**
-     * VERIFICA SE EXISTE BENEFICIÁRIO COM A MATRÍCULA
-     *
-     * @param codigoMatricula código da matrícula
-     * @return true se existe, false caso contrário
-     */
-    boolean existsByCodigoMatricula(String codigoMatricula);
-
-    /**
-     * VERIFICA SE EXISTE BENEFICIÁRIO COM O CPF
-     *
-     * @param cpf CPF do beneficiário
-     * @return true se existe, false caso contrário
-     */
-    boolean existsByCpf(String cpf);
 
     /**
      * VERIFICA SE EXISTE BENEFICIÁRIO COM O CÓDIGO DO ASSOCIADO

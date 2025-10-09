@@ -230,7 +230,7 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
         // Copia todos os campos comuns
         dadosBase.setCodigoEmpresa(dadosExclusao.getCodigoEmpresa());
         dadosBase.setCnpj(dadosExclusao.getCnpj());
-        dadosBase.setCodigoClienteOperadora(dadosExclusao.getCodigoClienteOperadora());
+        dadosBase.setCodigoClienteOperadora(dadosExclusao.getCodigoClienteOperadora() != null ? Long.valueOf(dadosExclusao.getCodigoClienteOperadora()) : null);
         dadosBase.setNomeFantasia(dadosExclusao.getNomeFantasia());
         dadosBase.setDataInicioContrato(dadosExclusao.getDataInicioContrato());
         dadosBase.setDataFimContrato(dadosExclusao.getDataFimContrato());
@@ -242,7 +242,7 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
         dadosBase.setVidasAtivas(dadosExclusao.getVidasAtivas());
         dadosBase.setValorUltimoFaturamento(dadosExclusao.getValorUltimoFaturamento());
         dadosBase.setSinistralidade(dadosExclusao.getSinistralidade());
-        dadosBase.setCodigoPlano(dadosExclusao.getCodigoPlano());
+        dadosBase.setCodigoPlano(dadosExclusao.getCodigoPlano() != null ? Long.valueOf(dadosExclusao.getCodigoPlano()) : null);
         dadosBase.setDescricaoPlano(dadosExclusao.getDescricaoPlano());
         dadosBase.setNomeFantasiaPlano(dadosExclusao.getNomeFantasiaPlano());
         dadosBase.setNumeroRegistroAns(dadosExclusao.getNumeroRegistroAns());

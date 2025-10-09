@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
  * - statusSincronizacao: Se já foi enviado para OdontoPrev ou não
  */
 @Entity
-@Table(name = "tb_beneficiario_odontoprev",
+@Table(name = "TB_BENEFICIARIO_ODONTOPREV", schema = "TASY",
        uniqueConstraints = {
            @UniqueConstraint(name = "uk_beneficiario_matricula", columnNames = "codigo_matricula"),
            @UniqueConstraint(name = "uk_beneficiario_cpf", columnNames = "cpf"),

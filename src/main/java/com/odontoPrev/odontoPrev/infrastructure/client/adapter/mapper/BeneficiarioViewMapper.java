@@ -77,11 +77,31 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "id", ignore = true) // ID será gerado automaticamente
     @Mapping(target = "nrSequencia", ignore = true) // Não existe na entidade
     @Mapping(target = "cdCgcEstipulante", ignore = true)
-    @Mapping(target = "codigoMatricula", ignore = true) // View de alteração não tem matrícula
-    @Mapping(target = "codigoEmpresa", source = "codigoEmpresa")
+    @Mapping(target = "codigoMatricula", source = "cdAssociado") // Usar cdAssociado como matrícula
+    @Mapping(target = "codigoEmpresa", source = "cdEmpresa")
+    @Mapping(target = "cpf", ignore = true) // View de alteração não tem CPF
     @Mapping(target = "dataNascimento", source = "dataNascimento", qualifiedByName = "stringToLocalDate")
     @Mapping(target = "dtVigenciaRetroativa", source = "dtVigenciaRetroativa", qualifiedByName = "stringToLocalDate")
     @Mapping(target = "nomeMae", source = "nomeDaMae")
+    @Mapping(target = "nomeBeneficiario", source = "nomeBeneficiario")
+    @Mapping(target = "sexo", source = "sexo")
+    @Mapping(target = "telefoneCelular", source = "telefoneCelular")
+    @Mapping(target = "telefoneResidencial", source = "telefoneResidencial")
+    @Mapping(target = "cep", source = "cep")
+    @Mapping(target = "cidade", source = "cidade")
+    @Mapping(target = "logradouro", source = "logradouro")
+    @Mapping(target = "numero", source = "numero")
+    @Mapping(target = "complemento", source = "complemento")
+    @Mapping(target = "uf", source = "uf")
+    @Mapping(target = "codigoPlano", source = "codigoPlano")
+    @Mapping(target = "departamento", source = "departamento")
+    @Mapping(target = "rg", source = "rg")
+    @Mapping(target = "rgEmissor", source = "rgEmissor")
+    @Mapping(target = "estadoCivil", source = "estadoCivil")
+    @Mapping(target = "nmCargo", source = "nmCargo")
+    @Mapping(target = "pisPasep", source = "pisPasep")
+    @Mapping(target = "email", source = "email")
+    @Mapping(target = "bairro", source = "bairro")
     @Mapping(target = "statusSincronizacao", constant = "ALTERADO")
     @Mapping(target = "idMotivoInativacao", ignore = true)
     @Mapping(target = "dataInativacao", ignore = true)
@@ -91,6 +111,7 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "dataAtualizacao", ignore = true)
     // Campos que não existem na entidade BeneficiarioOdontoprev - ignorar
     @Mapping(target = "motivoExclusao", ignore = true) // Não existe na entidade
+    @Mapping(target = "tpEndereco", ignore = true) // View de alteração não tem tpEndereco
     BeneficiarioOdontoprev fromAlteracaoView(IntegracaoOdontoprevBeneficiarioAlteracao viewEntity);
 
     /**
@@ -120,7 +141,7 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "sexo", ignore = true)
     @Mapping(target = "telefoneCelular", ignore = true)
     @Mapping(target = "telefoneResidencial", ignore = true)
-    @Mapping(target = "codigoEmpresa", source = "codigoEmpresa")
+    @Mapping(target = "codigoEmpresa", source = "cdEmpresa")
     @Mapping(target = "codigoMatricula", source = "codigoMatricula")
     @Mapping(target = "codigoPlano", ignore = true)
     @Mapping(target = "departamento", ignore = true)

@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -51,7 +50,7 @@ import java.time.LocalDate;
  * de R$ 45.000,00 no último mês.
  */
 @Entity
-@Table(name = "vw_integracao_odontoprev", schema = "TASY")
+@Table(name = "VW_INTEGRACAO_ODONTOPREV", schema = "TASY")
 @Immutable  // Indica que esta entidade é apenas para leitura (VIEW)
 @Data
 @NoArgsConstructor
@@ -67,9 +66,9 @@ public class IntegracaoOdontoprev {
      * Exemplo: "A001", "EMP123", "XYZ789"
      */
     @Id
-    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 10)
+    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 6)
     @NotBlank(message = "Código da empresa é obrigatório")
-    @Size(min = 1, max = 10, message = "Código da empresa deve ter entre 1 e 10 caracteres")
+    @Size(min = 1, max = 6, message = "Código da empresa deve ter entre 1 e 6 caracteres")
     @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Código da empresa deve conter apenas letras e números")
     private String codigoEmpresa;
 
@@ -80,7 +79,7 @@ public class IntegracaoOdontoprev {
      * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
      * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
      */
-    @Column(name = "CNPJ", nullable = true, length = 18)
+    @Column(name = "CNPJ", nullable = true, length = 14)
     @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
              message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
     private String cnpj;
@@ -93,7 +92,7 @@ public class IntegracaoOdontoprev {
      * Campo opcional porque empresas novas ainda não têm código na operadora.
      */
     @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true)
-    private String codigoClienteOperadora;
+    private Long codigoClienteOperadora;
 
     /**
      * NOME COMERCIAL DA EMPRESA
@@ -101,7 +100,7 @@ public class IntegracaoOdontoprev {
      * Nome pelo qual a empresa é conhecida no mercado.
      * Exemplo: "Sabin Medicina Diagnóstica", "Laboratório ABC Ltda"
      */
-    @Column(name = "NOME_FANTASIA", nullable = true)
+    @Column(name = "NOME_FANTASIA", nullable = true, length = 80)
     private String nomeFantasia;
 
     /**
@@ -136,8 +135,8 @@ public class IntegracaoOdontoprev {
     private String empresaPf;
 
     // Campos organizacionais da estrutura interna
-    @Column(name = "CODIGO_GRUPO_GERENCIAL", nullable = true)
-    private String codigoGrupoGerencial;
+    @Column(name = "CODIGOGRUPOGERENCIAL", nullable = true)
+    private Long codigoGrupoGerencial;
 
     @Column(name = "CODIGO_MARCA", nullable = true)
     private String codigoMarca;
@@ -151,7 +150,7 @@ public class IntegracaoOdontoprev {
      * Métrica importante para cálculos de faturamento e risco.
      */
     @Column(name = "VIDAS_ATIVAS", nullable = true)
-    private Integer vidasAtivas;
+    private Long vidasAtivas;
 
     /**
      * VALOR DO ÚLTIMO FATURAMENTO DA EMPRESA
@@ -159,7 +158,7 @@ public class IntegracaoOdontoprev {
      * Usado para análises financeiras e de risco.
      */
     @Column(name = "VALOR_ULTIMO_FATURAMENTO", nullable = true)
-    private BigDecimal valorUltimoFaturamento;
+    private String valorUltimoFaturamento;
 
     /**
      * ÍNDICE DE SINISTRALIDADE DA EMPRESA
@@ -167,14 +166,14 @@ public class IntegracaoOdontoprev {
      * Sinistralidade alta = empresa gasta mais do que paga.
      */
     @Column(name = "SINISTRALIDADE", nullable = true)
-    private BigDecimal sinistralidade;
+    private String sinistralidade;
 
     /**
      * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO
      * Código único que identifica o plano contratado pela empresa
      */
     @Column(name = "CODIGO_PLANO", nullable = true)
-    private String codigoPlano;
+    private Long codigoPlano;
 
     /**
      * DESCRIÇÃO DETALHADA DO PLANO
@@ -209,14 +208,14 @@ public class IntegracaoOdontoprev {
      * Quanto cada funcionário principal da empresa paga mensalmente
      */
     @Column(name = "VALOR_TITULAR", nullable = true)
-    private BigDecimal valorTitular;
+    private String valorTitular;
 
     /**
      * VALOR MENSAL POR DEPENDENTE
      * Quanto cada dependente (cônjuge, filhos) custa mensalmente
      */
     @Column(name = "VALOR_DEPENDENTE", nullable = true)
-    private BigDecimal valorDependente;
+    private String valorDependente;
 
     // Datas de vigência específicas do plano
     @Column(name = "DATA_INICIO_PLANO", nullable = true)
@@ -279,5 +278,5 @@ public class IntegracaoOdontoprev {
      * Em quantas vezes o valor será cobrado (normalmente 1 = mensal)
      */
     @Column(name = "NUMERO_PARCELAS", nullable = true)
-    private Integer numeroParcelas;
+    private String numeroParcelas;
 }

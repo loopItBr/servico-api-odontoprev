@@ -89,7 +89,7 @@ odontoprev:
 
   scheduler:
     empresa:
-      enabled: true
+      enabled: false
     beneficiario:
       enabled: true
 

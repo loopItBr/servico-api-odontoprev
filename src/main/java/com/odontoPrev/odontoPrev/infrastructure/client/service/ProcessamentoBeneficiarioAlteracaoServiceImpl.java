@@ -3,15 +3,14 @@ package com.odontoPrev.odontoPrev.infrastructure.client.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odontoPrev.odontoPrev.domain.entity.BeneficiarioOdontoprev;
 import com.odontoPrev.odontoPrev.domain.entity.ControleSyncBeneficiario;
-import com.odontoPrev.odontoPrev.domain.repository.BeneficiarioOdontoprevRepository;
 import com.odontoPrev.odontoPrev.domain.repository.ControleSyncBeneficiarioRepository;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoBeneficiarioAlteracaoService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.BeneficiarioOdontoprevFeignClient;
-import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequestNew;
-import com.odontoPrev.odontoPrev.infrastructure.client.service.BeneficiarioTokenService;
 import com.odontoPrev.odontoPrev.infrastructure.exception.ProcessamentoBeneficiarioException;
+import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevBeneficiarioRepository;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -49,9 +48,8 @@ import static com.odontoPrev.odontoPrev.infrastructure.exception.ProcessamentoBe
 public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements ProcessamentoBeneficiarioAlteracaoService {
 
     private final BeneficiarioOdontoprevFeignClient odontoprevClient;
-    private final BeneficiarioOdontoprevRepository beneficiarioRepository;
     private final ControleSyncBeneficiarioRepository controleSyncRepository;
-    private final OdontoprevApiHeaderService headerService;
+    private final IntegracaoOdontoprevBeneficiarioRepository integracaoOdontoprevBeneficiarioRepository;
     private final BeneficiarioTokenService beneficiarioTokenService;
     private final ObjectMapper objectMapper;
 
@@ -85,6 +83,13 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
 
             // Etapa 3: Criar registro de controle
             controleSync = criarRegistroControle(beneficiario, request);
+            if (controleSync == null) {
+                String mensagem = "Falha ao criar registro de controle para beneficiário " + codigoMatricula;
+                log.error("❌ [ALTERAÇÃO] {}", mensagem);
+                throw new ProcessamentoBeneficiarioException(mensagem, codigoMatricula, ALTERACAO);
+            }
+            log.info("📝 [CONTROLE] Registro de controle criado - ID: {}, Status: {}", 
+                    controleSync.getId(), controleSync.getStatusSync());
 
             // Etapa 4: Chamada para API da OdontoPrev
             log.info("🚀 [ALTERAÇÃO] Enviando alteração do beneficiário {} (cdAssociado: {}) para OdontoPrev",
@@ -162,8 +167,31 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
      *
      * Mapeia campos da entidade para formato esperado pela nova API de alteração.
      * Inclui todos os campos que podem ser alterados.
+     * 
+     * IMPORTANTE: Busca CPF e tpEndereco da view de inclusão, pois a view de alteração não tem esses campos.
      */
     private BeneficiarioAlteracaoRequestNew converterParaAlteracaoRequestNew(BeneficiarioOdontoprev beneficiario) {
+        // Buscar CPF e tpEndereco da view de inclusão usando o cdAssociado
+        String cpf = null;
+        String tpEndereco = null;
+        
+        if (beneficiario.getCdAssociado() != null) {
+            try {
+                // Buscar na view de inclusão usando cdAssociado como codigoMatricula
+                IntegracaoOdontoprevBeneficiario beneficiarioInclusao = 
+                    integracaoOdontoprevBeneficiarioRepository.findByCodigoMatricula(beneficiario.getCdAssociado());
+                
+                if (beneficiarioInclusao != null) {
+                    cpf = beneficiarioInclusao.getCpf();
+                    tpEndereco = beneficiarioInclusao.getTpEndereco();
+                    log.debug("✅ CPF e tpEndereco obtidos da view de inclusão - CPF: {}, tpEndereco: {}", cpf, tpEndereco);
+                } else {
+                    log.warn("⚠️ Beneficiário não encontrado na view de inclusão para cdAssociado: {}", beneficiario.getCdAssociado());
+                }
+            } catch (Exception e) {
+                log.error("❌ Erro ao buscar CPF e tpEndereco da view de inclusão: {}", e.getMessage());
+            }
+        }
         // Criar objeto Endereco com os dados
         BeneficiarioAlteracaoRequestNew.Endereco endereco = BeneficiarioAlteracaoRequestNew.Endereco.builder()
                 .cep(beneficiario.getCep())
@@ -173,13 +201,14 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
                 .bairro(beneficiario.getBairro())
                 .cidade(beneficiario.getCidade())
                 .uf(beneficiario.getUf())
+                .tpEndereco(tpEndereco) // Usar tpEndereco obtido da view de inclusão
                 .build();
 
         // Criar objeto Beneficiario com os dados
         BeneficiarioAlteracaoRequestNew.Beneficiario beneficiarioData = BeneficiarioAlteracaoRequestNew.Beneficiario.builder()
                 .codigoMatricula(beneficiario.getCodigoMatricula())
                 .codigoPlano(beneficiario.getCodigoPlano())
-                .cpf(beneficiario.getCpf())
+                .cpf(cpf) // Usar CPF obtido da view de inclusão
                 .dataDeNascimento(beneficiario.getDataNascimento() != null ?
                         beneficiario.getDataNascimento().toString() : null)
                 .dtVigenciaRetroativa(beneficiario.getDtVigenciaRetroativa() != null ?
@@ -209,46 +238,6 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
                 .build();
     }
 
-    /**
-     * CONVERTE ENTIDADE PARA DTO DE ALTERAÇÃO (API ANTIGA)
-     *
-     * Mapeia campos da entidade para formato esperado pela API de alteração.
-     * Inclui todos os campos que podem ser alterados.
-     */
-    private BeneficiarioAlteracaoRequest converterParaAlteracaoRequest(BeneficiarioOdontoprev beneficiario) {
-        return BeneficiarioAlteracaoRequest.builder()
-                // Campos obrigatórios para alteração
-                .cdEmpresa(beneficiario.getCodigoEmpresa())
-                .cdAssociado(beneficiario.getCdAssociado())
-                .codigoPlano(beneficiario.getCodigoPlano())
-                .departamento(beneficiario.getDepartamento())
-                // Campos opcionais que podem ser alterados
-                .dtVigenciaRetroativa(beneficiario.getDtVigenciaRetroativa() != null ?
-                        beneficiario.getDtVigenciaRetroativa().toString() : null)
-                .dataNascimento(beneficiario.getDataNascimento() != null ?
-                        beneficiario.getDataNascimento().toString() : null)
-                .telefoneCelular(beneficiario.getTelefoneCelular())
-                .telefoneResidencial(beneficiario.getTelefoneResidencial())
-                .rg(beneficiario.getRg())
-                .estadoCivil(beneficiario.getEstadoCivil())
-                .nmCargo(beneficiario.getNmCargo())
-                .cpf(beneficiario.getCpf())
-                .sexo(beneficiario.getSexo())
-                .nomeDaMae(beneficiario.getNomeMae())
-                .pisPasep(beneficiario.getPisPasep())
-                .bairro(beneficiario.getBairro())
-                .email(beneficiario.getEmail())
-                .rgEmissor(beneficiario.getRgEmissor())
-                .nomeBeneficiario(beneficiario.getNomeBeneficiario())
-                .cns(beneficiario.getCns())
-                .cep(beneficiario.getCep())
-                .cidade(beneficiario.getCidade())
-                .logradouro(beneficiario.getLogradouro())
-                .numero(beneficiario.getNumero())
-                .complemento(beneficiario.getComplemento())
-                .uf(beneficiario.getUf())
-                .build();
-    }
 
     /**
      * CRIA REGISTRO DE CONTROLE DE SINCRONIZAÇÃO
@@ -269,77 +258,89 @@ public class ProcessamentoBeneficiarioAlteracaoServiceImpl implements Processame
                     .codigoBeneficiario(beneficiario.getCodigoMatricula())
                     .tipoLog("A")
                     .tipoOperacao("ALTERACAO")
-                    .endpointDestino("/alterar")
+                    .endpointDestino("/cadastroonline-pj/1.0/alterar")
                     .dadosJson(payloadJson)
-                    .statusSync("PENDING")
-                    .tentativas(1)
+                    .statusSync("PROCESSANDO")
+                    .tentativas(0)
                     .maxTentativas(3)
                     .dataUltimaTentativa(LocalDateTime.now())
                     .build();
 
-            return controleSyncRepository.save(controle);
+            ControleSyncBeneficiario controleSalvo = controleSyncRepository.save(controle);
+            log.info("✅ [CONTROLE] Registro de controle criado com sucesso para beneficiário {} - ID: {}", 
+                    beneficiario.getCodigoMatricula(), controleSalvo.getId());
+            return controleSalvo;
 
         } catch (Exception e) {
-            log.error("Erro ao criar registro de controle para beneficiário {}: {}",
+            log.error("❌ [CONTROLE] Erro ao criar registro de controle para beneficiário {}: {}",
                     beneficiario.getCodigoMatricula(), e.getMessage(), e);
             return null;
         }
     }
 
     /**
-     * ATUALIZA STATUS DO BENEFICIÁRIO PARA SUCESSO
+     * REGISTRA TENTATIVA DE SUCESSO
+     *
+     * Atualiza o registro de controle com o resultado de sucesso.
      */
     private void atualizarStatusSucesso(BeneficiarioOdontoprev beneficiario, ControleSyncBeneficiario controle) {
-        try {
-            beneficiarioRepository.atualizarStatusErro(
-                    beneficiario.getId(),
-                    "SINCRONIZADO",
-                    null,
-                    LocalDateTime.now()
-            );
-
-            if (controle != null) {
-                controleSyncRepository.marcarComoSucesso(
-                        controle.getId(),
-                        LocalDateTime.now(),
-                        "Alteração realizada com sucesso"
-                );
+        if (controle != null) {
+            try {
+                controle.setStatusSync("SUCESSO");
+                controle.setDataSucesso(LocalDateTime.now());
+                controle.setResponseApi("Alteração realizada com sucesso");
+                controleSyncRepository.save(controle);
+                log.info("Status do beneficiário {} atualizado para SUCESSO no controle de sincronização", beneficiario.getCodigoMatricula());
+            } catch (Exception e) {
+                log.error("Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
             }
-
-            log.debug("Status atualizado para SINCRONIZADO - Beneficiário: {}",
-                    beneficiario.getCodigoMatricula());
-        } catch (Exception e) {
-            log.error("Erro ao atualizar status de sucesso: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * ATUALIZA STATUS DO BENEFICIÁRIO PARA ERRO
+     * REGISTRA TENTATIVA DE ERRO
+     *
+     * Atualiza o registro de controle com o resultado de erro.
      */
     private void atualizarStatusErro(BeneficiarioOdontoprev beneficiario, String mensagemErro, ControleSyncBeneficiario controle) {
+        log.info("🔄 [CONTROLE] Atualizando status de erro para beneficiário {} - Controle existe: {}", 
+                beneficiario.getCodigoMatricula(), controle != null);
         try {
-            beneficiarioRepository.atualizarStatusErro(
-                    beneficiario.getId(),
-                    "ERRO",
-                    mensagemErro,
-                    LocalDateTime.now()
-            );
-
-            if (controle != null) {
-                controleSyncRepository.atualizarAposTentativa(
-                        controle.getId(),
-                        "ERROR",
-                        controle.getTentativas() + 1,
-                        LocalDateTime.now(),
-                        mensagemErro,
-                        null
-                );
+            if (controle == null) {
+                // Se não existe controle, tenta criar o request para ter o JSON correto
+                String payloadJson = "{}";
+                try {
+                    // Tenta criar o request mesmo com dados inválidos para ter o JSON
+                    BeneficiarioAlteracaoRequestNew request = converterParaAlteracaoRequestNew(beneficiario);
+                    payloadJson = objectMapper.writeValueAsString(request);
+                } catch (Exception e) {
+                    log.debug("Não foi possível criar request para beneficiário {}: {}", 
+                             beneficiario.getCodigoMatricula(), e.getMessage());
+                    // Mantém "{}" se não conseguir criar o request
+                }
+                
+                controle = ControleSyncBeneficiario.builder()
+                        .codigoEmpresa(beneficiario.getCodigoEmpresa())
+                        .codigoBeneficiario(beneficiario.getCodigoMatricula())
+                        .tipoLog("A") // A = Alteração
+                        .tipoOperacao("ALTERACAO")
+                        .endpointDestino("/cadastroonline-pj/1.0/alterar")
+                        .dadosJson(payloadJson)
+                        .statusSync("ERRO")
+                        .tentativas(1)
+                        .erroMensagem(mensagemErro)
+                        .dataUltimaTentativa(LocalDateTime.now())
+                        .build();
+            } else {
+                controle.setStatusSync("ERRO");
+                controle.setDataUltimaTentativa(LocalDateTime.now());
+                controle.setErroMensagem(mensagemErro);
             }
 
-            log.debug("Status atualizado para ERRO - Beneficiário: {}, Mensagem: {}",
-                    beneficiario.getCodigoMatricula(), mensagemErro);
+            controleSyncRepository.save(controle);
+            log.info("Status do beneficiário {} atualizado para ERRO no controle de sincronização: {}", beneficiario.getCodigoMatricula(), mensagemErro);
         } catch (Exception e) {
-            log.error("Erro ao atualizar status de erro: {}", e.getMessage(), e);
+            log.error("Erro ao registrar erro no controle: {}", e.getMessage(), e);
         }
     }
 }

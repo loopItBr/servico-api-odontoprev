@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -43,7 +42,7 @@ import java.time.LocalDate;
  * 4. Salva controle do que foi enviado com tipo_controle = 2
  */
 @Entity
-@Table(name = "vw_integracao_odontoprev_alt", schema = "TASY")
+@Table(name = "VW_INTEGRACAO_ODONTOPREV_ALT", schema = "TASY")
 @Immutable
 @Data
 @NoArgsConstructor
@@ -59,9 +58,9 @@ public class IntegracaoOdontoprevAlteracao {
      * Exemplo: "A001", "EMP123", "XYZ789"
      */
     @Id
-    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 10)
+    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 6)
     @NotBlank(message = "Código da empresa é obrigatório")
-    @Size(min = 1, max = 10, message = "Código da empresa deve ter entre 1 e 10 caracteres")
+    @Size(min = 1, max = 6, message = "Código da empresa deve ter entre 1 e 6 caracteres")
     @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Código da empresa deve conter apenas letras e números")
     private String codigoEmpresa;
 
@@ -84,7 +83,7 @@ public class IntegracaoOdontoprevAlteracao {
      * deles. Este campo armazena esse código para futuras sincronizações.
      * Campo opcional porque empresas novas ainda não têm código na operadora.
      */
-    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true)
+    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true, length = 6)
     private String codigoClienteOperadora;
 
     /**
@@ -93,7 +92,7 @@ public class IntegracaoOdontoprevAlteracao {
      * Nome pelo qual a empresa é conhecida no mercado.
      * Exemplo: "Sabin Medicina Diagnóstica", "Laboratório ABC Ltda"
      */
-    @Column(name = "NOME_FANTASIA", nullable = true, length = 100)
+    @Column(name = "NOME_FANTASIA", nullable = true, length = 80)
     private String nomeFantasia;
 
     /**
@@ -121,36 +120,36 @@ public class IntegracaoOdontoprevAlteracao {
      * INDICA SE É EMPRESA PESSOA FÍSICA
      * true = pessoa física, false = pessoa jurídica
      */
-    @Column(name = "EMPRESA_PF", nullable = true)
-    private Boolean empresaPf;
+    @Column(name = "EMPRESA_PF", nullable = true, length = 60)
+    private String empresaPf;
 
     /**
      * CÓDIGO DO GRUPO GERENCIAL
      * Identifica o grupo administrativo da empresa
      */
     @Column(name = "CODIGO_GRUPO_GERENCIAL", nullable = true)
-    private String codigoGrupoGerencial;
+    private Long codigoGrupoGerencial;
 
     /**
      * CÓDIGO DA MARCA
      * Identifica a marca comercial da empresa
      */
     @Column(name = "CODIGO_MARCA", nullable = true)
-    private String codigoMarca;
+    private Long codigoMarca;
 
     /**
      * CÓDIGO DA CÉLULA
      * Identifica a célula de negócio da empresa
      */
     @Column(name = "CODIGO_CELULA", nullable = true)
-    private String codigoCelula;
+    private Long codigoCelula;
 
     /**
      * NÚMERO DE VIDAS ATIVAS DA EMPRESA
      * Quantos funcionários estão ativos no plano odontológico
      */
     @Column(name = "VIDAS_ATIVAS", nullable = true)
-    private Integer vidasAtivas;
+    private Long vidasAtivas;
 
     /**
      * VALOR DO ÚLTIMO FATURAMENTO DA EMPRESA
@@ -158,7 +157,7 @@ public class IntegracaoOdontoprevAlteracao {
      * Usado para análises financeiras e de risco.
      */
     @Column(name = "VALOR_ULTIMO_FATURAMENTO", nullable = true)
-    private BigDecimal valorUltimoFaturamento;
+    private String valorUltimoFaturamento;
 
     /**
      * ÍNDICE DE SINISTRALIDADE DA EMPRESA
@@ -166,14 +165,14 @@ public class IntegracaoOdontoprevAlteracao {
      * Sinistralidade alta = empresa gasta mais do que paga.
      */
     @Column(name = "SINISTRALIDADE", nullable = true)
-    private BigDecimal sinistralidade;
+    private String sinistralidade;
 
     /**
      * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO
      * Código único que identifica o plano contratado pela empresa
      */
     @Column(name = "CODIGO_PLANO", nullable = true)
-    private String codigoPlano;
+    private Long codigoPlano;
 
     /**
      * DESCRIÇÃO DETALHADA DO PLANO
@@ -194,7 +193,7 @@ public class IntegracaoOdontoprevAlteracao {
      * Número oficial do plano junto ao órgão regulador
      */
     @Column(name = "NUMERO_REGISTRO_ANS", nullable = true)
-    private String numeroRegistroAns;
+    private Long numeroRegistroAns;
 
     /**
      * SIGLA OU ABREVIAÇÃO DO PLANO
@@ -208,14 +207,14 @@ public class IntegracaoOdontoprevAlteracao {
      * Quanto cada funcionário principal da empresa paga mensalmente
      */
     @Column(name = "VALOR_TITULAR", nullable = true)
-    private BigDecimal valorTitular;
+    private String valorTitular;
 
     /**
      * VALOR MENSAL POR DEPENDENTE
      * Quanto cada dependente (cônjuge, filhos) custa mensalmente
      */
     @Column(name = "VALOR_DEPENDENTE", nullable = true)
-    private BigDecimal valorDependente;
+    private String valorDependente;
 
     // Datas de vigência específicas do plano
     @Column(name = "DATA_INICIO_PLANO", nullable = true)
@@ -228,14 +227,14 @@ public class IntegracaoOdontoprevAlteracao {
      * CO-PARTICIPAÇÃO DO PLANO
      * Percentual que o beneficiário paga em cada procedimento
      */
-    @Column(name = "CO_PARTICIPACAO", nullable = true)
-    private BigDecimal coParticipacao;
+    @Column(name = "CO_PARTICIPACAO", nullable = true, length = 1)
+    private String coParticipacao;
 
     /**
      * TIPO DE NEGOCIAÇÃO DO PLANO
      * Como foi negociado o plano (individual, coletivo, etc.)
      */
-    @Column(name = "TIPO_NEGOCIACAO", nullable = true)
+    @Column(name = "TIPO_NEGOCIACAO", nullable = true, length = 2)
     private String tipoNegociacao;
 
     // Campos de cobrança (atualmente NULL na view)
@@ -255,5 +254,5 @@ public class IntegracaoOdontoprevAlteracao {
     private String nomeBanco;
 
     @Column(name = "NUMERO_PARCELAS", nullable = true)
-    private Integer numeroParcelas;
+    private String numeroParcelas;
 }

@@ -12,7 +12,7 @@ import java.util.List;
  * REPOSITÓRIO PARA CONSULTA DE BENEFICIÁRIOS PENDENTES DE EXCLUSÃO
  *
  * Interface que define operações de acesso a dados para a view
- * VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC, que contém beneficiários
+ * TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC, que contém beneficiários
  * que foram excluídos/inativados e precisam ser removidos da OdontoPrev.
  *
  * IMPORTANTE:
@@ -29,10 +29,7 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      *
      * @return lista de todos os beneficiários pendentes de exclusão
      */
-    @Query(value = "SELECT * FROM (SELECT DISTINCT CODIGOMATRICULA, CDASSOCIADO, CDEMPRESA, CDUSUARIO, " +
-                   "DATAINATIVACAO, EMAIL, IDMOTIVO, NOME " +
-                   "FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC " +
-                   "ORDER BY CODIGOMATRICULA)", nativeQuery = true)
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC ORDER BY CDEMPRESA", nativeQuery = true)
     List<IntegracaoOdontoprevBeneficiarioExclusao> findAll();
 
     /**
@@ -43,12 +40,8 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      * @param codigoEmpresa código da empresa
      * @return lista de beneficiários da empresa
      */
-    @Query(value = "SELECT DISTINCT CODIGOMATRICULA, CDASSOCIADO, CDEMPRESA, CDUSUARIO, " +
-                   "DATAINATIVACAO, EMAIL, IDMOTIVO, NOME " +
-                   "FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC " +
-                   "WHERE CDEMPRESA = :codigoEmpresa " +
-                   "ORDER BY CODIGOMATRICULA", nativeQuery = true)
-    List<IntegracaoOdontoprevBeneficiarioExclusao> findByCodigoEmpresa(@Param("codigoEmpresa") String codigoEmpresa);
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE CDEMPRESA = :cdEmpresa ORDER BY CDEMPRESA", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiarioExclusao> findByCdEmpresa(@Param("cdEmpresa") String cdEmpresa);
 
     /**
      * BUSCA BENEFICIÁRIOS POR ID DO MOTIVO DE INATIVAÇÃO
@@ -58,12 +51,8 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      * @param idMotivo ID do motivo de inativação
      * @return lista de beneficiários com o motivo especificado
      */
-    @Query(value = "SELECT DISTINCT CODIGOMATRICULA, CDASSOCIADO, CDEMPRESA, CDUSUARIO, " +
-                   "DATAINATIVACAO, EMAIL, IDMOTIVO, NOME " +
-                   "FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC " +
-                   "WHERE IDMOTIVO = :idMotivo " +
-                   "ORDER BY CODIGOMATRICULA", nativeQuery = true)
-    List<IntegracaoOdontoprevBeneficiarioExclusao> findByIdMotivo(@Param("idMotivo") Integer idMotivo);
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE IDMOTIVO = :idMotivo ORDER BY CDEMPRESA", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiarioExclusao> findByIdMotivo(@Param("idMotivo") Long idMotivo);
 
     /**
      * BUSCA TODOS OS BENEFICIÁRIOS (SEM LIMITE)
@@ -72,10 +61,7 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      *
      * @return lista de todos os beneficiários
      */
-    @Query(value = "SELECT CODIGOMATRICULA, CDASSOCIADO, CDEMPRESA, CDUSUARIO, " +
-                   "DATAINATIVACAO, EMAIL, IDMOTIVO, NOME " +
-                   "FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC " +
-                   "ORDER BY CODIGOMATRICULA", nativeQuery = true)
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC ORDER BY CDEMPRESA", nativeQuery = true)
     List<IntegracaoOdontoprevBeneficiarioExclusao> findWithLimit();
 
     /**
@@ -86,12 +72,8 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      * @param codigoEmpresa código da empresa
      * @return lista de beneficiários da empresa
      */
-    @Query(value = "SELECT CODIGOMATRICULA, CDASSOCIADO, CDEMPRESA, CDUSUARIO, " +
-                   "DATAINATIVACAO, EMAIL, IDMOTIVO, NOME " +
-                   "FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC " +
-                   "WHERE CDEMPRESA = :codigoEmpresa " +
-                   "ORDER BY CODIGOMATRICULA", nativeQuery = true)
-    List<IntegracaoOdontoprevBeneficiarioExclusao> findByCodigoEmpresaWithLimit(@Param("codigoEmpresa") String codigoEmpresa);
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE CDEMPRESA = :cdEmpresa ORDER BY CDEMPRESA", nativeQuery = true)
+    List<IntegracaoOdontoprevBeneficiarioExclusao> findByCdEmpresaWithLimit(@Param("cdEmpresa") String cdEmpresa);
 
     /**
      * CONTA TOTAL DE BENEFICIÁRIOS PENDENTES DE EXCLUSÃO
@@ -100,7 +82,7 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      *
      * @return quantidade total de beneficiários pendentes
      */
-    @Query(value = "SELECT COUNT(DISTINCT CODIGOMATRICULA) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC", nativeQuery = true)
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC", nativeQuery = true)
     long count();
 
     /**
@@ -111,8 +93,8 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      * @param codigoEmpresa código da empresa
      * @return quantidade de beneficiários da empresa
      */
-    @Query(value = "SELECT COUNT(DISTINCT CODIGOMATRICULA) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE CDEMPRESA = :codigoEmpresa", nativeQuery = true)
-    long countByCodigoEmpresa(@Param("codigoEmpresa") String codigoEmpresa);
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE CDEMPRESA = :cdEmpresa", nativeQuery = true)
+    long countByCdEmpresa(@Param("cdEmpresa") String cdEmpresa);
 
     /**
      * CONTA BENEFICIÁRIOS POR ID DO MOTIVO DE INATIVAÇÃO
@@ -122,8 +104,8 @@ public interface IntegracaoOdontoprevBeneficiarioExclusaoRepository extends JpaR
      * @param idMotivo ID do motivo de inativação
      * @return quantidade de beneficiários com o motivo
      */
-    @Query(value = "SELECT COUNT(DISTINCT CODIGOMATRICULA) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE IDMOTIVO = :idMotivo", nativeQuery = true)
-    long countByIdMotivo(@Param("idMotivo") Integer idMotivo);
+    @Query(value = "SELECT COUNT(*) FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_EXC WHERE IDMOTIVO = :idMotivo", nativeQuery = true)
+    long countByIdMotivo(@Param("idMotivo") Long idMotivo);
 
     /**
      * BUSCA BENEFICIÁRIOS POR CÓDIGO DE MATRÍCULA
