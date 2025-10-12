@@ -172,153 +172,28 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
         }
     }
     
-    /**
-     * PREENCHE CAMPOS OBRIGATÓRIOS QUE NÃO EXISTEM NA VIEW
-     *
-     * A view VW_INTEGRACAO_ODONTOPREV_ALT não possui todos os campos
-     * obrigatórios da API. Este método preenche os campos faltantes
-     * com valores padrão ou dados derivados.
-     */
-    private void preencherCamposObrigatorios(EmpresaAlteracaoRequest request, IntegracaoOdontoprev dadosEmpresa) {
-        log.debug("🔧 [ALTERAÇÃO EMPRESA] Iniciando preenchimento de campos obrigatórios...");
-        
-        // Log dos campos antes do preenchimento
-        log.debug("🔍 [ALTERAÇÃO EMPRESA] Estado inicial do request:");
-        log.debug("   codigoEmpresa: '{}'", request.getCodigoEmpresa());
-        log.debug("   endereco: {}", request.getEndereco() != null ? "PRESENTE" : "AUSENTE");
-        log.debug("   telefone: {}", request.getTelefone() != null ? "PRESENTE" : "AUSENTE");
-        log.debug("   codigoUsuario: '{}'", request.getCodigoUsuario());
-        log.debug("   grausParentesco: {}", request.getGrausParentesco() != null ? "PRESENTE" : "AUSENTE");
-        
-        // Preencher endereço obrigatório com dados padrão
-        if (request.getEndereco() == null) {
-            log.debug("🔧 [ALTERAÇÃO EMPRESA] Preenchendo endereço padrão...");
-            request.setEndereco(EmpresaAlteracaoRequest.Endereco.builder()
-                .descricao("Endereço não informado")
-                .complemento("")
-                .tipoLogradouro("R") // Tipo logradouro válido
-                .logradouro("Rua das Flores")
-                .numero("123")
-                .bairro("Centro")
-                .cidade(EmpresaAlteracaoRequest.Cidade.builder()
-                    .codigo(1) // Código simples
-                    .nome("São Paulo")
-                    .siglaUf("SP")
-                    .codigoPais(1) // Brasil
-                    .build())
-                .cep("01000-000")
-                .build());
-            log.debug("✅ [ALTERAÇÃO EMPRESA] Endereço padrão preenchido");
-        } else {
-            log.debug("✅ [ALTERAÇÃO EMPRESA] Endereço já presente, mantendo original");
-        }
-
-        // Preencher telefone se não existir
-        if (request.getTelefone() == null) {
-            log.debug("🔧 [ALTERAÇÃO EMPRESA] Preenchendo telefone padrão...");
-            request.setTelefone(EmpresaAlteracaoRequest.Telefone.builder()
-                .telefone1("(11) 0000-0000")
-                .telefone2("")
-                .celular("")
-                .fax("")
-                .build());
-            log.debug("✅ [ALTERAÇÃO EMPRESA] Telefone padrão preenchido");
-        } else {
-            log.debug("✅ [ALTERAÇÃO EMPRESA] Telefone já presente, mantendo original");
-        }
-
-        // Garantir que campos obrigatórios estejam preenchidos
-        if (request.getCodigoEmpresa() == null || request.getCodigoEmpresa().trim().isEmpty()) {
-            log.debug("🔧 [ALTERAÇÃO EMPRESA] Preenchendo codigoEmpresa com valor da entidade: '{}'", dadosEmpresa.getCodigoEmpresa());
-            request.setCodigoEmpresa(dadosEmpresa.getCodigoEmpresa());
-        } else {
-            log.debug("✅ [ALTERAÇÃO EMPRESA] codigoEmpresa já preenchido: '{}'", request.getCodigoEmpresa());
-        }
-
-        if (request.getCodigoUsuario() == null || request.getCodigoUsuario().trim().isEmpty()) {
-            log.debug("🔧 [ALTERAÇÃO EMPRESA] Preenchendo codigoUsuario com valor padrão: '0'");
-            request.setCodigoUsuario("0");
-        } else {
-            log.debug("✅ [ALTERAÇÃO EMPRESA] codigoUsuario já preenchido: '{}'", request.getCodigoUsuario());
-        }
-
-        // Preencher lista de graus de parentesco padrão
-        if (request.getGrausParentesco() == null || request.getGrausParentesco().isEmpty()) {
-            log.debug("🔧 [ALTERAÇÃO EMPRESA] Preenchendo grausParentesco padrão...");
-            request.setGrausParentesco(java.util.Collections.singletonList(
-                EmpresaAlteracaoRequest.GrauParentesco.builder()
-                    .codigoGrauParentesco(1) // Cônjuge
-                    .build()
-            ));
-            log.debug("✅ [ALTERAÇÃO EMPRESA] grausParentesco padrão preenchido");
-        } else {
-            log.debug("✅ [ALTERAÇÃO EMPRESA] grausParentesco já presente, mantendo original");
-        }
-
-        // Log dos campos após o preenchimento
-        log.debug("🔍 [ALTERAÇÃO EMPRESA] Estado final do request:");
-        log.debug("   codigoEmpresa: '{}'", request.getCodigoEmpresa());
-        log.debug("   endereco: {}", request.getEndereco() != null ? "PRESENTE" : "AUSENTE");
-        log.debug("   telefone: {}", request.getTelefone() != null ? "PRESENTE" : "AUSENTE");
-        log.debug("   codigoUsuario: '{}'", request.getCodigoUsuario());
-        log.debug("   grausParentesco: {}", request.getGrausParentesco() != null ? "PRESENTE" : "AUSENTE");
-        
-        log.debug("✅ [ALTERAÇÃO EMPRESA] Campos obrigatórios preenchidos para empresa: {}", 
-                 request.getCodigoEmpresa());
-    }
     
     /**
      * CRIA REQUEST MÍNIMO COM APENAS CAMPOS MODIFICADOS
      *
      * Envia apenas os campos que realmente mudaram, evitando problemas
      * de validação com campos que não devem ser alterados.
+     * Agora usa o mapper para aproveitar os dados de endereço da view.
      */
     private EmpresaAlteracaoRequest criarRequestMinimo(IntegracaoOdontoprev dadosEmpresa) {
         log.debug("🔧 [ALTERAÇÃO EMPRESA] Criando request mínimo para empresa: {}", dadosEmpresa.getCodigoEmpresa());
         
-        // Cria request com APENAS campos obrigatórios + modificados
-        EmpresaAlteracaoRequest request = EmpresaAlteracaoRequest.builder()
-            .codigoEmpresa(dadosEmpresa.getCodigoEmpresa()) // OBRIGATÓRIO
-            .nomeFantasia(dadosEmpresa.getNomeFantasia()) // MODIFICADO
-            .dataVigencia(dadosEmpresa.getDataVigencia() != null ? 
-                dadosEmpresa.getDataVigencia().atStartOfDay() : null) // MODIFICADO
-            .codigoUsuario("0") // OBRIGATÓRIO - valor padrão (IntegracaoOdontoprev não tem codUsuario)
-            .endereco(createEnderecoPadrao()) // OBRIGATÓRIO - endereço padrão
-            .build();
+        // Usa o mapper para criar o request com dados da view
+        EmpresaAlteracaoRequest request = empresaAlteracaoMapper.toAlteracaoRequest(dadosEmpresa);
         
         log.debug("✅ [ALTERAÇÃO EMPRESA] Request mínimo criado com campos:");
         log.debug("   codigoEmpresa: '{}'", request.getCodigoEmpresa());
         log.debug("   nomeFantasia: '{}'", request.getNomeFantasia());
         log.debug("   dataVigencia: {}", request.getDataVigencia());
         log.debug("   codigoUsuario: '{}'", request.getCodigoUsuario());
+        log.debug("   endereco: {}", request.getEndereco() != null ? "PRESENTE" : "AUSENTE");
         
         return request;
     }
     
-    /**
-     * CRIA ENDEREÇO PADRÃO VÁLIDO
-     *
-     * Cria um endereço padrão com dados válidos para evitar
-     * erros de validação da API.
-     */
-    private EmpresaAlteracaoRequest.Endereco createEnderecoPadrao() {
-        log.debug("🔧 [ALTERAÇÃO EMPRESA] Criando endereço padrão...");
-        
-        return EmpresaAlteracaoRequest.Endereco.builder()
-            .descricao("Endereço padrão")
-            .complemento("")
-            .tipoLogradouro("R") // Tipo logradouro simples
-            .logradouro("Rua das Flores")
-            .numero("123")
-            .bairro("Centro")
-            .cidade(EmpresaAlteracaoRequest.Cidade.builder()
-                .codigo(1) // Código simples
-                .nome("São Paulo")
-                .siglaUf("SP")
-                .codigoPais(1) // Brasil
-                .build())
-            .cep("01000-000")
-            .build();
-    }
-
 }

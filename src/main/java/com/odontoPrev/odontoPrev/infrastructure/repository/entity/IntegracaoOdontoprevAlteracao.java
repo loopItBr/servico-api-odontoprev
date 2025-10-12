@@ -256,6 +256,71 @@ public class IntegracaoOdontoprevAlteracao {
     @Column(name = "NUMERO_PARCELAS", nullable = true)
     private String numeroParcelas;
 
+    // === CAMPOS DE ENDEREÇO ===
+    
+    /**
+     * TIPO DE LOGRADOURO
+     * Código que identifica o tipo de logradouro (Rua, Avenida, etc.)
+     */
+    @Column(name = "TIPOLOGRADOURO", nullable = true)
+    private Long tipoLogradouro;
+
+    /**
+     * NOME DO LOGRADOURO
+     * Nome da rua, avenida, etc.
+     */
+    @Column(name = "LOGRADOURO", nullable = true, length = 4000)
+    private String logradouro;
+
+    /**
+     * NÚMERO DO ENDEREÇO
+     * Número do imóvel
+     */
+    @Column(name = "NUMERO", nullable = true, length = 4000)
+    private String numero;
+
+    /**
+     * BAIRRO
+     * Nome do bairro
+     */
+    @Column(name = "BAIRRO", nullable = true, length = 4000)
+    private String bairro;
+
+    /**
+     * CÓDIGO DA CIDADE
+     * Código identificador da cidade
+     */
+    @Column(name = "CODIGOCIDADE", nullable = true, length = 6)
+    private String codigoCidade;
+
+    /**
+     * NOME DA CIDADE
+     * Nome da cidade
+     */
+    @Column(name = "CIDADE", nullable = true, length = 4000)
+    private String cidade;
+
+    /**
+     * SIGLA DO ESTADO (UF)
+     * Sigla do estado (SP, RJ, MG, etc.)
+     */
+    @Column(name = "SIGLAUF", nullable = true, length = 4000)
+    private String siglaUf;
+
+    /**
+     * CÓDIGO DO PAÍS
+     * Código identificador do país
+     */
+    @Column(name = "CODIGOPAIS", nullable = true)
+    private Long codigoPais;
+
+    /**
+     * CEP
+     * Código de Endereçamento Postal
+     */
+    @Column(name = "CEP", nullable = true, length = 4000)
+    private String cep;
+
     /**
      * CÓDIGO DO USUÁRIO
      * 

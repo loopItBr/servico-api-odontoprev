@@ -9,8 +9,6 @@ import org.mapstruct.Named;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Collections;
 
 /**
  * MAPPER PARA CONVERSÃO DE EMPRESA PARA ALTERAÇÃO
@@ -33,7 +31,7 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "nomeFantasia", source = "nomeFantasia") // MODIFICADO
     @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "localDateToLocalDateTime") // MODIFICADO
     @Mapping(target = "codigoUsuario", source = "codUsuario") // OBRIGATÓRIO - da view
-    @Mapping(target = "endereco", ignore = true) // OBRIGATÓRIO - será preenchido com dados padrão
+    @Mapping(target = "endereco", source = ".", qualifiedByName = "createEnderecoFromView") // OBRIGATÓRIO - criado a partir da view
     // TODOS OS OUTROS CAMPOS SÃO IGNORADOS
     @Mapping(target = "razaoSocial", ignore = true)
     @Mapping(target = "emiteCarteirinhaPlastica", ignore = true)
@@ -83,7 +81,7 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "nomeFantasia", source = "nomeFantasia") // MODIFICADO
     @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "localDateToLocalDateTime") // MODIFICADO
     @Mapping(target = "codigoUsuario", constant = "0") // OBRIGATÓRIO - valor padrão (IntegracaoOdontoprev não tem codUsuario)
-    @Mapping(target = "endereco", ignore = true) // OBRIGATÓRIO - será preenchido com dados padrão
+    @Mapping(target = "endereco", source = ".", qualifiedByName = "createEnderecoFromBase") // OBRIGATÓRIO - criado a partir da entidade base
     // TODOS OS OUTROS CAMPOS SÃO IGNORADOS
     @Mapping(target = "razaoSocial", ignore = true)
     @Mapping(target = "emiteCarteirinhaPlastica", ignore = true)
@@ -154,6 +152,76 @@ public interface EmpresaAlteracaoMapper {
     @Named("longToString")
     default String longToString(Long value) {
         return value != null ? value.toString() : null;
+    }
+
+    /**
+     * CRIA ENDEREÇO A PARTIR DOS DADOS DA VIEW
+     * 
+     * Constrói o objeto Endereco usando os campos de endereço
+     * disponíveis na view de alteração.
+     */
+    @Named("createEnderecoFromView")
+    default EmpresaAlteracaoRequest.Endereco createEnderecoFromView(IntegracaoOdontoprevAlteracao view) {
+        if (view == null) {
+            return createEnderecoPadrao();
+        }
+
+        // Se não há dados de endereço na view, usa endereço padrão
+        if (view.getLogradouro() == null || view.getLogradouro().trim().isEmpty()) {
+            return createEnderecoPadrao();
+        }
+
+        return EmpresaAlteracaoRequest.Endereco.builder()
+            .descricao("Endereço da empresa")
+            .complemento("")
+            .tipoLogradouro(view.getTipoLogradouro() != null ? view.getTipoLogradouro().toString() : "R")
+            .logradouro(view.getLogradouro())
+            .numero(view.getNumero() != null ? view.getNumero() : "S/N")
+            .bairro(view.getBairro() != null ? view.getBairro() : "Centro")
+            .cidade(EmpresaAlteracaoRequest.Cidade.builder()
+                .codigo(3670) // Código padrão da cidade
+                .nome(view.getCidade() != null ? view.getCidade() : "São Paulo")
+                .siglaUf(view.getSiglaUf() != null ? view.getSiglaUf() : "SP")
+                .codigoPais(view.getCodigoPais() != null ? view.getCodigoPais().intValue() : 1)
+                .build())
+            .cep(view.getCep() != null ? view.getCep() : "01000-000")
+            .build();
+    }
+
+    /**
+     * CRIA ENDEREÇO A PARTIR DA ENTIDADE BASE
+     * 
+     * Para a entidade IntegracaoOdontoprev (que não tem campos de endereço),
+     * sempre retorna endereço padrão.
+     */
+    @Named("createEnderecoFromBase")
+    default EmpresaAlteracaoRequest.Endereco createEnderecoFromBase(IntegracaoOdontoprev empresa) {
+        return createEnderecoPadrao();
+    }
+
+
+
+    /**
+     * CRIA ENDEREÇO PADRÃO
+     * 
+     * Usado quando não há dados de endereço na view.
+     */
+    default EmpresaAlteracaoRequest.Endereco createEnderecoPadrao() {
+        return EmpresaAlteracaoRequest.Endereco.builder()
+            .descricao("Endereço padrão")
+            .complemento("")
+            .tipoLogradouro("R")
+            .logradouro("Rua das Flores")
+            .numero("123")
+            .bairro("Centro")
+            .cidade(EmpresaAlteracaoRequest.Cidade.builder()
+                .codigo(1)
+                .nome("São Paulo")
+                .siglaUf("SP")
+                .codigoPais(1)
+                .build())
+            .cep("01000-000")
+            .build();
     }
 
 }
