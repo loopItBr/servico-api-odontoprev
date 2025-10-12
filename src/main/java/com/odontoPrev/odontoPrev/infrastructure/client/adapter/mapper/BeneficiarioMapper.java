@@ -3,7 +3,7 @@ package com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper;
 import com.odontoPrev.odontoPrev.domain.entity.BeneficiarioOdontoprev;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioAlteracaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoRequest;
-import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInativacaoRequest;
+// import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInativacaoRequest;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -169,6 +169,7 @@ public interface BeneficiarioMapper {
      * - nome (mapeado de nomeBeneficiario)
      * - idMotivo (mapeado de idMotivoInativacao)
      */
+    /*
     @Mapping(target = "cdEmpresa", source = "codigoEmpresa")
     @Mapping(target = "cdUsuario", constant = "PONTETECH")
     @Mapping(target = "cdMatricula", source = "codigoMatricula")
@@ -179,6 +180,7 @@ public interface BeneficiarioMapper {
     @Mapping(target = "dataInativacao", source = "dataInativacao", qualifiedByName = "localDateToString")
     @Mapping(target = "email", source = "email")
     BeneficiarioInativacaoRequest toInativacaoRequest(BeneficiarioOdontoprev beneficiario);
+    */
 
     /**
      * MÉTODO AUXILIAR PARA CONVERSÃO DE DATA

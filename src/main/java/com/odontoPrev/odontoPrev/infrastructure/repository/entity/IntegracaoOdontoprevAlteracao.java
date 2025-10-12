@@ -255,4 +255,13 @@ public class IntegracaoOdontoprevAlteracao {
 
     @Column(name = "NUMERO_PARCELAS", nullable = true)
     private String numeroParcelas;
+
+    /**
+     * CÓDIGO DO USUÁRIO
+     * 
+     * Código do usuário responsável pela alteração da empresa.
+     * Este campo é usado na API de alteração da OdontoPrev.
+     */
+    @Column(name = "CODUSUARIO", nullable = true, length = 20)
+    private String codUsuario;
 }

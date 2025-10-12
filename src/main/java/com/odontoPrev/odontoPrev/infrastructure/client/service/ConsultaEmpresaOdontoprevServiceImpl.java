@@ -63,7 +63,7 @@ public class ConsultaEmpresaOdontoprevServiceImpl implements ConsultaEmpresaOdon
         
         return response;
     }
-
+    
     @Recover
     public EmpresaResponse recover(FeignException e, String codigoEmpresa) {
         log.error("Não foi possível buscar a empresa {} após múltiplas tentativas. Falha definitiva.", codigoEmpresa, e);

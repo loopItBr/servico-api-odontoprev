@@ -91,7 +91,7 @@ odontoprev:
     empresa:
       enabled: true
     beneficiario:
-      enabled: true
+      enabled: false
 
   sync:
     # Configurações para processamento de empresas
