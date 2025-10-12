@@ -15,8 +15,8 @@ import java.time.LocalDate;
  * ENTIDADE QUE REPRESENTA OS DADOS DE EXCLUSÃO DE EMPRESAS PARA INTEGRAÇÃO COM ODONTOPREV
  * 
  * FUNÇÃO PRINCIPAL:
- * Esta classe representa a VIEW VW_INTEGRACAO_ODONTOPREV_EXC que consolida todas as
- * informações sobre empresas que foram inativadas/excluídas e precisam ser
+ * Esta classe representa a VIEW VW_INTEGRACAO_ODONTOPREV_EXC que contém informações
+ * básicas sobre empresas que foram inativadas/excluídas e precisam ser
  * removidas da OdontoPrev.
  * 
  * IMPORTANTE - É UMA VIEW, NÃO UMA TABELA:
@@ -31,14 +31,16 @@ import java.time.LocalDate;
  * - Identifica empresas que precisam ser removidas da OdontoPrev
  * 
  * ESTRUTURA DOS DADOS:
- * A view consolida informações de:
- * 1. EMPRESA: código, CNPJ, nome fantasia, datas de contrato
- * 2. PLANOS: códigos, descrições, valores, datas de vigência
- * 3. COBRANÇA: tipo, banco, parcelas (atualmente NULL)
+ * A view contém apenas informações básicas:
+ * 1. SISTEMA: identificador do sistema
+ * 2. CODIGOUSUARIO: código do usuário
+ * 3. CODIGO_EMPRESA: código da empresa
+ * 4. CODIGOMOTIVOFIMEMPRESA: motivo do fim da empresa
+ * 5. DATA_FIM_CONTRATO: data de fim do contrato
  * 
  * USO NO SISTEMA:
  * 1. Sistema consulta esta view para obter lista de empresas excluídas
- * 2. Para cada empresa, busca seus dados completos
+ * 2. Para cada empresa, busca seus dados completos em outras views
  * 3. Envia requisição de exclusão para API da OdontoPrev
  * 4. Salva controle do que foi enviado com tipo_controle = 3
  */
@@ -49,6 +51,23 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class IntegracaoOdontoprevExclusao {
+
+    /**
+     * IDENTIFICADOR DO SISTEMA
+     * 
+     * Código que identifica o sistema de origem dos dados.
+     * Campo de 4 caracteres.
+     */
+    @Column(name = "SISTEMA", nullable = true, length = 4)
+    private String sistema;
+
+    /**
+     * CÓDIGO DO USUÁRIO
+     * 
+     * Identificador do usuário responsável pela operação.
+     */
+    @Column(name = "CODIGOUSUARIO", nullable = true)
+    private Long codigoUsuario;
 
     /**
      * CÓDIGO ÚNICO DA EMPRESA NO SISTEMA TASY
@@ -66,194 +85,20 @@ public class IntegracaoOdontoprevExclusao {
     private String codigoEmpresa;
 
     /**
-     * CNPJ DA EMPRESA (CADASTRO NACIONAL DE PESSOA JURÍDICA)
+     * CÓDIGO DO MOTIVO DO FIM DA EMPRESA
      * 
-     * Documento oficial que identifica a empresa junto à Receita Federal.
-     * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
-     * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
+     * Identifica o motivo pelo qual a empresa foi inativada/excluída.
+     * Exemplos: 1=Encerramento de contrato, 2=Inadimplência, etc.
      */
-    @Column(name = "CNPJ", nullable = true, length = 14)
-    @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
-             message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
-    private String cnpj;
-
-    /**
-     * CÓDIGO DA EMPRESA NA OPERADORA ODONTOPREV
-     * 
-     * Quando a empresa já existe na OdontoPrev, ela recebe um código específico
-     * deles. Este campo armazena esse código para futuras sincronizações.
-     * Campo opcional porque empresas novas ainda não têm código na operadora.
-     */
-    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true, length = 6)
-    private String codigoClienteOperadora;
-
-    /**
-     * NOME COMERCIAL DA EMPRESA
-     * 
-     * Nome pelo qual a empresa é conhecida no mercado.
-     * Exemplo: "Sabin Medicina Diagnóstica", "Laboratório ABC Ltda"
-     */
-    @Column(name = "NOME_FANTASIA", nullable = true, length = 80)
-    private String nomeFantasia;
-
-    /**
-     * DATA DE INÍCIO DO CONTRATO COM A EMPRESA
-     * Quando começou a vigência do contrato odontológico
-     */
-    @Column(name = "DATA_INICIO_CONTRATO", nullable = true)
-    private LocalDate dataInicioContrato;
+    @Column(name = "CODIGOMOTIVOFIMEMPRESA", nullable = true)
+    private Long codigoMotivoFimEmpresa;
 
     /**
      * DATA DE FIM DO CONTRATO COM A EMPRESA
-     * Quando termina a vigência do contrato odontológico
+     * 
+     * Quando termina a vigência do contrato odontológico.
+     * Esta é a data oficial de encerramento da relação comercial.
      */
     @Column(name = "DATA_FIM_CONTRATO", nullable = true)
     private LocalDate dataFimContrato;
-
-    /**
-     * DATA DE VIGÊNCIA ATUAL DO CONTRATO
-     * Data de referência para cálculos e cobranças
-     */
-    @Column(name = "DATA_VIGENCIA", nullable = true)
-    private LocalDate dataVigencia;
-
-    /**
-     * INDICA SE É EMPRESA PESSOA FÍSICA
-     * true = pessoa física, false = pessoa jurídica
-     */
-    @Column(name = "EMPRESA_PF", nullable = true, length = 60)
-    private String empresaPf;
-
-    /**
-     * CÓDIGO DO GRUPO GERENCIAL
-     * Identifica o grupo administrativo da empresa
-     */
-    @Column(name = "CODIGO_GRUPO_GERENCIAL", nullable = true)
-    private Long codigoGrupoGerencial;
-
-    /**
-     * CÓDIGO DA MARCA
-     * Identifica a marca comercial da empresa
-     */
-    @Column(name = "CODIGO_MARCA", nullable = true)
-    private String codigoMarca;
-
-    /**
-     * CÓDIGO DA CÉLULA
-     * Identifica a célula de negócio da empresa
-     */
-    @Column(name = "CODIGO_CELULA", nullable = true)
-    private String codigoCelula;
-
-    /**
-     * NÚMERO DE VIDAS ATIVAS DA EMPRESA
-     * Quantos funcionários estão ativos no plano odontológico
-     */
-    @Column(name = "VIDAS_ATIVAS", nullable = true)
-    private Long vidasAtivas;
-
-    /**
-     * VALOR DO ÚLTIMO FATURAMENTO DA EMPRESA
-     * Quanto a empresa pagou na última cobrança.
-     * Usado para análises financeiras e de risco.
-     */
-    @Column(name = "VALOR_ULTIMO_FATURAMENTO", nullable = true)
-    private String valorUltimoFaturamento;
-
-    /**
-     * ÍNDICE DE SINISTRALIDADE DA EMPRESA
-     * Relação entre o que a empresa paga e o que gasta em tratamentos.
-     * Sinistralidade alta = empresa gasta mais do que paga.
-     */
-    @Column(name = "SINISTRALIDADE", nullable = true)
-    private String sinistralidade;
-
-    /**
-     * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO
-     * Código único que identifica o plano contratado pela empresa
-     */
-    @Column(name = "CODIGO_PLANO", nullable = true, length = 40)
-    private String codigoPlano;
-
-    /**
-     * DESCRIÇÃO DETALHADA DO PLANO
-     * Nome completo e características do plano odontológico
-     */
-    @Column(name = "DESCRICAO_PLANO", nullable = true)
-    private String descricaoPlano;
-
-    /**
-     * NOME COMERCIAL DO PLANO
-     * Nome simplificado usado para divulgação
-     */
-    @Column(name = "NOME_FANTASIA_PLANO", nullable = true)
-    private String nomeFantasiaPlano;
-
-    /**
-     * REGISTRO NA ANS (AGÊNCIA NACIONAL DE SAÚDE SUPLEMENTAR)
-     * Número oficial do plano junto ao órgão regulador
-     */
-    @Column(name = "NUMERO_REGISTRO_ANS", nullable = true)
-    private String numeroRegistroAns;
-
-    /**
-     * SIGLA OU ABREVIAÇÃO DO PLANO
-     * Identificação curta do plano (ex: "BAS", "PREM", "EXEC")
-     */
-    @Column(name = "SIGLA_PLANO", nullable = true)
-    private String siglaPlano;
-
-    /**
-     * VALOR MENSAL POR TITULAR DO PLANO
-     * Quanto cada funcionário principal da empresa paga mensalmente
-     */
-    @Column(name = "VALOR_TITULAR", nullable = true)
-    private String valorTitular;
-
-    /**
-     * VALOR MENSAL POR DEPENDENTE
-     * Quanto cada dependente (cônjuge, filhos) custa mensalmente
-     */
-    @Column(name = "VALOR_DEPENDENTE", nullable = true)
-    private String valorDependente;
-
-    // Datas de vigência específicas do plano
-    @Column(name = "DATA_INICIO_PLANO", nullable = true)
-    private LocalDate dataInicioPlano;
-
-    @Column(name = "DATA_FIM_PLANO", nullable = true)
-    private LocalDate dataFimPlano;
-
-    /**
-     * CO-PARTICIPAÇÃO DO PLANO
-     * Percentual que o beneficiário paga em cada procedimento
-     */
-    @Column(name = "CO_PARTICIPACAO", nullable = true, length = 1)
-    private String coParticipacao;
-
-    /**
-     * TIPO DE NEGOCIAÇÃO DO PLANO
-     * Como foi negociado o plano (individual, coletivo, etc.)
-     */
-    @Column(name = "TIPO_NEGOCIACAO", nullable = true, length = 2)
-    private String tipoNegociacao;
-
-    // Campos de cobrança (atualmente NULL na view)
-    @Column(name = "CODIGO_TIPO_COBRANCA", nullable = true)
-    private String codigoTipoCobranca;
-
-    @Column(name = "NOME_TIPO_COBRANCA", nullable = true)
-    private String nomeTipoCobranca;
-
-    @Column(name = "SIGLA_TIPO_COBRANCA", nullable = true)
-    private String siglaTipoCobranca;
-
-    @Column(name = "NUMERO_BANCO", nullable = true)
-    private String numeroBanco;
-
-    @Column(name = "NOME_BANCO", nullable = true)
-    private String nomeBanco;
-
-    @Column(name = "NUMERO_PARCELAS", nullable = true)
-    private String numeroParcelas;
 }

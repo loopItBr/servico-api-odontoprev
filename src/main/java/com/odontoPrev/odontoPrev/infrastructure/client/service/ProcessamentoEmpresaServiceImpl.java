@@ -67,6 +67,9 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     // Serviço para chamar API da OdontoPrev
     private final ConsultaEmpresaOdontoprevService consultaEmpresaService;
     
+    // Serviço para ativação do plano da empresa
+    private final AtivacaoPlanoEmpresaService ativacaoPlanoEmpresaService;
+    
     // Conversor JSON para serializar respostas da API
     private final ObjectMapper objectMapper;
 
@@ -100,7 +103,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             return; // Se não encontrou dados, para aqui
         }
         
-        // PASSO 2: Cria registro de controle para auditoria
+        // PASSO 2: Cria ou atualiza registro de controle para auditoria
+        log.info("🔍 [EMPRESA] Verificando se já existe registro de controle para empresa {}", codigoEmpresa);
         ControleSync controleSync = criarEMSalvarControleSync(codigoEmpresa, dadosCompletos);
         
         // PASSO 3: Chama API da OdontoPrev e processa resultado
@@ -150,11 +154,17 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
      * temos registro do que foi tentado, mesmo se der erro na API.
      */
     private ControleSync criarEMSalvarControleSync(String codigoEmpresa, IntegracaoOdontoprev dadosCompletos) {
-        // Cria objeto de controle com dados da empresa
+        // Cria ou atualiza objeto de controle com dados da empresa
         ControleSync controleSync = gerenciadorControleSync.criarControle(codigoEmpresa, dadosCompletos);
         
         // Salva no banco e retorna com ID gerado
-        return gerenciadorControleSync.salvar(controleSync);
+        ControleSync controleSalvo = gerenciadorControleSync.salvar(controleSync);
+        
+        log.info("📝 [EMPRESA] Registro de controle processado - ID: {}, Status: {}, Tipo: {}", 
+                controleSalvo.getId(), controleSalvo.getStatusSync(),
+                controleSalvo.getId() != null ? "ATUALIZAÇÃO" : "CRIAÇÃO");
+        
+        return controleSalvo;
     }
 
     /**
@@ -207,6 +217,7 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
      * 1. Converte resposta para JSON (para armazenamento)
      * 2. Atualiza controle com dados de sucesso
      * 3. Salva controle atualizado no banco
+     * 4. ATIVA O PLANO DA EMPRESA automaticamente
      * 
      * TRATAMENTO DE ERRO NA SERIALIZAÇÃO:
      * Mesmo que a API tenha dado certo, pode dar erro na conversão para JSON.
@@ -222,6 +233,19 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             
             // Salva controle com informações de sucesso
             gerenciadorControleSync.salvar(controleSync);
+            
+            // 🚀 NOVA FUNCIONALIDADE: Ativar plano da empresa após sincronização bem-sucedida
+            log.info("🎯 [SINCRONIZAÇÃO] Empresa {} sincronizada com sucesso, iniciando ativação do plano", 
+                    controleSync.getCodigoEmpresa());
+            
+            // Buscar dados completos da empresa para ativação
+            IntegracaoOdontoprev dadosEmpresa = buscarDadosEmpresaOuSair(controleSync.getCodigoEmpresa());
+            if (dadosEmpresa != null) {
+                ativacaoPlanoEmpresaService.ativarPlanoEmpresa(dadosEmpresa);
+            } else {
+                log.warn("⚠️ [ATIVAÇÃO PLANO] Não foi possível obter dados da empresa {} para ativação do plano", 
+                        controleSync.getCodigoEmpresa());
+            }
             
         } catch (Exception e) {
             // Erro na conversão para JSON (raro, mas pode acontecer)

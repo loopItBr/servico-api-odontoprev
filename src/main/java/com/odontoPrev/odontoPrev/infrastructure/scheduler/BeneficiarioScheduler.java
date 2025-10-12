@@ -41,8 +41,8 @@ import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.Tip
  * - 09:25 - Nova sincronização em andamento
  *
  * CONFIGURAÇÃO:
- * O agendamento é controlado pela propriedade:
- * odontoprev.sync.beneficiario.cron=0 45 * * * *  (a cada 45 minutos)
+ * O agendamento está configurado para executar a cada 15 segundos.
+ * Este scheduler roda DEPOIS do scheduler de empresas.
  *
  * COMPONENTES PRINCIPAIS:
  * - SincronizacaoCompletaBeneficiarioService: faz o trabalho real de sincronização
@@ -92,16 +92,18 @@ public class BeneficiarioScheduler {
      * @Scheduled = Spring executa automaticamente conforme cron
      * @MonitorarOperacao = Adiciona logs e monitoramento automático
      *
-     * CRON PARA BENEFICIÁRIOS:
-     * Configurado separadamente do scheduler de empresas para permitir
-     * frequências diferentes conforme necessidade do negócio.
+     * TIMING PARA BENEFICIÁRIOS:
+     * @Scheduled(fixedRate = 15000) significa:
+     * - Executa a cada 15 segundos (15000ms)
+     * - Roda DEPOIS do scheduler de empresas
+     * - Processa beneficiários (adições, alterações, exclusões)
      *
      * DIFERENÇA DO EMPRESA SCHEDULER:
-     * - Intervalo de execução pode ser diferente
+     * - Intervalo de execução diferente (15s vs 10s)
      * - Logs específicos identificam como "BENEFICIARIO"
      * - Controle de execução independente (pode rodar em paralelo com empresas)
      */
-    @Scheduled(fixedRate = 10000) // Executa a cada 10 segundos
+    @Scheduled(fixedRate = 15000) // Executa a cada 15 segundos
     @MonitorarOperacao(
             operacao = "INICIALIZACAO_SCHEDULER_BENEFICIARIO",
             incluirThread = true,

@@ -71,7 +71,7 @@ public class IntegracaoOdontoprevAlteracao {
      * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
      * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
      */
-    @Column(name = "CNPJ", nullable = true, length = 18)
+    @Column(name = "CNPJ", nullable = true, length = 14)
     @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
              message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
     private String cnpj;

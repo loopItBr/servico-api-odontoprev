@@ -70,6 +70,12 @@ public class IntegracaoOdontoprevBeneficiarioAlteracao {
     private String cdAssociado;
 
     /**
+     * CÓDIGO DA MATRÍCULA DO FUNCIONÁRIO
+     */
+    @Column(name = "CODIGOMATRICULA", length = 7)
+    private String codigoMatricula;
+
+    /**
      * CÓDIGO DO PLANO ODONTOLÓGICO
      */
     @Column(name = "CODIGOPLANO")

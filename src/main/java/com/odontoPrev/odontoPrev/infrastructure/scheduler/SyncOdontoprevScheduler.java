@@ -37,8 +37,8 @@ import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.Tip
  * - 09:15 - Nova sincronização em andamento
  * 
  * CONFIGURAÇÃO:
- * O agendamento é controlado pela propriedade:
- * odontoprev.sync.cron=0 30 * * * *  (a cada 30 minutos)
+ * O agendamento está configurado para executar a cada 10 segundos.
+ * Este scheduler roda PRIMEIRO, antes do scheduler de beneficiários.
  * 
  * COMPONENTES PRINCIPAIS:
  * - SincronizacaoCompletaOdontoprevService: faz o trabalho real de sincronização completa
@@ -91,13 +91,13 @@ public class SyncOdontoprevScheduler {
      * @Scheduled = Spring executa automaticamente conforme cron
      * @MonitorarOperacao = Adiciona logs e monitoramento automático
      * 
-     * CRON EXPLICADO:
-     * "${odontoprev.sync.cron:0 * * * * *}" significa:
-     * - Usar valor da propriedade odontoprev.sync.cron
-     * - Se não estiver configurada, usar "0 * * * * *" (a cada minuto)
-     * - Formato: segundo minuto hora dia mês dia_da_semana
+ * TIMING EXPLICADO:
+ * @Scheduled(fixedRate = 10000) significa:
+ * - Executa a cada 10 segundos (10000ms)
+ * - Roda PRIMEIRO, antes do scheduler de beneficiários
+ * - Processa empresas (adições, alterações, exclusões)
      */
-    @Scheduled(fixedRate = 4000)
+    @Scheduled(fixedRate = 10000) // Executa a cada 10 segundos
     @MonitorarOperacao(
             operacao = "INICIALIZACAO_SCHEDULER",
             incluirThread = true,

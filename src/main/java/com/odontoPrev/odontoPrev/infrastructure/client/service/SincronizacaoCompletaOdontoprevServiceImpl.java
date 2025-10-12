@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.*;
 
@@ -63,9 +62,11 @@ public class SincronizacaoCompletaOdontoprevServiceImpl implements Sincronizacao
      * 
      * Coordena todo o processo de sincronização incluindo adições, alterações e exclusões.
      * Processa em ordem: exclusões → alterações → adições
+     * 
+     * NOTA: Não usa @Transactional pois é executado de forma assíncrona.
+     * Cada serviço individual gerencia suas próprias transações.
      */
     @Override
-    @Transactional
     @MonitorarOperacao(
             operacao = "SINCRONIZACAO_COMPLETA",
             excecaoEmErro = PROCESSAMENTO_LOTE
@@ -89,9 +90,11 @@ public class SincronizacaoCompletaOdontoprevServiceImpl implements Sincronizacao
      * EXECUTA SINCRONIZAÇÃO APENAS DE ALTERAÇÕES
      * 
      * Processa empresas que tiveram dados modificados e precisam ser atualizadas.
+     * 
+     * NOTA: Não usa @Transactional pois pode ser executado de forma assíncrona.
+     * Cada serviço individual gerencia suas próprias transações.
      */
     @Override
-    @Transactional
     @MonitorarOperacao(
             operacao = "SINCRONIZACAO_ALTERACOES",
             excecaoEmErro = PROCESSAMENTO_LOTE
@@ -119,9 +122,11 @@ public class SincronizacaoCompletaOdontoprevServiceImpl implements Sincronizacao
      * EXECUTA SINCRONIZAÇÃO APENAS DE EXCLUSÕES
      * 
      * Processa empresas que foram inativadas/excluídas e precisam ser removidas.
+     * 
+     * NOTA: Não usa @Transactional pois pode ser executado de forma assíncrona.
+     * Cada serviço individual gerencia suas próprias transações.
      */
     @Override
-    @Transactional
     @MonitorarOperacao(
             operacao = "SINCRONIZACAO_EXCLUSOES",
             excecaoEmErro = PROCESSAMENTO_LOTE

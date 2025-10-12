@@ -46,14 +46,13 @@ public interface IntegracaoOdontoprevExclusaoRepository extends JpaRepository<In
 
     /**
      * Busca dados de uma empresa excluída retornando apenas o primeiro registro.
-     * Otimizado com ROWNUM = 1 para melhor performance no Oracle.
+     * Usa JPQL para evitar problemas de mapeamento de colunas.
      * 
      * @param codigoEmpresa código da empresa
      * @return dados da empresa excluída
      */
-    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC WHERE CODIGO_EMPRESA = :codigoEmpresa AND ROWNUM = 1", 
-           nativeQuery = true)
-    Optional<IntegracaoOdontoprevExclusao> buscarPrimeiroDadoPorCodigoEmpresa(String codigoEmpresa);
+    @Query("SELECT i FROM IntegracaoOdontoprevExclusao i WHERE i.codigoEmpresa = :codigoEmpresa")
+    List<IntegracaoOdontoprevExclusao> buscarPrimeiroDadoPorCodigoEmpresa(String codigoEmpresa);
 
     /**
      * Busca todos os dados de uma empresa excluída.

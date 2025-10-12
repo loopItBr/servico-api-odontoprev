@@ -19,6 +19,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.Collections;
 
 import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.PROCESSAMENTO_BENEFICIARIO;
@@ -85,8 +86,9 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
             // Etapa 2: Conversão para EmpresarialModel
             EmpresarialModelInativacao empresarialModel = converterParaEmpresarialModel(beneficiario);
 
-            // Etapa 3: Criar registro de controle
-            controleSync = criarRegistroControle(beneficiario, empresarialModel);
+            // Etapa 3: Criar ou atualizar registro de controle
+            log.info("🔍 [EXCLUSÃO] Verificando se já existe registro de controle para beneficiário {}", codigoMatricula);
+            controleSync = criarOuAtualizarRegistroControle(beneficiario, empresarialModel);
 
             // Etapa 4: Serializar EmpresarialModel para JSON string
             String empresarialModelJson = objectMapper.writeValueAsString(empresarialModel);
@@ -216,36 +218,70 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
     }
 
     /**
-     * CRIA REGISTRO DE CONTROLE DE SINCRONIZAÇÃO
+     * CRIA OU ATUALIZA REGISTRO DE CONTROLE DE SINCRONIZAÇÃO
+     * 
+     * Verifica se já existe um registro de controle para este beneficiário.
+     * Se existir, atualiza o registro existente.
+     * Se não existir, cria um novo registro.
      */
     @MonitorarOperacao(
-            operacao = "CRIAR_REGISTRO_CONTROLE_INATIVACAO",
+            operacao = "CRIAR_OU_ATUALIZAR_REGISTRO_CONTROLE_INATIVACAO",
             excecaoEmErro = PROCESSAMENTO_BENEFICIARIO
     )
-    private ControleSyncBeneficiario criarRegistroControle(
+    private ControleSyncBeneficiario criarOuAtualizarRegistroControle(
             BeneficiarioOdontoprev beneficiario,
             Object payload) {
 
         try {
             String payloadJson = objectMapper.writeValueAsString(payload);
+            String codigoMatricula = beneficiario.getCodigoMatricula();
+            String codigoEmpresa = beneficiario.getCodigoEmpresa();
 
-            ControleSyncBeneficiario controle = ControleSyncBeneficiario.builder()
-                    .codigoEmpresa(beneficiario.getCodigoEmpresa())
-                    .codigoBeneficiario(beneficiario.getCodigoMatricula())
-                    .tipoLog("E")
-                    .tipoOperacao("EXCLUSAO")
-                    .endpointDestino("/cadastroonline-pj/1.0/inativar")
-                    .dadosJson(payloadJson)
-                    .statusSync("PROCESSANDO")
-                    .tentativas(0)
-                    .maxTentativas(3)
-                    .dataUltimaTentativa(LocalDateTime.now())
-                    .build();
+            // Verificar se já existe um registro de controle para este beneficiário
+            Optional<ControleSyncBeneficiario> controleExistente = controleSyncRepository
+                    .findByCodigoEmpresaAndCodigoBeneficiarioAndTipoOperacao(
+                            codigoEmpresa, codigoMatricula, "EXCLUSAO");
 
-            return controleSyncRepository.save(controle);
+            ControleSyncBeneficiario controle;
+
+            if (controleExistente.isPresent()) {
+                // Atualizar registro existente
+                controle = controleExistente.get();
+                controle.setDadosJson(payloadJson);
+                controle.setStatusSync("PROCESSANDO");
+                controle.setTentativas(controle.getTentativas() + 1);
+                controle.setDataUltimaTentativa(LocalDateTime.now());
+                controle.setResponseApi(null); // Limpar resposta anterior
+                controle.setErroMensagem(null); // Limpar erro anterior
+                
+                log.info("🔄 [CONTROLE] Atualizando registro existente para beneficiário {} - ID: {}, Tentativa: {}", 
+                        codigoMatricula, controle.getId(), controle.getTentativas());
+            } else {
+                // Criar novo registro
+                controle = ControleSyncBeneficiario.builder()
+                        .codigoEmpresa(codigoEmpresa)
+                        .codigoBeneficiario(codigoMatricula)
+                        .tipoLog("E")
+                        .tipoOperacao("EXCLUSAO")
+                        .endpointDestino("/cadastroonline-pj/1.0/inativar")
+                        .dadosJson(payloadJson)
+                        .statusSync("PROCESSANDO")
+                        .tentativas(1)
+                        .maxTentativas(3)
+                        .dataUltimaTentativa(LocalDateTime.now())
+                        .build();
+                
+                log.info("🆕 [CONTROLE] Criando novo registro de controle para beneficiário {}", codigoMatricula);
+            }
+
+            ControleSyncBeneficiario controleSalvo = controleSyncRepository.save(controle);
+            log.info("✅ [CONTROLE] Registro de controle processado - ID: {}, Status: {}, Tipo: {}", 
+                    controleSalvo.getId(), controleSalvo.getStatusSync(),
+                    controleSalvo.getTentativas() > 1 ? "ATUALIZAÇÃO" : "CRIAÇÃO");
+            return controleSalvo;
 
         } catch (Exception e) {
-            log.error("Erro ao criar registro de controle para beneficiário {}: {}",
+            log.error("❌ [CONTROLE] Erro ao criar/atualizar registro de controle para beneficiário {}: {}",
                     beneficiario.getCodigoMatricula(), e.getMessage(), e);
             return null;
         }

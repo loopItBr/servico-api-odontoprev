@@ -1,0 +1,31 @@
+-- Script para testar a view VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT
+-- Execute este script no banco Oracle para verificar se a view está retornando dados
+
+-- 1. Verificar se a view existe
+SELECT COUNT(*) as TOTAL_REGISTROS 
+FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT;
+
+-- 2. Verificar estrutura da view
+SELECT * 
+FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT 
+WHERE ROWNUM <= 5;
+
+-- 3. Verificar se há registros com CDASSOCIADO preenchido
+SELECT COUNT(*) as REGISTROS_COM_CDASSOCIADO
+FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT 
+WHERE CDASSOCIADO IS NOT NULL;
+
+-- 4. Verificar registros por empresa
+SELECT CDEMPRESA, COUNT(*) as TOTAL
+FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT 
+GROUP BY CDEMPRESA
+ORDER BY CDEMPRESA;
+
+-- 5. Verificar se há registros recentes (se houver campo de data)
+-- SELECT * 
+-- FROM TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT 
+-- WHERE ROWNUM <= 10
+-- ORDER BY CDEMPRESA;
+
+-- 6. Verificar estrutura completa da view
+DESC TASY.VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS_ALT;

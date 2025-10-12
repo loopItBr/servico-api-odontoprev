@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Implementação do gerenciador de controle de sincronização.
@@ -26,7 +27,7 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
 
     @Override
     public ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados) {
-        return criarControle(codigoEmpresa, dados, ControleSync.TipoOperacao.CREATE, ControleSync.TipoControle.ADICAO);
+        return criarOuAtualizarControle(codigoEmpresa, dados, ControleSync.TipoOperacao.CREATE, ControleSync.TipoControle.ADICAO);
     }
     
     @Override
@@ -38,21 +39,62 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
     
     @Override
     public ControleSync criarControle(String codigoEmpresa, IntegracaoOdontoprev dados, ControleSync.TipoOperacao tipoOperacao, ControleSync.TipoControle tipoControle) {
+        return criarOuAtualizarControle(codigoEmpresa, dados, tipoOperacao, tipoControle);
+    }
+    
+    /**
+     * CRIA OU ATUALIZA REGISTRO DE CONTROLE
+     * 
+     * Verifica se já existe um registro de controle para esta empresa e tipo de operação.
+     * Se existir e o status for SUCCESS, não cria novo registro.
+     * Se existir e o status for ERROR ou PENDING, atualiza o registro existente.
+     * Se não existir, cria um novo registro.
+     */
+    private ControleSync criarOuAtualizarControle(String codigoEmpresa, IntegracaoOdontoprev dados, 
+                                                  ControleSync.TipoOperacao tipoOperacao, ControleSync.TipoControle tipoControle) {
         try {
             String dadosJson = objectMapper.writeValueAsString(dados);
             
-            // Define endpoint baseado no tipo de operação
-            String endpoint = determinarEndpoint(tipoOperacao, codigoEmpresa);
+            // Verificar se já existe um registro de controle para esta empresa e tipo
+            Optional<ControleSync> controleExistente = repository
+                    .findByCodigoEmpresaAndTipoControle(codigoEmpresa, tipoControle.getCodigo());
             
-            return ControleSync.builder()
-                    .codigoEmpresa(codigoEmpresa)
-                    .tipoOperacao(tipoOperacao)
-                    .tipoControle(tipoControle.getCodigo())
-                    .endpointDestino(endpoint)
-                    .dadosJson(dadosJson)
-                    .statusSync(ControleSync.StatusSync.PENDING)
-                    .dataCriacao(LocalDateTime.now())
-                    .build();
+            if (controleExistente.isPresent()) {
+                ControleSync controle = controleExistente.get();
+                
+                // Se já foi processado com sucesso, não criar novo registro
+                if (controle.getStatusSync() == ControleSync.StatusSync.SUCCESS) {
+                    log.info("🔄 [CONTROLE] Empresa {} já foi processada com sucesso, não criando novo registro", codigoEmpresa);
+                    return controle;
+                }
+                
+                // Se está em erro ou pendente, atualizar o registro existente
+                log.info("🔄 [CONTROLE] Atualizando registro existente para empresa {} - Status atual: {}", 
+                        codigoEmpresa, controle.getStatusSync());
+                
+                controle.setDadosJson(dadosJson);
+                controle.setStatusSync(ControleSync.StatusSync.PENDING);
+                controle.setDataCriacao(LocalDateTime.now());
+                controle.setResponseApi(null);
+                controle.setErroMensagem(null);
+                
+                return controle;
+            } else {
+                // Criar novo registro
+                log.info("🆕 [CONTROLE] Criando novo registro de controle para empresa {}", codigoEmpresa);
+                
+                String endpoint = determinarEndpoint(tipoOperacao, codigoEmpresa);
+                
+                return ControleSync.builder()
+                        .codigoEmpresa(codigoEmpresa)
+                        .tipoOperacao(tipoOperacao)
+                        .tipoControle(tipoControle.getCodigo())
+                        .endpointDestino(endpoint)
+                        .dadosJson(dadosJson)
+                        .statusSync(ControleSync.StatusSync.PENDING)
+                        .dataCriacao(LocalDateTime.now())
+                        .build();
+            }
                     
         } catch (JsonProcessingException e) {
             log.error("Erro ao serializar dados da empresa {}: {}", codigoEmpresa, e.getMessage());

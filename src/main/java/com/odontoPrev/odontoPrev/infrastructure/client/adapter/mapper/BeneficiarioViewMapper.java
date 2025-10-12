@@ -77,7 +77,7 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "id", ignore = true) // ID será gerado automaticamente
     @Mapping(target = "nrSequencia", ignore = true) // Não existe na entidade
     @Mapping(target = "cdCgcEstipulante", ignore = true)
-    @Mapping(target = "codigoMatricula", source = "cdAssociado") // Usar cdAssociado como matrícula
+    @Mapping(target = "codigoMatricula", source = "codigoMatricula") // Usar campo CODIGOMATRICULA da view
     @Mapping(target = "codigoEmpresa", source = "cdEmpresa")
     @Mapping(target = "cpf", ignore = true) // View de alteração não tem CPF
     @Mapping(target = "dataNascimento", source = "dataNascimento", qualifiedByName = "stringToLocalDate")

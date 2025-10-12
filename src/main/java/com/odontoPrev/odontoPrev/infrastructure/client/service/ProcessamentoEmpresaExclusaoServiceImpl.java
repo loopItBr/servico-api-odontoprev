@@ -5,6 +5,7 @@ import com.odontoPrev.odontoPrev.domain.service.ConsultaEmpresaOdontoprevExpandi
 import com.odontoPrev.odontoPrev.domain.service.GerenciadorControleSyncService;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaExclusaoService;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevExclusaoRepository;
+import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevExclusao;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -51,6 +53,9 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
 
     // Repositório para buscar dados de empresas excluídas
     private final IntegracaoOdontoprevExclusaoRepository exclusaoRepository;
+    
+    // Repositório para buscar dados completos de empresas
+    private final IntegracaoOdontoprevRepository empresaRepository;
     
     // Serviço para gerenciar registros de controle e auditoria
     private final GerenciadorControleSyncService gerenciadorControleSync;
@@ -116,15 +121,17 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
      */
     private IntegracaoOdontoprevExclusao buscarDadosEmpresaExcluidaOuSair(String codigoEmpresa) {
         try {
-            Optional<IntegracaoOdontoprevExclusao> dadosOpt = exclusaoRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
+            List<IntegracaoOdontoprevExclusao> dadosList = exclusaoRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
             
-            if (dadosOpt.isEmpty()) {
+            if (dadosList.isEmpty()) {
                 log.warn("Nenhum dado encontrado para empresa excluída: {}", codigoEmpresa);
                 return null;
             }
             
-            IntegracaoOdontoprevExclusao dados = dadosOpt.get();
-            log.debug("Dados encontrados para empresa excluída {}: {}", codigoEmpresa, dados.getNomeFantasia());
+            // Pega apenas o primeiro registro (equivalente ao ROWNUM = 1)
+            IntegracaoOdontoprevExclusao dados = dadosList.get(0);
+            log.debug("Dados encontrados para empresa excluída {}: sistema={}, motivo={}", 
+                    codigoEmpresa, dados.getSistema(), dados.getCodigoMotivoFimEmpresa());
             return dados;
             
         } catch (Exception e) {
@@ -148,12 +155,16 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
      */
     private ControleSync criarEMSalvarControleSyncExclusao(String codigoEmpresa, IntegracaoOdontoprevExclusao dados) {
         try {
-            // Converte dados para o tipo base para compatibilidade
-            IntegracaoOdontoprev dadosBase = converterParaIntegracaoBase(dados);
+            // Busca dados completos da empresa na view principal
+            IntegracaoOdontoprev dadosCompletos = buscarDadosCompletosEmpresa(codigoEmpresa);
+            
+            if (dadosCompletos == null) {
+                throw new RuntimeException("Não foi possível obter dados completos da empresa " + codigoEmpresa);
+            }
             
             ControleSync controle = gerenciadorControleSync.criarControle(
                 codigoEmpresa, 
-                dadosBase, 
+                dadosCompletos, 
                 ControleSync.TipoOperacao.DELETE,
                 ControleSync.TipoControle.EXCLUSAO
             );
@@ -186,18 +197,15 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
         try {
             log.debug("Chamando API OdontoPrev para excluir empresa: {}", codigoEmpresa);
             
-            // Busca dados da empresa na view de exclusão
-            Optional<IntegracaoOdontoprevExclusao> dadosExclusao = exclusaoRepository.findByCodigoEmpresa(codigoEmpresa);
+            // Busca dados completos da empresa na view principal
+            IntegracaoOdontoprev dadosCompletos = buscarDadosCompletosEmpresa(codigoEmpresa);
             
-            if (dadosExclusao.isEmpty()) {
-                throw new RuntimeException("Dados da empresa não encontrados na view de exclusão: " + codigoEmpresa);
+            if (dadosCompletos == null) {
+                throw new RuntimeException("Dados completos da empresa não encontrados: " + codigoEmpresa);
             }
             
-            // Converte para o tipo base
-            IntegracaoOdontoprev dadosBase = converterParaIntegracaoBase(dadosExclusao.get());
-            
             // Chama API da OdontoPrev para inativar empresa
-            String responseJson = consultaEmpresaService.inativarEmpresa(dadosBase);
+            String responseJson = consultaEmpresaService.inativarEmpresa(dadosCompletos);
             
             long tempoResposta = System.currentTimeMillis() - inicioTempo;
             
@@ -219,47 +227,31 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
     }
 
     /**
-     * Converte dados de exclusão para o tipo base para compatibilidade.
+     * Busca dados completos da empresa para exclusão.
      * 
-     * @param dadosExclusao dados da empresa excluída
-     * @return dados convertidos para o tipo base
+     * Como a view de exclusão (VW_INTEGRACAO_ODONTOPREV_EXC) contém apenas informações básicas,
+     * precisamos buscar os dados completos da empresa na view principal (VW_INTEGRACAO_ODONTOPREV)
+     * para ter todas as informações necessárias para a API de exclusão.
+     * 
+     * @param codigoEmpresa código da empresa a ser excluída
+     * @return dados completos da empresa ou null se não encontrada
      */
-    private IntegracaoOdontoprev converterParaIntegracaoBase(IntegracaoOdontoprevExclusao dadosExclusao) {
-        IntegracaoOdontoprev dadosBase = new IntegracaoOdontoprev();
-        
-        // Copia todos os campos comuns
-        dadosBase.setCodigoEmpresa(dadosExclusao.getCodigoEmpresa());
-        dadosBase.setCnpj(dadosExclusao.getCnpj());
-        dadosBase.setCodigoClienteOperadora(dadosExclusao.getCodigoClienteOperadora() != null ? Long.valueOf(dadosExclusao.getCodigoClienteOperadora()) : null);
-        dadosBase.setNomeFantasia(dadosExclusao.getNomeFantasia());
-        dadosBase.setDataInicioContrato(dadosExclusao.getDataInicioContrato());
-        dadosBase.setDataFimContrato(dadosExclusao.getDataFimContrato());
-        dadosBase.setDataVigencia(dadosExclusao.getDataVigencia());
-        dadosBase.setEmpresaPf(dadosExclusao.getEmpresaPf() != null ? dadosExclusao.getEmpresaPf().toString() : null);
-        dadosBase.setCodigoGrupoGerencial(dadosExclusao.getCodigoGrupoGerencial());
-        dadosBase.setCodigoMarca(dadosExclusao.getCodigoMarca());
-        dadosBase.setCodigoCelula(dadosExclusao.getCodigoCelula());
-        dadosBase.setVidasAtivas(dadosExclusao.getVidasAtivas());
-        dadosBase.setValorUltimoFaturamento(dadosExclusao.getValorUltimoFaturamento());
-        dadosBase.setSinistralidade(dadosExclusao.getSinistralidade());
-        dadosBase.setCodigoPlano(dadosExclusao.getCodigoPlano() != null ? Long.valueOf(dadosExclusao.getCodigoPlano()) : null);
-        dadosBase.setDescricaoPlano(dadosExclusao.getDescricaoPlano());
-        dadosBase.setNomeFantasiaPlano(dadosExclusao.getNomeFantasiaPlano());
-        dadosBase.setNumeroRegistroAns(dadosExclusao.getNumeroRegistroAns());
-        dadosBase.setSiglaPlano(dadosExclusao.getSiglaPlano());
-        dadosBase.setValorTitular(dadosExclusao.getValorTitular());
-        dadosBase.setValorDependente(dadosExclusao.getValorDependente());
-        dadosBase.setDataInicioPlano(dadosExclusao.getDataInicioPlano());
-        dadosBase.setDataFimPlano(dadosExclusao.getDataFimPlano());
-        dadosBase.setCoParticipacao(dadosExclusao.getCoParticipacao() != null ? dadosExclusao.getCoParticipacao().toString() : null);
-        dadosBase.setTipoNegociacao(dadosExclusao.getTipoNegociacao());
-        dadosBase.setCodigoTipoCobranca(dadosExclusao.getCodigoTipoCobranca());
-        dadosBase.setNomeTipoCobranca(dadosExclusao.getNomeTipoCobranca());
-        dadosBase.setSiglaTipoCobranca(dadosExclusao.getSiglaTipoCobranca());
-        dadosBase.setNumeroBanco(dadosExclusao.getNumeroBanco());
-        dadosBase.setNomeBanco(dadosExclusao.getNomeBanco());
-        dadosBase.setNumeroParcelas(dadosExclusao.getNumeroParcelas());
-        
-        return dadosBase;
+    private IntegracaoOdontoprev buscarDadosCompletosEmpresa(String codigoEmpresa) {
+        try {
+            Optional<IntegracaoOdontoprev> dadosOpt = empresaRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
+            
+            if (dadosOpt.isEmpty()) {
+                log.warn("Dados completos da empresa {} não encontrados na view principal", codigoEmpresa);
+                return null;
+            }
+            
+            IntegracaoOdontoprev dados = dadosOpt.get();
+            log.debug("Dados completos encontrados para empresa {}: {}", codigoEmpresa, dados.getNomeFantasia());
+            return dados;
+            
+        } catch (Exception e) {
+            log.error("Erro ao buscar dados completos da empresa {}: {}", codigoEmpresa, e.getMessage());
+            return null;
+        }
     }
 }

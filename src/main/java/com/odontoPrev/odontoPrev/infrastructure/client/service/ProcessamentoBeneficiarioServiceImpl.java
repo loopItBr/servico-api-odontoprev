@@ -111,6 +111,15 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             
             // Etapa 3: Conversão para DTO de request
             BeneficiarioInclusaoRequestNew request = converterParaInclusaoRequestNew(beneficiario);
+            
+            // DEBUG: Log detalhado do payload para investigar erro 403
+            log.info("🔍 DEBUG PAYLOAD - Beneficiário {}: CódigoEmpresa: '{}', Usuario: '{}', CodigoMatricula: '{}'", 
+                    codigoMatricula, 
+                    request.getVenda() != null ? request.getVenda().getCodigoEmpresa() : "NULL",
+                    request.getUsuario(),
+                    request.getBeneficiarioTitular() != null && request.getBeneficiarioTitular().getBeneficiario() != null ? 
+                        request.getBeneficiarioTitular().getBeneficiario().getCodigoMatricula() : "NULL");
+            
             try {
                 log.debug("📤 DADOS ENVIADOS PARA API - Beneficiário {}: {}", codigoMatricula, 
                          objectMapper.writeValueAsString(request));
@@ -128,6 +137,13 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             String[] tokens = beneficiarioTokenService.obterTokensCompletos();
             String tokenOAuth2 = tokens[0];
             String tokenLoginEmpresa = tokens[1];
+            
+            // DEBUG: Log detalhado dos tokens para investigar erro 403
+            log.info("🔑 DEBUG TOKENS - Beneficiário {}: OAuth2: {}..., LoginEmpresa: {}...", 
+                     codigoMatricula,
+                     tokenOAuth2.substring(0, Math.min(30, tokenOAuth2.length())),
+                     tokenLoginEmpresa.substring(0, Math.min(30, tokenLoginEmpresa.length())));
+            
             log.debug("🔑 TOKENS OBTIDOS - OAuth2: {}...{}, LoginEmpresa: {}...{}", 
                      tokenOAuth2.substring(0, Math.min(20, tokenOAuth2.length())),
                      tokenOAuth2.length() > 20 ? "..." : "",
@@ -473,9 +489,14 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 .beneficiario(beneficiarioData)
                 .build();
 
+        // DEBUG: Verificar código da empresa antes de criar o payload
+        String codigoEmpresa = beneficiario.getCodigoEmpresa();
+        log.info("🔍 DEBUG EMPRESA - CódigoEmpresa da view: '{}' (tamanho: {})", 
+                codigoEmpresa, codigoEmpresa != null ? codigoEmpresa.length() : 0);
+        
         // Criar venda
         var venda = BeneficiarioInclusaoRequestNew.Venda.builder()
-                .codigoEmpresa(beneficiario.getCodigoEmpresa()) 
+                .codigoEmpresa(codigoEmpresa) 
                 .codigoPlano(beneficiario.getCodigoPlano() != null ? beneficiario.getCodigoPlano().toString() : null) // Vem da view CODIGOPLANO
                 .departamento(beneficiario.getDepartamento() != null ? beneficiario.getDepartamento().toString() : null) // Vem da view
                 .build();

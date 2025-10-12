@@ -83,6 +83,7 @@ public class BeneficiarioTokenService {
             
             var request = new LoginEmpresaRequest(appId, usuario, senha);
             log.info("🔑 [TOKEN LOGIN EMPRESA] Request Body: {}", request);
+            log.info("🔑 [TOKEN LOGIN EMPRESA] AppId: '{}', Usuario: '{}', Senha: [OCULTA]", appId, usuario);
             
             long inicio = System.currentTimeMillis();
             var response = odontoprevAuthClient.obterTokenLoginEmpresa(tokenOAuth2, request);
