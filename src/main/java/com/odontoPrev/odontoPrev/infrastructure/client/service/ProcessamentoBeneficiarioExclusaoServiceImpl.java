@@ -188,7 +188,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
      *     "cdAssociado": "...",
      *     "nome": "...",
      *     "email": "...",
-     *     "idMotivo": "7"
+     *     "idMotivo": "25"
      *   }],
      *   "dataInativacao": "2024-12-29"
      * }
@@ -200,7 +200,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                 .cdAssociado(beneficiario.getCdAssociado())
                 .nome(beneficiario.getNomeBeneficiario())
                 .email(beneficiario.getEmail())
-                .idMotivo(String.valueOf(beneficiario.getIdMotivoInativacao()))
+                .idMotivo("25") // Sempre 25 (numérico como string) - Iniciativa do beneficiário
                 .build();
 
         // Determina data de inativação (usa data específica ou data atual)

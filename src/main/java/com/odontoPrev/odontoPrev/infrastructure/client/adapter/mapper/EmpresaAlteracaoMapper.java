@@ -26,13 +26,18 @@ public interface EmpresaAlteracaoMapper {
      * Mapeia campos da view de alteração para o DTO da API.
      * Aplica transformações específicas para campos obrigatórios.
      */
-    // APENAS CAMPOS OBRIGATÓRIOS + MODIFICADOS
+    // MAPEAMENTO COMPLETO DOS CAMPOS DA VIEW
     @Mapping(target = "codigoEmpresa", source = "codigoEmpresa") // OBRIGATÓRIO
     @Mapping(target = "nomeFantasia", source = "nomeFantasia") // MODIFICADO
     @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "localDateToLocalDateTime") // MODIFICADO
     @Mapping(target = "codigoUsuario", source = "codUsuario") // OBRIGATÓRIO - da view
     @Mapping(target = "endereco", source = ".", qualifiedByName = "createEnderecoFromView") // OBRIGATÓRIO - criado a partir da view
-    // TODOS OS OUTROS CAMPOS SÃO IGNORADOS
+    @Mapping(target = "telefone", source = ".", qualifiedByName = "createTelefoneFromView") // Criado a partir da view
+    @Mapping(target = "grausParentesco", source = ".", qualifiedByName = "createGrausParentescoFromView") // Criado a partir da view
+    // CAMPOS DA VIEW QUE ESTÃO DISPONÍVEIS NO DTO
+    @Mapping(target = "codigoGrupoGerencial", source = "codigoGrupoGerencial", qualifiedByName = "longToString")
+    @Mapping(target = "sinistralidade", source = "sinistralidade", qualifiedByName = "stringToDouble")
+    // CAMPOS QUE NÃO ESTÃO NA VIEW - IGNORADOS
     @Mapping(target = "razaoSocial", ignore = true)
     @Mapping(target = "emiteCarteirinhaPlastica", ignore = true)
     @Mapping(target = "permissaoCadastroDep", ignore = true)
@@ -53,7 +58,6 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "cic", ignore = true)
     @Mapping(target = "inscricaoMunicipal", ignore = true)
     @Mapping(target = "inscricaoEstadual", ignore = true)
-    @Mapping(target = "telefone", ignore = true)
     @Mapping(target = "email", ignore = true)
     @Mapping(target = "codigoNaturezaJuridica", ignore = true)
     @Mapping(target = "nomeNaturezaJuridica", ignore = true)
@@ -62,12 +66,9 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "renovacaoAutomatica", ignore = true)
     @Mapping(target = "mesAniversarioReajuste", ignore = true)
     @Mapping(target = "anoProximoAniversarioReajuste", ignore = true)
-    @Mapping(target = "sinistralidade", ignore = true)
     @Mapping(target = "sistema", ignore = true)
     @Mapping(target = "diaVencimentoPlano", ignore = true)
     @Mapping(target = "diaMovimentacaoCadastral", ignore = true)
-    @Mapping(target = "codigoGrupoGerencial", ignore = true)
-    @Mapping(target = "grausParentesco", ignore = true)
     EmpresaAlteracaoRequest toAlteracaoRequest(IntegracaoOdontoprevAlteracao empresa);
 
     /**
@@ -166,26 +167,51 @@ public interface EmpresaAlteracaoMapper {
             return createEnderecoPadrao();
         }
 
+        // Log dos dados da view para debug
+        System.out.println("🔍 [MAPPER] Dados da view para endereço:");
+        System.out.println("   CODIGOCIDADE: '" + view.getCodigoCidade() + "'");
+        System.out.println("   CIDADE: '" + view.getCidade() + "'");
+        System.out.println("   SIGLAUF: '" + view.getSiglaUf() + "'");
+        System.out.println("   LOGRADOURO: '" + view.getLogradouro() + "'");
+        System.out.println("   NUMERO: '" + view.getNumero() + "'");
+        System.out.println("   BAIRRO: '" + view.getBairro() + "'");
+        System.out.println("   CEP: '" + view.getCep() + "'");
+
         // Se não há dados de endereço na view, usa endereço padrão
         if (view.getLogradouro() == null || view.getLogradouro().trim().isEmpty()) {
+            System.out.println("⚠️ [MAPPER] Logradouro vazio, usando endereço padrão");
             return createEnderecoPadrao();
         }
 
-        return EmpresaAlteracaoRequest.Endereco.builder()
+        EmpresaAlteracaoRequest.Endereco endereco = EmpresaAlteracaoRequest.Endereco.builder()
             .descricao("Endereço da empresa")
             .complemento("")
-            .tipoLogradouro(view.getTipoLogradouro() != null ? view.getTipoLogradouro().toString() : "R")
+            .tipoLogradouro("2") // Sempre 2 (numérico como string)
             .logradouro(view.getLogradouro())
             .numero(view.getNumero() != null ? view.getNumero() : "S/N")
             .bairro(view.getBairro() != null ? view.getBairro() : "Centro")
             .cidade(EmpresaAlteracaoRequest.Cidade.builder()
-                .codigo(3670) // Código padrão da cidade
+                .codigo(parsearCodigoCidade(view.getCodigoCidade()))
                 .nome(view.getCidade() != null ? view.getCidade() : "São Paulo")
                 .siglaUf(view.getSiglaUf() != null ? view.getSiglaUf() : "SP")
                 .codigoPais(view.getCodigoPais() != null ? view.getCodigoPais().intValue() : 1)
                 .build())
             .cep(view.getCep() != null ? view.getCep() : "01000-000")
             .build();
+            
+        // Log do endereço construído
+        System.out.println("✅ [MAPPER] Endereço construído:");
+        System.out.println("   tipoLogradouro: '" + endereco.getTipoLogradouro() + "'");
+        System.out.println("   logradouro: '" + endereco.getLogradouro() + "'");
+        System.out.println("   numero: '" + endereco.getNumero() + "'");
+        System.out.println("   bairro: '" + endereco.getBairro() + "'");
+        System.out.println("   cep: '" + endereco.getCep() + "'");
+        System.out.println("   cidade.codigo: " + endereco.getCidade().getCodigo());
+        System.out.println("   cidade.nome: '" + endereco.getCidade().getNome() + "'");
+        System.out.println("   cidade.siglaUf: '" + endereco.getCidade().getSiglaUf() + "'");
+        System.out.println("   cidade.codigoPais: " + endereco.getCidade().getCodigoPais());
+        
+        return endereco;
     }
 
     /**
@@ -202,6 +228,55 @@ public interface EmpresaAlteracaoMapper {
 
 
     /**
+     * PARSEIA CÓDIGO DA CIDADE COM TRATAMENTO ROBUSTO
+     * 
+     * Converte o CODIGOCIDADE da view para Integer com tratamento de erros.
+     */
+    default Integer parsearCodigoCidade(String codigoCidade) {
+        if (codigoCidade == null || codigoCidade.trim().isEmpty()) {
+            return 3670; // Código padrão
+        }
+        
+        try {
+            // Remove espaços e converte para número
+            String codigoLimpo = codigoCidade.trim();
+            return Integer.parseInt(codigoLimpo);
+        } catch (NumberFormatException e) {
+            // Se não conseguir converter, retorna código padrão
+            return 3670;
+        }
+    }
+
+    /**
+     * CRIA TELEFONE A PARTIR DOS DADOS DA VIEW
+     * 
+     * Cria objeto telefone com dados padrão (a view não tem campos de telefone).
+     */
+    @Named("createTelefoneFromView")
+    default EmpresaAlteracaoRequest.Telefone createTelefoneFromView(IntegracaoOdontoprevAlteracao view) {
+        return EmpresaAlteracaoRequest.Telefone.builder()
+            .telefone1("(11) 0000-0000")
+            .telefone2("")
+            .celular("")
+            .fax("")
+            .build();
+    }
+
+    /**
+     * CRIA GRAUS DE PARENTESCO A PARTIR DOS DADOS DA VIEW
+     * 
+     * Cria lista de graus de parentesco padrão (a view não tem campos de grau de parentesco).
+     */
+    @Named("createGrausParentescoFromView")
+    default java.util.List<EmpresaAlteracaoRequest.GrauParentesco> createGrausParentescoFromView(IntegracaoOdontoprevAlteracao view) {
+        return java.util.Collections.singletonList(
+            EmpresaAlteracaoRequest.GrauParentesco.builder()
+                .codigoGrauParentesco(1) // Cônjuge
+                .build()
+        );
+    }
+
+    /**
      * CRIA ENDEREÇO PADRÃO
      * 
      * Usado quando não há dados de endereço na view.
@@ -210,12 +285,12 @@ public interface EmpresaAlteracaoMapper {
         return EmpresaAlteracaoRequest.Endereco.builder()
             .descricao("Endereço padrão")
             .complemento("")
-            .tipoLogradouro("R")
+            .tipoLogradouro("2") // Sempre 2 (numérico como string)
             .logradouro("Rua das Flores")
             .numero("123")
             .bairro("Centro")
             .cidade(EmpresaAlteracaoRequest.Cidade.builder()
-                .codigo(1)
+                .codigo(3670) // Código padrão
                 .nome("São Paulo")
                 .siglaUf("SP")
                 .codigoPais(1)

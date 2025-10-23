@@ -72,18 +72,41 @@ public class SincronizacaoCompletaOdontoprevServiceImpl implements Sincronizacao
             excecaoEmErro = PROCESSAMENTO_LOTE
     )
     public void executarSincronizacaoCompleta() {
-        log.info("Iniciando sincronização completa com OdontoPrev");
+        log.info("🚀 [SINCRONIZAÇÃO COMPLETA] ===== INICIANDO SINCRONIZAÇÃO COMPLETA =====");
+        log.info("🚀 [SINCRONIZAÇÃO COMPLETA] Timestamp: {}", java.time.LocalDateTime.now());
+        log.info("🚀 [SINCRONIZAÇÃO COMPLETA] Thread: {}", Thread.currentThread().getName());
+        log.info("🚀 [SINCRONIZAÇÃO COMPLETA] Iniciando sincronização completa com OdontoPrev");
         
-        // 1. Processa exclusões primeiro (remove dados obsoletos)
-        executarSincronizacaoExclusoes();
-        
-        // 2. Processa alterações (atualiza dados existentes)
-        executarSincronizacaoAlteracoes();
-        
-        // 3. Processa adições (inclui novos dados)
-        sincronizacaoAdicoes.executarSincronizacao();
-        
-        log.info("Sincronização completa finalizada com sucesso");
+        try {
+            // 1. Processa exclusões primeiro (remove dados obsoletos)
+            log.info("📤 [SINCRONIZAÇÃO COMPLETA] ===== EXECUTANDO EXCLUSÕES =====");
+            log.info("📤 [SINCRONIZAÇÃO COMPLETA] Executando exclusões...");
+            executarSincronizacaoExclusoes();
+            log.info("✅ [SINCRONIZAÇÃO COMPLETA] Exclusões executadas com sucesso");
+            
+            // 2. Processa alterações (atualiza dados existentes)
+            log.info("🔄 [SINCRONIZAÇÃO COMPLETA] ===== EXECUTANDO ALTERAÇÕES =====");
+            log.info("🔄 [SINCRONIZAÇÃO COMPLETA] Executando alterações...");
+            executarSincronizacaoAlteracoes();
+            log.info("✅ [SINCRONIZAÇÃO COMPLETA] Alterações executadas com sucesso");
+            
+            // 3. Processa adições (inclui novos dados)
+            log.info("➕ [SINCRONIZAÇÃO COMPLETA] ===== EXECUTANDO INCLUSÕES =====");
+            log.info("➕ [SINCRONIZAÇÃO COMPLETA] Executando inclusões...");
+            log.info("➕ [SINCRONIZAÇÃO COMPLETA] Chamando sincronizacaoAdicoes.executarSincronizacao()");
+            sincronizacaoAdicoes.executarSincronizacao();
+            log.info("✅ [SINCRONIZAÇÃO COMPLETA] Inclusões executadas com sucesso");
+            
+            log.info("🎉 [SINCRONIZAÇÃO COMPLETA] Sincronização completa finalizada com sucesso");
+            log.info("🚀 [SINCRONIZAÇÃO COMPLETA] ===== FIM DA SINCRONIZAÇÃO COMPLETA =====");
+            
+        } catch (Exception e) {
+            log.error("❌ [SINCRONIZAÇÃO COMPLETA] Erro durante sincronização completa", e);
+            log.error("❌ [SINCRONIZAÇÃO COMPLETA] Tipo do erro: {}", e.getClass().getSimpleName());
+            log.error("❌ [SINCRONIZAÇÃO COMPLETA] Mensagem: {}", e.getMessage());
+            log.error("❌ [SINCRONIZAÇÃO COMPLETA] ===== FIM DA SINCRONIZAÇÃO COMPLETA (COM ERRO) =====");
+            throw e;
+        }
     }
 
     /**

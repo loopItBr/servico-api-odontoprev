@@ -17,5 +17,13 @@ public interface ControleSyncRepository extends JpaRepository<ControleSync, Inte
     long countByStatusSync(ControleSync.StatusSync statusSync);
     
     Optional<ControleSync> findByCodigoEmpresaAndTipoControle(String codigoEmpresa, Integer tipoControle);
+    
+    /**
+     * BUSCA O PRIMEIRO CONTROLE POR EMPRESA E TIPO (ORDENADO POR DATA DE CRIAÇÃO DESC)
+     * 
+     * Usado quando há múltiplos registros para a mesma empresa e tipo.
+     * Retorna o mais recente (último criado).
+     */
+    Optional<ControleSync> findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(String codigoEmpresa, Integer tipoControle);
 }
 

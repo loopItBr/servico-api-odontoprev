@@ -94,23 +94,38 @@ public class SincronizacaoOdontoprevServiceImpl implements SincronizacaoOdontopr
             excecaoEmErro = PROCESSAMENTO_LOTE
     )
     public void executarSincronizacao() {
+        log.info("🔍 [SINCRONIZAÇÃO ADIÇÕES] ===== INICIANDO SINCRONIZAÇÃO DE ADIÇÕES =====");
+        log.info("🔍 [SINCRONIZAÇÃO ADIÇÕES] Timestamp: {}", java.time.LocalDateTime.now());
+        log.info("🔍 [SINCRONIZAÇÃO ADIÇÕES] Thread: {}", Thread.currentThread().getName());
+        log.info("🔍 [SINCRONIZAÇÃO ADIÇÕES] Iniciando sincronização de adições");
+        
         // 1. Primeiro, valida se as configurações estão corretas
+        log.info("⚙️ [SINCRONIZAÇÃO ADIÇÕES] Validando configurações...");
         validarConfiguracoes();
+        log.info("✅ [SINCRONIZAÇÃO ADIÇÕES] Configurações validadas com sucesso");
         
         // 2. Conta quantas empresas precisam ser sincronizadas
+        log.info("📊 [SINCRONIZAÇÃO ADIÇÕES] Contando empresas para sincronização...");
         long totalEmpresas = contarTotalEmpresasUmaVez();
+        log.info("📊 [SINCRONIZAÇÃO ADIÇÕES] Total de empresas encontradas: {}", totalEmpresas);
         
         // 3. Se não tem empresas, não há trabalho a fazer
         if (totalEmpresas == 0) {
-            log.info("Nenhuma empresa encontrada para sincronização");
+            log.info("ℹ️ [SINCRONIZAÇÃO ADIÇÕES] Nenhuma empresa encontrada para sincronização");
+            log.info("ℹ️ [SINCRONIZAÇÃO ADIÇÕES] Verificando se há dados na view VW_INTEGRACAO_ODONTOPREV...");
+            log.info("🔍 [SINCRONIZAÇÃO ADIÇÕES] ===== FIM DA SINCRONIZAÇÃO DE ADIÇÕES (SEM DADOS) =====");
             return; // Termina aqui - não é erro, apenas não tem dados
         }
         
         // 4. Se chegou aqui, tem empresas para processar
-        log.info("Processando {} empresas em lotes de {}", totalEmpresas, tamanhoBatch);
+        log.info("🚀 [SINCRONIZAÇÃO ADIÇÕES] Processando {} empresas em lotes de {}", totalEmpresas, tamanhoBatch);
         
         // 5. Delega o trabalho real para o serviço de lotes
+        log.info("🔄 [SINCRONIZAÇÃO ADIÇÕES] Chamando processamentoLoteService.processarEmpresasEmLotes()");
         processamentoLoteService.processarEmpresasEmLotes(tamanhoBatch, maxThreads, totalEmpresas);
+        
+        log.info("✅ [SINCRONIZAÇÃO ADIÇÕES] Sincronização de adições finalizada");
+        log.info("🔍 [SINCRONIZAÇÃO ADIÇÕES] ===== FIM DA SINCRONIZAÇÃO DE ADIÇÕES =====");
     }
 
     private void validarConfiguracoes() {

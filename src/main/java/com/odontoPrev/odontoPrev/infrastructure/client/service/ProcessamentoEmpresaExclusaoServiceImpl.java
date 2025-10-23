@@ -238,7 +238,9 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
      */
     private IntegracaoOdontoprev buscarDadosCompletosEmpresa(String codigoEmpresa) {
         try {
-            Optional<IntegracaoOdontoprev> dadosOpt = empresaRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
+            // Converte String para Long (nrSeqContrato)
+            Long nrSeqContrato = Long.valueOf(codigoEmpresa);
+            Optional<IntegracaoOdontoprev> dadosOpt = empresaRepository.buscarPrimeiroDadoPorCodigoEmpresa(nrSeqContrato);
             
             if (dadosOpt.isEmpty()) {
                 log.warn("Dados completos da empresa {} não encontrados na view principal", codigoEmpresa);

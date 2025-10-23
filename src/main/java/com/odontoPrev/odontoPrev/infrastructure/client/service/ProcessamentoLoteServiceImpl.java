@@ -3,13 +3,13 @@ package com.odontoPrev.odontoPrev.infrastructure.client.service;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaService;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoLoteService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
-import com.odontoPrev.odontoPrev.infrastructure.exception.*;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.*;
@@ -135,11 +135,33 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
             excecaoEmErro = CONSULTA_EMPRESAS
     )
     public List<String> buscarCodigosEmpresasPaginado(int offset, int limit) {
-        // Converte offset/limit em número de página para Spring Data
-        int numeroPagina = calcularNumeroPagina(offset, limit);
+        log.info("🔍 [BUSCA EMPRESAS] Buscando TODAS as empresas (SEM PAGINAÇÃO)");
+        log.info("🔍 [BUSCA EMPRESAS] Executando query: SELECT DISTINCT NR_SEQ_CONTRATO FROM TASY.VW_INTEGRACAO_ODONTOPREV WHERE CODIGO_EMPRESA IS NULL AND NR_SEQ_CONTRATO IS NOT NULL ORDER BY NR_SEQ_CONTRATO");
         
-        // Chama repositório para buscar página específica
-        return integracaoRepository.buscarCodigosEmpresasPaginado(PageRequest.of(numeroPagina, limit));
+        // BUSCA SIMPLES: usar o método que funcionava antes
+        List<Long> nrSeqContratos = integracaoRepository.buscarEmpresasParaInclusao();
+        log.info("📊 [BUSCA EMPRESAS] Encontrados {} NR_SEQ_CONTRATO no total", nrSeqContratos.size());
+        
+        if (!nrSeqContratos.isEmpty()) {
+            log.info("✅ [BUSCA EMPRESAS] Empresas encontradas: {}", nrSeqContratos);
+            
+            // Converte Long para String para manter compatibilidade
+            List<String> empresasString = nrSeqContratos.stream()
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.toList());
+            
+            log.info("🔄 [BUSCA EMPRESAS] Conversão Long->String concluída: {}", empresasString);
+            return empresasString;
+            
+        } else {
+            log.warn("⚠️ [BUSCA EMPRESAS] NENHUMA empresa encontrada!");
+            log.warn("⚠️ [BUSCA EMPRESAS] Isso pode indicar que:");
+            log.warn("⚠️ [BUSCA EMPRESAS] 1. Não há empresas para processar");
+            log.warn("⚠️ [BUSCA EMPRESAS] 2. A query não está retornando dados");
+            log.warn("⚠️ [BUSCA EMPRESAS] 3. Problema na view VW_INTEGRACAO_ODONTOPREV");
+            log.warn("⚠️ [BUSCA EMPRESAS] 4. Todas as empresas já foram processadas");
+            return new ArrayList<>();
+        }
     }
 
     /**
@@ -160,7 +182,34 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
             excecaoEmErro = CONSULTA_EMPRESAS
     )
     public long contarTotalEmpresas() {
-        return integracaoRepository.contarTotalEmpresas();
+        log.info("🔍 [CONTAGEM] Verificando total de empresas para sincronização...");
+        log.info("🔍 [CONTAGEM] Executando query alternativa: SELECT COUNT(DISTINCT NR_SEQ_CONTRATO) FROM TASY.VW_INTEGRACAO_ODONTOPREV WHERE CODIGO_EMPRESA IS NULL AND NR_SEQ_CONTRATO IS NOT NULL");
+        
+        // Usar query alternativa que sempre pega novidades
+        long total = integracaoRepository.contarEmpresasParaInclusao();
+        
+        log.info("📊 [CONTAGEM] Total de empresas encontradas: {}", total);
+        if (total > 0) {
+            log.info("✅ [CONTAGEM] Há {} empresas disponíveis para inclusão na OdontoPrev", total);
+            
+            // Log adicional para debug - buscar algumas empresas para verificar
+            try {
+                List<Long> amostra = integracaoRepository.buscarEmpresasParaInclusao();
+                if (!amostra.isEmpty()) {
+                    log.info("🔍 [CONTAGEM] Amostra de empresas encontradas: {}", amostra);
+                    log.info("🔍 [CONTAGEM] Primeira empresa: {} (tipo: {})", amostra.get(0), amostra.get(0).getClass().getSimpleName());
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ [CONTAGEM] Erro ao buscar amostra de empresas: {}", e.getMessage());
+            }
+        } else {
+            log.warn("⚠️ [CONTAGEM] NENHUMA empresa encontrada com CODIGO_EMPRESA IS NULL");
+            log.warn("⚠️ [CONTAGEM] Isso pode indicar que:");
+            log.warn("⚠️ [CONTAGEM] 1. Todas as empresas já foram processadas");
+            log.warn("⚠️ [CONTAGEM] 2. Não há dados na view VW_INTEGRACAO_ODONTOPREV");
+            log.warn("⚠️ [CONTAGEM] 3. A view não está retornando dados corretamente");
+        }
+        return total;
     }
 
     /**
@@ -180,32 +229,24 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
      * RETORNO: quantidade total de empresas processadas com sucesso
      */
     private long processarTodasAsPaginas(int tamanhoBatch, long totalEmpresas) {
-        int numeroPagina = 0;              // Contador da página atual
-        long empresasProcessadas = 0;      // Total de empresas processadas com sucesso
+        log.info("🚀 [PROCESSAMENTO] Iniciando processamento de TODAS as empresas de uma vez (SEM PAGINAÇÃO)");
         
-        // Loop infinito - termina quando não há mais páginas
-        while (true) {
-            // Busca próxima página de códigos de empresas
-            List<String> loteAtual = buscarProximoLote(numeroPagina, tamanhoBatch);
-            
-            // Se página está vazia, não há mais empresas para processar
-            if (loteEstaVazio(loteAtual)) {
-                break; // Sai do loop
-            }
-            
-            // Registra início do processamento desta página
-            logInicioLote(numeroPagina, loteAtual);
-            
-            // Processa todas as empresas desta página
-            long processadasNoLote = processarLote(loteAtual);
-            empresasProcessadas += processadasNoLote;
-            
-            // Vai para próxima página
-            numeroPagina++;
-            
-            // Registra fim do processamento desta página com progresso
-            logFimLote(numeroPagina, empresasProcessadas, totalEmpresas);
+        // Buscar TODAS as empresas de uma vez
+        List<String> todasEmpresas = buscarCodigosEmpresasPaginado(0, Integer.MAX_VALUE);
+        
+        if (todasEmpresas.isEmpty()) {
+            log.warn("⚠️ [PROCESSAMENTO] Nenhuma empresa encontrada para processar");
+            return 0;
         }
+        
+        log.info("📊 [PROCESSAMENTO] Total de empresas encontradas: {}", todasEmpresas.size());
+        log.info("✅ [PROCESSAMENTO] Empresas para processar: {}", todasEmpresas);
+        
+        // Processar todas as empresas de uma vez
+        long empresasProcessadas = processarLote(todasEmpresas);
+        
+        log.info("✅ [PROCESSAMENTO] Processamento concluído - {} empresas processadas de {} encontradas", 
+                empresasProcessadas, todasEmpresas.size());
         
         return empresasProcessadas;
     }
@@ -244,16 +285,26 @@ public class ProcessamentoLoteServiceImpl implements ProcessamentoLoteService {
      * RETORNO: quantas empresas foram processadas com sucesso nesta página
      */
     private long processarLote(List<String> codigosEmpresas) {
+        log.info("🚀 [PROCESSAMENTO LOTE] Iniciando processamento de {} empresas", codigosEmpresas.size());
         long processadasNoLote = 0; // Contador de sucessos nesta página
 
         // Processa cada empresa individualmente
-        for (String codigoEmpresa : codigosEmpresas) {
+        for (int i = 0; i < codigosEmpresas.size(); i++) {
+            String codigoEmpresa = codigosEmpresas.get(i);
+            log.info("🔍 [PROCESSAMENTO LOTE] Processando empresa {}/{}: {}", i + 1, codigosEmpresas.size(), codigoEmpresa);
+            
             // Processa empresa com tratamento de erro
             if (processarEmpresaComSeguranca(codigoEmpresa)) {
                 processadasNoLote++; // Incrementa apenas se deu certo
+                log.info("✅ [PROCESSAMENTO LOTE] Empresa {} processada com sucesso", codigoEmpresa);
+            } else {
+                log.warn("⚠️ [PROCESSAMENTO LOTE] Empresa {} teve erro no processamento", codigoEmpresa);
             }
             // Se der erro, empresa é pulada mas outras continuam
         }
+        
+        log.info("📊 [PROCESSAMENTO LOTE] Lote concluído - {} empresas processadas com sucesso de {} total", 
+                processadasNoLote, codigosEmpresas.size());
         
         return processadasNoLote;
     }

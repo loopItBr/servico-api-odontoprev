@@ -104,24 +104,45 @@ public class SyncOdontoprevScheduler {
             excecaoEmErro = INICIALIZACAO_SCHEDULER
     )
     public void executarSincronizacaoOdontoprev() {
+        log.info("🕐 [SCHEDULER] ===== INICIANDO EXECUÇÃO DO SCHEDULER =====");
+        log.info("🕐 [SCHEDULER] Timestamp: {}", java.time.LocalDateTime.now());
+        log.info("🕐 [SCHEDULER] Thread: {}", Thread.currentThread().getName());
+        log.info("🕐 [SCHEDULER] Verificando se já tem sincronização em execução...");
+        
         // Primeiro, verifica se já tem sincronização rodando
         if (sincronizacaoJaEstaEmExecucao()) {
-            log.warn("Sincronização já está em execução, pulando esta execução");
+            log.warn("⚠️ [SCHEDULER] Sincronização já está em execução, pulando esta execução");
+            log.warn("⚠️ [SCHEDULER] ===== FIM DO SCHEDULER (PULADO) =====");
             return; // Sai do método sem fazer nada
         }
+        
+        log.info("✅ [SCHEDULER] Nenhuma sincronização em execução, iniciando nova execução");
+        log.info("🚀 [SCHEDULER] Iniciando execução assíncrona da sincronização completa");
 
         // Se chegou aqui, não tem sincronização rodando
         // Inicia execução em thread separada (assíncrona)
+        log.info("🔄 [SCHEDULER] Criando CompletableFuture para execução assíncrona");
         CompletableFuture
                 .runAsync(this::executarSincronizacaoComControle, executorService)
                 .whenComplete((result, throwable) -> {
                     // Este código executa quando a sincronização termina (sucesso ou erro)
+                    log.info("🏁 [SCHEDULER] ===== EXECUÇÃO ASSÍNCRONA FINALIZADA =====");
+                    log.info("🏁 [SCHEDULER] Timestamp: {}", java.time.LocalDateTime.now());
+                    log.info("🏁 [SCHEDULER] Thread: {}", Thread.currentThread().getName());
+                    
                     if (throwable != null) {
                         // Se deu erro, registra no log
-                        log.error("Erro durante execução assíncrona", throwable);
+                        log.error("❌ [SCHEDULER] Erro durante execução assíncrona", throwable);
+                        log.error("❌ [SCHEDULER] Tipo do erro: {}", throwable.getClass().getSimpleName());
+                        log.error("❌ [SCHEDULER] Mensagem: {}", throwable.getMessage());
+                    } else {
+                        log.info("✅ [SCHEDULER] Execução assíncrona concluída com sucesso");
                     }
-                    // Se foi sucesso, não precisa fazer nada especial
+                    log.info("🏁 [SCHEDULER] ===== FIM DA EXECUÇÃO ASSÍNCRONA =====");
                 });
+        
+        log.info("✅ [SCHEDULER] CompletableFuture criado e iniciado");
+        log.info("🕐 [SCHEDULER] ===== FIM DO SCHEDULER (EXECUÇÃO INICIADA) =====");
     }
 
     /**
@@ -177,14 +198,28 @@ public class SyncOdontoprevScheduler {
             excecaoEmErro = PROCESSAMENTO_LOTE
     )
     private void executarSincronizacaoComControle() {
+        log.info("🔄 [EXECUÇÃO] ===== INICIANDO EXECUÇÃO COM CONTROLE =====");
+        log.info("🔄 [EXECUÇÃO] Timestamp: {}", java.time.LocalDateTime.now());
+        log.info("🔄 [EXECUÇÃO] Thread: {}", Thread.currentThread().getName());
+        log.info("🔄 [EXECUÇÃO] Chamando sincronizacaoCompletaService.executarSincronizacaoCompleta()");
+        
         try {
             // Chama o serviço que faz o trabalho real de sincronização completa
             // Inclui adições, alterações e exclusões
             sincronizacaoCompletaService.executarSincronizacaoCompleta();
+            log.info("✅ [EXECUÇÃO] sincronizacaoCompletaService.executarSincronizacaoCompleta() executado com sucesso");
+        } catch (Exception e) {
+            log.error("❌ [EXECUÇÃO] Erro ao executar sincronizacaoCompletaService.executarSincronizacaoCompleta()", e);
+            log.error("❌ [EXECUÇÃO] Tipo do erro: {}", e.getClass().getSimpleName());
+            log.error("❌ [EXECUÇÃO] Mensagem: {}", e.getMessage());
+            throw e; // Re-lança o erro para ser capturado pelo whenComplete
         } finally {
             // SEMPRE executa, mesmo se der erro
             // Libera o controle para permitir próximas execuções
+            log.info("🔓 [EXECUÇÃO] Liberando controle de execução...");
             liberarControleExecucao();
+            log.info("✅ [EXECUÇÃO] Controle liberado com sucesso");
+            log.info("🔄 [EXECUÇÃO] ===== FIM DA EXECUÇÃO COM CONTROLE =====");
         }
     }
 

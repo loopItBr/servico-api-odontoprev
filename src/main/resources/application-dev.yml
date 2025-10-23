@@ -43,6 +43,11 @@ odontoprev:
     usuario: ${ODONTOPREV_CREDENTIALS_USUARIO:13433638}
     senha: ${ODONTOPREV_CREDENTIALS_SENHA:gWZ84t1NCX3a}
     app-id: ${ODONTOPREV_CREDENTIALS_APPID:ODPV}
+  
+  # Configurações do Scheduler
+  scheduler:
+    empresa:
+      enabled: true
 
 # Logging específico para desenvolvimento
 logging:

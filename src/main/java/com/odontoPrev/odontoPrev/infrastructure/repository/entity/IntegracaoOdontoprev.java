@@ -1,9 +1,7 @@
 package com.odontoPrev.odontoPrev.infrastructure.repository.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -58,31 +56,33 @@ import java.time.LocalDate;
 public class IntegracaoOdontoprev {
 
     /**
-     * CÓDIGO ÚNICO DA EMPRESA NO SISTEMA TASY
+     * NÚMERO SEQUENCIAL DO CONTRATO
      * 
-     * Este é o identificador principal de cada empresa em nosso sistema.
-     * É usado como chave primária e para buscar dados da empresa na OdontoPrev.
+     * Identificador único do contrato da empresa na view de inclusão.
+     * Este campo é usado na procedure SS_PLS_CAD_CODEMPRESA_ODONTOPREV.
      * 
-     * Exemplo: "A001", "EMP123", "XYZ789"
+     * IMPORTANTE:
+     * - Este campo é a chave primária para empresas não processadas
+     * - Empresas já processadas têm CODIGO_EMPRESA preenchido
+     * - Serve como identificador único para inclusão
      */
     @Id
-    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 6)
-    @NotBlank(message = "Código da empresa é obrigatório")
-    @Size(min = 1, max = 6, message = "Código da empresa deve ter entre 1 e 6 caracteres")
-    @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Código da empresa deve conter apenas letras e números")
-    private String codigoEmpresa;
+    @Column(name = "NR_SEQ_CONTRATO", nullable = true)
+    private Long nrSeqContrato;
 
     /**
-     * CNPJ DA EMPRESA (CADASTRO NACIONAL DE PESSOA JURÍDICA)
+     * CÓDIGO DA EMPRESA NA OPERADORA ODONTOPREV
      * 
-     * Documento oficial que identifica a empresa junto à Receita Federal.
-     * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
-     * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
+     * Quando a empresa já existe na OdontoPrev, ela recebe um código específico
+     * que a identifica unicamente no sistema da operadora.
+     * 
+     * IMPORTANTE:
+     * - Este campo vem da resposta da API após o POST
+     * - É usado para identificar a empresa em operações futuras
+     * - Para empresas não processadas, este campo é NULL
      */
-    @Column(name = "CNPJ", nullable = true, length = 14)
-    @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
-             message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
-    private String cnpj;
+    @Column(name = "CODIGO_EMPRESA", nullable = true, length = 20)
+    private String codigoEmpresa;
 
     /**
      * CÓDIGO DA EMPRESA NA OPERADORA ODONTOPREV
@@ -91,8 +91,22 @@ public class IntegracaoOdontoprev {
      * deles. Este campo armazena esse código para futuras sincronizações.
      * Campo opcional porque empresas novas ainda não têm código na operadora.
      */
-    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true)
-    private Long codigoClienteOperadora;
+    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true, length = 6)
+    private String codigoClienteOperadora;
+
+
+    /**
+     * CNPJ DA EMPRESA (CADASTRO NACIONAL DE PESSOA JURÍDICA)
+     * 
+     * Documento oficial que identifica a empresa junto à Receita Federal.
+     * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
+     * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
+     */
+    @Column(name = "CNPJ", nullable = true, length = 18)
+    @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
+             message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
+    private String cnpj;
+
 
     /**
      * NOME COMERCIAL DA EMPRESA
@@ -168,77 +182,112 @@ public class IntegracaoOdontoprev {
     @Column(name = "SINISTRALIDADE", nullable = true)
     private String sinistralidade;
 
-    /**
-     * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO
-     * Código único que identifica o plano contratado pela empresa
-     */
-    @Column(name = "CODIGO_PLANO", nullable = true)
-    private Long codigoPlano;
+    // ===== COLUNAS DE PLANO (SUFIXO _1, _2, _3) =====
+    @Column(name = "CODIGO_PLANO_1", nullable = true)
+    private Long codigoPlano1;
 
-    /**
-     * DESCRIÇÃO DETALHADA DO PLANO
-     * Nome completo e características do plano odontológico
-     */
-    @Column(name = "DESCRICAO_PLANO", nullable = true)
-    private String descricaoPlano;
+    @Column(name = "DESCRICAO_PLANO_1", nullable = true, length = 80)
+    private String descricaoPlano1;
 
-    /**
-     * NOME COMERCIAL DO PLANO
-     * Nome simplificado usado para divulgação
-     */
-    @Column(name = "NOME_FANTASIA_PLANO", nullable = true)
-    private String nomeFantasiaPlano;
+    @Column(name = "NOME_FANTASIA_PLANO_1", nullable = true, length = 255)
+    private String nomeFantasiaPlano1;
 
-    /**
-     * REGISTRO NA ANS (AGÊNCIA NACIONAL DE SAÚDE SUPLEMENTAR)
-     * Número oficial do plano junto ao órgão regulador
-     */
-    @Column(name = "NUMERO_REGISTRO_ANS", nullable = true)
-    private String numeroRegistroAns;
+    @Column(name = "NUMERO_REGISTRO_ANS_1", nullable = true, length = 20)
+    private String numeroRegistroAns1;
 
-    /**
-     * SIGLA OU ABREVIAÇÃO DO PLANO
-     * Identificação curta do plano (ex: "BAS", "PREM", "EXEC")
-     */
-    @Column(name = "SIGLA_PLANO", nullable = true)
-    private String siglaPlano;
+    @Column(name = "SIGLA_PLANO_1", nullable = true)
+    private String siglaPlano1;
 
-    /**
-     * VALOR MENSAL POR TITULAR DO PLANO
-     * Quanto cada funcionário principal da empresa paga mensalmente
-     */
-    @Column(name = "VALOR_TITULAR", nullable = true)
-    private String valorTitular;
+    @Column(name = "VALOR_TITULAR_1", nullable = true)
+    private String valorTitular1;
 
-    /**
-     * VALOR MENSAL POR DEPENDENTE
-     * Quanto cada dependente (cônjuge, filhos) custa mensalmente
-     */
-    @Column(name = "VALOR_DEPENDENTE", nullable = true)
-    private String valorDependente;
+    @Column(name = "VALOR_DEPENDENTE_1", nullable = true)
+    private String valorDependente1;
 
-    // Datas de vigência específicas do plano
-    @Column(name = "DATA_INICIO_PLANO", nullable = true)
+    @Column(name = "DATA_INICIO_PLANO_1", nullable = true)
     @Temporal(TemporalType.DATE)
-    private LocalDate dataInicioPlano;
+    private LocalDate dataInicioPlano1;
 
-    @Column(name = "DATA_FIM_PLANO", nullable = true)
+    @Column(name = "DATA_FIM_PLANO_1", nullable = true)
     @Temporal(TemporalType.DATE)
-    private LocalDate dataFimPlano;
+    private LocalDate dataFimPlano1;
 
-    /**
-     * COPARTICIPAÇÃO DO PLANO
-     * Define se o plano tem coparticipação (paciente paga parte do tratamento)
-     */
-    @Column(name = "CO_PARTICIPACAO", nullable = true)
-    private String coParticipacao;
+    @Column(name = "CO_PARTICIPACAO_1", nullable = true, length = 1)
+    private String coParticipacao1;
 
-    /**
-     * TIPO DE NEGOCIAÇÃO COMERCIAL
-     * Modalidade de contrato (ex: "CORPORATIVO", "INDIVIDUAL")
-     */
-    @Column(name = "TIPO_NEGOCIACAO", nullable = true)
-    private String tipoNegociacao;
+    @Column(name = "TIPO_NEGOCIACAO_1", nullable = true, length = 2)
+    private String tipoNegociacao1;
+
+    @Column(name = "CODIGO_PLANO_2", nullable = true)
+    private Long codigoPlano2;
+
+    @Column(name = "DESCRICAO_PLANO_2", nullable = true, length = 80)
+    private String descricaoPlano2;
+
+    @Column(name = "NOME_FANTASIA_PLANO_2", nullable = true, length = 255)
+    private String nomeFantasiaPlano2;
+
+    @Column(name = "NUMERO_REGISTRO_ANS_2", nullable = true, length = 20)
+    private String numeroRegistroAns2;
+
+    @Column(name = "SIGLA_PLANO_2", nullable = true)
+    private String siglaPlano2;
+
+    @Column(name = "VALOR_TITULAR_2", nullable = true)
+    private String valorTitular2;
+
+    @Column(name = "VALOR_DEPENDENTE_2", nullable = true)
+    private String valorDependente2;
+
+    @Column(name = "DATA_INICIO_PLANO_2", nullable = true)
+    @Temporal(TemporalType.DATE)
+    private LocalDate dataInicioPlano2;
+
+    @Column(name = "DATA_FIM_PLANO_2", nullable = true)
+    @Temporal(TemporalType.DATE)
+    private LocalDate dataFimPlano2;
+
+    @Column(name = "CO_PARTICIPACAO_2", nullable = true, length = 1)
+    private String coParticipacao2;
+
+    @Column(name = "TIPO_NEGOCIACAO_2", nullable = true, length = 2)
+    private String tipoNegociacao2;
+
+    @Column(name = "CODIGO_PLANO_3", nullable = true)
+    private Long codigoPlano3;
+
+    @Column(name = "DESCRICAO_PLANO_3", nullable = true, length = 80)
+    private String descricaoPlano3;
+
+    @Column(name = "NOME_FANTASIA_PLANO_3", nullable = true, length = 255)
+    private String nomeFantasiaPlano3;
+
+    @Column(name = "NUMERO_REGISTRO_ANS_3", nullable = true, length = 20)
+    private String numeroRegistroAns3;
+
+    @Column(name = "SIGLA_PLANO_3", nullable = true)
+    private String siglaPlano3;
+
+    @Column(name = "VALOR_TITULAR_3", nullable = true)
+    private String valorTitular3;
+
+    @Column(name = "VALOR_DEPENDENTE_3", nullable = true)
+    private String valorDependente3;
+
+    @Column(name = "DATA_INICIO_PLANO_3", nullable = true)
+    @Temporal(TemporalType.DATE)
+    private LocalDate dataInicioPlano3;
+
+    @Column(name = "DATA_FIM_PLANO_3", nullable = true)
+    @Temporal(TemporalType.DATE)
+    private LocalDate dataFimPlano3;
+
+    @Column(name = "CO_PARTICIPACAO_3", nullable = true, length = 1)
+    private String coParticipacao3;
+
+    @Column(name = "TIPO_NEGOCIACAO_3", nullable = true, length = 2)
+    private String tipoNegociacao3;
+
 
     // === INFORMAÇÕES DE COBRANÇA E PAGAMENTO ===
     

@@ -47,7 +47,7 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
 
     @Override
     @Transactional
-    public void ativarPlanoEmpresa(IntegracaoOdontoprev dadosEmpresa) {
+    public EmpresaAtivacaoPlanoResponse ativarPlanoEmpresa(IntegracaoOdontoprev dadosEmpresa) {
         String codigoEmpresa = dadosEmpresa.getCodigoEmpresa();
         
         log.info("🚀 [ATIVAÇÃO PLANO] Iniciando ativação do plano para empresa: {}", codigoEmpresa);
@@ -76,13 +76,15 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
             processarSucessoAtivacao(controleSync, response);
             
             log.info("✅ [ATIVAÇÃO PLANO] Plano ativado com sucesso para empresa: {}", codigoEmpresa);
-            
+            return response;
+
         } catch (Exception e) {
             log.error("❌ [ATIVAÇÃO PLANO] Erro ao ativar plano para empresa {}: {}", 
                     codigoEmpresa, e.getMessage(), e);
             
             // Registrar erro no controle
             processarErroAtivacao(codigoEmpresa, e.getMessage());
+            throw e;
         }
     }
 

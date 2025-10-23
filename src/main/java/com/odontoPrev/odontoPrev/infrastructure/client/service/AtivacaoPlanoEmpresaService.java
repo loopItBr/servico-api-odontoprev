@@ -1,6 +1,5 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
-import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 
@@ -30,5 +29,5 @@ public interface AtivacaoPlanoEmpresaService {
      *
      * @param dadosEmpresa dados completos da empresa sincronizada
      */
-    void ativarPlanoEmpresa(IntegracaoOdontoprev dadosEmpresa);
+    EmpresaAtivacaoPlanoResponse ativarPlanoEmpresa(IntegracaoOdontoprev dadosEmpresa);
 }

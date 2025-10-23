@@ -229,7 +229,7 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
         // Copia todos os campos comuns
         dadosBase.setCodigoEmpresa(dadosAlteracao.getCodigoEmpresa());
         dadosBase.setCnpj(dadosAlteracao.getCnpj());
-        dadosBase.setCodigoClienteOperadora(dadosAlteracao.getCodigoClienteOperadora() != null ? Long.valueOf(dadosAlteracao.getCodigoClienteOperadora()) : null);
+        dadosBase.setCodigoClienteOperadora(dadosAlteracao.getCodigoClienteOperadora());
         dadosBase.setNomeFantasia(dadosAlteracao.getNomeFantasia());
         dadosBase.setDataInicioContrato(dadosAlteracao.getDataInicioContrato());
         dadosBase.setDataFimContrato(dadosAlteracao.getDataFimContrato());
@@ -241,17 +241,18 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
         dadosBase.setVidasAtivas(dadosAlteracao.getVidasAtivas());
         dadosBase.setValorUltimoFaturamento(dadosAlteracao.getValorUltimoFaturamento());
         dadosBase.setSinistralidade(dadosAlteracao.getSinistralidade());
-        dadosBase.setCodigoPlano(dadosAlteracao.getCodigoPlano());
-        dadosBase.setDescricaoPlano(dadosAlteracao.getDescricaoPlano());
-        dadosBase.setNomeFantasiaPlano(dadosAlteracao.getNomeFantasiaPlano());
-        dadosBase.setNumeroRegistroAns(dadosAlteracao.getNumeroRegistroAns() != null ? dadosAlteracao.getNumeroRegistroAns().toString() : null);
-        dadosBase.setSiglaPlano(dadosAlteracao.getSiglaPlano());
-        dadosBase.setValorTitular(dadosAlteracao.getValorTitular());
-        dadosBase.setValorDependente(dadosAlteracao.getValorDependente());
-        dadosBase.setDataInicioPlano(dadosAlteracao.getDataInicioPlano());
-        dadosBase.setDataFimPlano(dadosAlteracao.getDataFimPlano());
-        dadosBase.setCoParticipacao(dadosAlteracao.getCoParticipacao());
-        dadosBase.setTipoNegociacao(dadosAlteracao.getTipoNegociacao());
+        // Campos de plano agora usam sufixo _1 na entidade base
+        dadosBase.setCodigoPlano1(dadosAlteracao.getCodigoPlano());
+        dadosBase.setDescricaoPlano1(dadosAlteracao.getDescricaoPlano());
+        dadosBase.setNomeFantasiaPlano1(dadosAlteracao.getNomeFantasiaPlano());
+        dadosBase.setNumeroRegistroAns1(dadosAlteracao.getNumeroRegistroAns() != null ? dadosAlteracao.getNumeroRegistroAns().toString() : null);
+        dadosBase.setSiglaPlano1(dadosAlteracao.getSiglaPlano());
+        dadosBase.setValorTitular1(dadosAlteracao.getValorTitular());
+        dadosBase.setValorDependente1(dadosAlteracao.getValorDependente());
+        dadosBase.setDataInicioPlano1(dadosAlteracao.getDataInicioPlano());
+        dadosBase.setDataFimPlano1(dadosAlteracao.getDataFimPlano());
+        dadosBase.setCoParticipacao1(dadosAlteracao.getCoParticipacao());
+        dadosBase.setTipoNegociacao1(dadosAlteracao.getTipoNegociacao());
         dadosBase.setCodigoTipoCobranca(dadosAlteracao.getCodigoTipoCobranca());
         dadosBase.setNomeTipoCobranca(dadosAlteracao.getNomeTipoCobranca());
         dadosBase.setSiglaTipoCobranca(dadosAlteracao.getSiglaTipoCobranca());

@@ -26,6 +26,9 @@ public class EmpresaAtivacaoPlanoResponse {
     @JsonProperty("codigoEmpresa")
     private String codigoEmpresa;
 
+    @JsonProperty("senha")
+    private String senha;
+
     @JsonProperty("dataAtivacao")
     private String dataAtivacao;
 }

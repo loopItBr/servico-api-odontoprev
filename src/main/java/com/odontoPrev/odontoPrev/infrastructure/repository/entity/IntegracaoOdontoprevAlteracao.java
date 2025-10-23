@@ -47,7 +47,7 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class IntegracaoOdontoprevAlteracao {
+public class    IntegracaoOdontoprevAlteracao {
 
     /**
      * CÓDIGO ÚNICO DA EMPRESA NO SISTEMA TASY

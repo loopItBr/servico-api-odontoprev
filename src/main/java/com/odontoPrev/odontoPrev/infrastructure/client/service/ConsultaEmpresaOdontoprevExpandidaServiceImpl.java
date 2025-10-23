@@ -8,6 +8,8 @@ import com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper.EmpresaAlt
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAlteracaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevAlteracao;
+import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevAlteracaoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +27,7 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
     private final ObjectMapper objectMapper;
     private final EmpresaAlteracaoMapper empresaAlteracaoMapper;
     private final TokenService tokenService;
+    private final IntegracaoOdontoprevAlteracaoRepository alteracaoRepository;
     
     @Value("${odontoprev.api.empresa}")
     private String empresa;
@@ -82,6 +85,22 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
                 String requestJson = objectMapper.writeValueAsString(request);
                 log.info("📤 [ALTERAÇÃO EMPRESA] Request JSON completo: {}", requestJson);
                 log.info("📤 [ALTERAÇÃO EMPRESA] Tamanho do request: {} bytes", requestJson.length());
+                
+                // Log específico do endereço para debug
+                if (request.getEndereco() != null) {
+                    log.info("🏠 [ALTERAÇÃO EMPRESA] Dados do endereço:");
+                    log.info("   tipoLogradouro: '{}'", request.getEndereco().getTipoLogradouro());
+                    log.info("   logradouro: '{}'", request.getEndereco().getLogradouro());
+                    log.info("   numero: '{}'", request.getEndereco().getNumero());
+                    log.info("   bairro: '{}'", request.getEndereco().getBairro());
+                    log.info("   cep: '{}'", request.getEndereco().getCep());
+                    if (request.getEndereco().getCidade() != null) {
+                        log.info("   cidade.codigo: {}", request.getEndereco().getCidade().getCodigo());
+                        log.info("   cidade.nome: '{}'", request.getEndereco().getCidade().getNome());
+                        log.info("   cidade.siglaUf: '{}'", request.getEndereco().getCidade().getSiglaUf());
+                        log.info("   cidade.codigoPais: {}", request.getEndereco().getCidade().getCodigoPais());
+                    }
+                }
             } catch (Exception e) {
                 log.warn("⚠️ [ALTERAÇÃO EMPRESA] Erro ao serializar request para log: {}", e.getMessage());
             }
@@ -183,8 +202,22 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
     private EmpresaAlteracaoRequest criarRequestMinimo(IntegracaoOdontoprev dadosEmpresa) {
         log.debug("🔧 [ALTERAÇÃO EMPRESA] Criando request mínimo para empresa: {}", dadosEmpresa.getCodigoEmpresa());
         
-        // Usa o mapper para criar o request com dados da view
-        EmpresaAlteracaoRequest request = empresaAlteracaoMapper.toAlteracaoRequest(dadosEmpresa);
+        // Tenta buscar dados específicos da view de alteração para mapear endereço/cidade corretamente
+        EmpresaAlteracaoRequest request;
+        try {
+            String codigoEmpresa = dadosEmpresa.getCodigoEmpresa();
+            java.util.Optional<IntegracaoOdontoprevAlteracao> viewOpt = alteracaoRepository.findByCodigoEmpresa(codigoEmpresa);
+            if (viewOpt.isPresent()) {
+                log.debug("📄 [ALTERAÇÃO EMPRESA] Dados da view encontrados para {}. Usando CODIGOCIDADE da view.", codigoEmpresa);
+                request = empresaAlteracaoMapper.toAlteracaoRequest(viewOpt.get());
+            } else {
+                log.debug("📄 [ALTERAÇÃO EMPRESA] Dados da view não encontrados para {}. Fazendo fallback para entidade base.", codigoEmpresa);
+                request = empresaAlteracaoMapper.toAlteracaoRequest(dadosEmpresa);
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ [ALTERAÇÃO EMPRESA] Falha ao buscar dados da view: {}. Fallback para entidade base.", e.getMessage());
+            request = empresaAlteracaoMapper.toAlteracaoRequest(dadosEmpresa);
+        }
         
         log.debug("✅ [ALTERAÇÃO EMPRESA] Request mínimo criado com campos:");
         log.debug("   codigoEmpresa: '{}'", request.getCodigoEmpresa());

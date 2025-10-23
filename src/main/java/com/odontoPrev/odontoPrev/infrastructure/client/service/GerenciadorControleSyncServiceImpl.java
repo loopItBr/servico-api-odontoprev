@@ -52,25 +52,33 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
      */
     private ControleSync criarOuAtualizarControle(String codigoEmpresa, IntegracaoOdontoprev dados, 
                                                   ControleSync.TipoOperacao tipoOperacao, ControleSync.TipoControle tipoControle) {
+        log.info("🔧 [CRIAR CONTROLE] Iniciando criação/atualização para empresa: {}, Tipo: {}", 
+                codigoEmpresa, tipoControle);
+        
         try {
             String dadosJson = objectMapper.writeValueAsString(dados);
+            log.debug("📄 [CRIAR CONTROLE] Dados JSON gerados: {} caracteres", dadosJson.length());
             
             // Verificar se já existe um registro de controle para esta empresa e tipo
+            // Usa findFirst para evitar erro quando há múltiplos registros
             Optional<ControleSync> controleExistente = repository
-                    .findByCodigoEmpresaAndTipoControle(codigoEmpresa, tipoControle.getCodigo());
+                    .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(codigoEmpresa, tipoControle.getCodigo());
             
             if (controleExistente.isPresent()) {
                 ControleSync controle = controleExistente.get();
+                log.info("🔄 [CRIAR CONTROLE] Registro existente encontrado - ID: {}, Status: {}", 
+                        controle.getId(), controle.getStatusSync());
                 
                 // Se já foi processado com sucesso, não criar novo registro
                 if (controle.getStatusSync() == ControleSync.StatusSync.SUCCESS) {
-                    log.info("🔄 [CONTROLE] Empresa {} já foi processada com sucesso, não criando novo registro", codigoEmpresa);
+                    log.info("✅ [CRIAR CONTROLE] Empresa {} já foi processada com sucesso, não criando novo registro", codigoEmpresa);
                     return controle;
                 }
                 
                 // Se está em erro ou pendente, atualizar o registro existente
-                log.info("🔄 [CONTROLE] Atualizando registro existente para empresa {} - Status atual: {}", 
+                log.info("🔄 [CRIAR CONTROLE] REUTILIZANDO registro existente para empresa {} - Status atual: {}", 
                         codigoEmpresa, controle.getStatusSync());
+                log.info("🔄 [CRIAR CONTROLE] ATENÇÃO: Não criando novo registro - reutilizando ID: {}", controle.getId());
                 
                 controle.setDadosJson(dadosJson);
                 controle.setStatusSync(ControleSync.StatusSync.PENDING);
@@ -80,12 +88,13 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
                 
                 return controle;
             } else {
-                // Criar novo registro
-                log.info("🆕 [CONTROLE] Criando novo registro de controle para empresa {}", codigoEmpresa);
+                // Criar novo registro APENAS se não existir nenhum
+                log.info("🆕 [CRIAR CONTROLE] Nenhum registro existente encontrado - Criando novo para empresa {}", codigoEmpresa);
                 
                 String endpoint = determinarEndpoint(tipoOperacao, codigoEmpresa);
+                log.debug("🌐 [CRIAR CONTROLE] Endpoint determinado: {}", endpoint);
                 
-                return ControleSync.builder()
+                ControleSync novoControle = ControleSync.builder()
                         .codigoEmpresa(codigoEmpresa)
                         .tipoOperacao(tipoOperacao)
                         .tipoControle(tipoControle.getCodigo())
@@ -94,6 +103,12 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
                         .statusSync(ControleSync.StatusSync.PENDING)
                         .dataCriacao(LocalDateTime.now())
                         .build();
+                
+                log.info("📋 [CRIAR CONTROLE] Novo controle criado - Empresa: {}, Tipo: {}, Status: {}", 
+                        novoControle.getCodigoEmpresa(), novoControle.getTipoControle(), novoControle.getStatusSync());
+                log.info("🆕 [CRIAR CONTROLE] ATENÇÃO: Este é um NOVO registro - empresa {} não tinha registro anterior", codigoEmpresa);
+                
+                return novoControle;
             }
                     
         } catch (JsonProcessingException e) {
@@ -148,9 +163,19 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
     @Override
     @Transactional
     public ControleSync salvar(ControleSync controle) {
-        log.debug("Salvando controle sync para empresa: {}", controle.getCodigoEmpresa());
-        ControleSync saved = repository.save(controle);
-        log.debug("Controle sync salvo com ID: {}", saved.getId());
-        return saved;
+        log.info("💾 [SALVAR CONTROLE] Iniciando salvamento para empresa: {}", controle.getCodigoEmpresa());
+        log.info("💾 [SALVAR CONTROLE] Status: {}, Tipo: {}, Endpoint: {}", 
+                controle.getStatusSync(), controle.getTipoControle(), controle.getEndpointDestino());
+        
+        try {
+            ControleSync saved = repository.save(controle);
+            log.info("✅ [SALVAR CONTROLE] Controle salvo com sucesso - ID: {}, Empresa: {}", 
+                    saved.getId(), saved.getCodigoEmpresa());
+            return saved;
+        } catch (Exception e) {
+            log.error("❌ [SALVAR CONTROLE] Erro ao salvar controle para empresa {}: {}", 
+                    controle.getCodigoEmpresa(), e.getMessage(), e);
+            throw e;
+        }
     }
 }
