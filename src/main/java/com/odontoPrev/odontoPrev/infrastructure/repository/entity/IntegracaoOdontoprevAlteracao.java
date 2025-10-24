@@ -168,74 +168,71 @@ public class    IntegracaoOdontoprevAlteracao {
     private String sinistralidade;
 
     /**
-     * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO
+     * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO 1
      * Código único que identifica o plano contratado pela empresa
      */
-    @Column(name = "CODIGO_PLANO", nullable = true)
-    private Long codigoPlano;
+    @Column(name = "CODIGO_PLANO_1", nullable = true)
+    private Long codigoPlano1;
 
     /**
-     * DESCRIÇÃO DETALHADA DO PLANO
+     * DESCRIÇÃO DETALHADA DO PLANO 1
      * Nome completo e características do plano odontológico
      */
-    @Column(name = "DESCRICAO_PLANO", nullable = true)
-    private String descricaoPlano;
+    @Column(name = "DESCRICAO_PLANO_1", nullable = true)
+    private String descricaoPlano1;
 
     /**
-     * NOME COMERCIAL DO PLANO
+     * NOME COMERCIAL DO PLANO 1
      * Nome simplificado usado para divulgação
      */
-    @Column(name = "NOME_FANTASIA_PLANO", nullable = true)
-    private String nomeFantasiaPlano;
+    @Column(name = "NOME_FANTASIA_PLANO_1", nullable = true)
+    private String nomeFantasiaPlano1;
 
     /**
-     * REGISTRO NA ANS (AGÊNCIA NACIONAL DE SAÚDE SUPLEMENTAR)
+     * REGISTRO NA ANS (AGÊNCIA NACIONAL DE SAÚDE SUPLEMENTAR) 1
      * Número oficial do plano junto ao órgão regulador
      */
-    @Column(name = "NUMERO_REGISTRO_ANS", nullable = true)
-    private Long numeroRegistroAns;
+    @Column(name = "NUMERO_REGISTRO_ANS_1", nullable = true)
+    private String numeroRegistroAns1;
 
     /**
-     * SIGLA OU ABREVIAÇÃO DO PLANO
+     * SIGLA OU ABREVIAÇÃO DO PLANO 1
      * Identificação curta do plano (ex: "BAS", "PREM", "EXEC")
      */
-    @Column(name = "SIGLA_PLANO", nullable = true)
-    private String siglaPlano;
+    @Column(name = "SIGLA_PLANO_1", nullable = true)
+    private String siglaPlano1;
 
     /**
-     * VALOR MENSAL POR TITULAR DO PLANO
+     * VALOR MENSAL POR TITULAR DO PLANO 1
      * Quanto cada funcionário principal da empresa paga mensalmente
      */
-    @Column(name = "VALOR_TITULAR", nullable = true)
-    private String valorTitular;
+    @Column(name = "VALOR_TITULAR_1", nullable = true)
+    private String valorTitular1;
 
     /**
-     * VALOR MENSAL POR DEPENDENTE
+     * VALOR MENSAL POR DEPENDENTE 1
      * Quanto cada dependente (cônjuge, filhos) custa mensalmente
      */
-    @Column(name = "VALOR_DEPENDENTE", nullable = true)
-    private String valorDependente;
+    @Column(name = "VALOR_DEPENDENTE_1", nullable = true)
+    private String valorDependente1;
 
-    // Datas de vigência específicas do plano
-    @Column(name = "DATA_INICIO_PLANO", nullable = true)
-    private LocalDate dataInicioPlano;
+    // Datas de vigência específicas do plano 1
+    @Column(name = "DATA_INICIO_PLANO_1", nullable = true)
+    private LocalDate dataInicioPlano1;
 
-    @Column(name = "DATA_FIM_PLANO", nullable = true)
-    private LocalDate dataFimPlano;
+    @Column(name = "DATA_FIM_PLANO_1", nullable = true)
+    private LocalDate dataFimPlano1;
 
-    /**
-     * CO-PARTICIPAÇÃO DO PLANO
-     * Percentual que o beneficiário paga em cada procedimento
-     */
-    @Column(name = "CO_PARTICIPACAO", nullable = true, length = 1)
-    private String coParticipacao;
+    // CO-PARTICIPAÇÃO DO PLANO - Campo removido pois não existe na view VW_INTEGRACAO_ODONTOPREV_ALT
+    // @Column(name = "CO_PARTICIPACAO", nullable = true, length = 1)
+    // private String coParticipacao;
 
     /**
-     * TIPO DE NEGOCIAÇÃO DO PLANO
+     * TIPO DE NEGOCIAÇÃO DO PLANO 1
      * Como foi negociado o plano (individual, coletivo, etc.)
      */
-    @Column(name = "TIPO_NEGOCIACAO", nullable = true, length = 2)
-    private String tipoNegociacao;
+    @Column(name = "TIPO_NEGOCIACAO_1", nullable = true, length = 2)
+    private String tipoNegociacao1;
 
     // Campos de cobrança (atualmente NULL na view)
     @Column(name = "CODIGO_TIPO_COBRANCA", nullable = true)

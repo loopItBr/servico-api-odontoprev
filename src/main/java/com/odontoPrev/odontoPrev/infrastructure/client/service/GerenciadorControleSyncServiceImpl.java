@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -61,8 +62,27 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
             
             // Verificar se já existe um registro de controle para esta empresa e tipo
             // Usa findFirst para evitar erro quando há múltiplos registros
+            log.debug("🔍 [CRIAR CONTROLE] Buscando registro existente para empresa: {}, tipo: {}", codigoEmpresa, tipoControle.getCodigo());
+            
+            // DEBUG: Verificar se há múltiplos registros
+            List<ControleSync> todosControles = repository
+                    .findByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(codigoEmpresa, tipoControle.getCodigo());
+            log.debug("🔍 [CRIAR CONTROLE] Total de registros encontrados: {}", todosControles.size());
+            
+            if (todosControles.size() > 1) {
+                log.warn("⚠️ [CRIAR CONTROLE] MÚLTIPLOS REGISTROS ENCONTRADOS para empresa {} - tipo {}: {}", 
+                        codigoEmpresa, tipoControle.getCodigo(), todosControles.size());
+                for (int i = 0; i < todosControles.size(); i++) {
+                    ControleSync c = todosControles.get(i);
+                    log.warn("⚠️ [CRIAR CONTROLE] Registro {}: ID={}, Status={}, Data={}", 
+                            i + 1, c.getId(), c.getStatusSync(), c.getDataCriacao());
+                }
+            }
+            
             Optional<ControleSync> controleExistente = repository
                     .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(codigoEmpresa, tipoControle.getCodigo());
+            
+            log.debug("🔍 [CRIAR CONTROLE] Resultado da busca: {}", controleExistente.isPresent() ? "ENCONTRADO" : "NÃO ENCONTRADO");
             
             if (controleExistente.isPresent()) {
                 ControleSync controle = controleExistente.get();
@@ -72,6 +92,7 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
                 // Se já foi processado com sucesso, não criar novo registro
                 if (controle.getStatusSync() == ControleSync.StatusSync.SUCCESS) {
                     log.info("✅ [CRIAR CONTROLE] Empresa {} já foi processada com sucesso, não criando novo registro", codigoEmpresa);
+                    log.info("✅ [CRIAR CONTROLE] Retornando registro existente com ID: {}", controle.getId());
                     return controle;
                 }
                 
@@ -79,6 +100,7 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
                 log.info("🔄 [CRIAR CONTROLE] REUTILIZANDO registro existente para empresa {} - Status atual: {}", 
                         codigoEmpresa, controle.getStatusSync());
                 log.info("🔄 [CRIAR CONTROLE] ATENÇÃO: Não criando novo registro - reutilizando ID: {}", controle.getId());
+                log.info("🔄 [CRIAR CONTROLE] Atualizando dados do registro existente...");
                 
                 controle.setDadosJson(dadosJson);
                 controle.setStatusSync(ControleSync.StatusSync.PENDING);
@@ -90,6 +112,7 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
             } else {
                 // Criar novo registro APENAS se não existir nenhum
                 log.info("🆕 [CRIAR CONTROLE] Nenhum registro existente encontrado - Criando novo para empresa {}", codigoEmpresa);
+                log.info("🆕 [CRIAR CONTROLE] ATENÇÃO: Este é um NOVO registro - empresa {} não tinha registro anterior", codigoEmpresa);
                 
                 String endpoint = determinarEndpoint(tipoOperacao, codigoEmpresa);
                 log.debug("🌐 [CRIAR CONTROLE] Endpoint determinado: {}", endpoint);
@@ -141,12 +164,17 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
 
     @Override
     public void atualizarSucesso(ControleSync controle, String responseJson, long tempoResposta) {
+        log.info("🔄 [ATUALIZAR SUCESSO] Iniciando atualização de sucesso para empresa: {}", controle.getCodigoEmpresa());
+        log.info("🔄 [ATUALIZAR SUCESSO] ID do controle: {}, Status atual: {}", controle.getId(), controle.getStatusSync());
+        
         controle.setStatusSync(ControleSync.StatusSync.SUCCESS);
         controle.setResponseApi(responseJson);
         controle.setDataSucesso(LocalDateTime.now());
         controle.setErroMensagem(null);
         
-        log.info("Sincronização bem-sucedida para empresa {} em {}ms", 
+        log.info("✅ [ATUALIZAR SUCESSO] Controle atualizado - Status: {}, Data sucesso: {}", 
+                controle.getStatusSync(), controle.getDataSucesso());
+        log.info("✅ [ATUALIZAR SUCESSO] Sincronização bem-sucedida para empresa {} em {}ms", 
                 controle.getCodigoEmpresa(), tempoResposta);
     }
 
@@ -164,13 +192,13 @@ public class GerenciadorControleSyncServiceImpl implements GerenciadorControleSy
     @Transactional
     public ControleSync salvar(ControleSync controle) {
         log.info("💾 [SALVAR CONTROLE] Iniciando salvamento para empresa: {}", controle.getCodigoEmpresa());
-        log.info("💾 [SALVAR CONTROLE] Status: {}, Tipo: {}, Endpoint: {}", 
-                controle.getStatusSync(), controle.getTipoControle(), controle.getEndpointDestino());
+        log.info("💾 [SALVAR CONTROLE] ID: {}, Status: {}, Tipo: {}, Endpoint: {}", 
+                controle.getId(), controle.getStatusSync(), controle.getTipoControle(), controle.getEndpointDestino());
         
         try {
             ControleSync saved = repository.save(controle);
-            log.info("✅ [SALVAR CONTROLE] Controle salvo com sucesso - ID: {}, Empresa: {}", 
-                    saved.getId(), saved.getCodigoEmpresa());
+            log.info("✅ [SALVAR CONTROLE] Controle salvo com sucesso - ID: {}, Empresa: {}, Status: {}", 
+                    saved.getId(), saved.getCodigoEmpresa(), saved.getStatusSync());
             return saved;
         } catch (Exception e) {
             log.error("❌ [SALVAR CONTROLE] Erro ao salvar controle para empresa {}: {}", 

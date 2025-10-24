@@ -158,6 +158,6 @@ public interface OdontoprevClient {
         @RequestHeader("usuario") String usuario,
         @RequestHeader("senha") String senha,
         @RequestHeader("app-id") String appId,
-        @RequestBody String dadosEmpresa
+        @RequestBody com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaInativacaoRequest dadosEmpresa
     );
 }

@@ -4,6 +4,7 @@ import com.odontoPrev.odontoPrev.domain.service.*;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevAlteracaoRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevExclusaoRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -155,7 +156,21 @@ public class SincronizacaoCompletaOdontoprevServiceImpl implements Sincronizacao
             excecaoEmErro = PROCESSAMENTO_LOTE
     )
     public void executarSincronizacaoExclusoes() {
-        log.info("Iniciando sincronização de exclusões");
+        log.info("🔍 [EXCLUSÕES] ===== INICIANDO SINCRONIZAÇÃO DE EXCLUSÕES =====");
+        log.info("🔍 [EXCLUSÕES] Timestamp: {}", java.time.LocalDateTime.now());
+        log.info("🔍 [EXCLUSÕES] Thread: {}", Thread.currentThread().getName());
+        log.info("🔍 [EXCLUSÕES] Iniciando sincronização de exclusões");
+        
+        // DEBUG: Verificar se há dados na view
+        try {
+            List<String> todasEmpresas = exclusaoRepository.buscarCodigosEmpresasExcluidas();
+            log.info("🔍 [DEBUG EXCLUSÕES] Total de empresas encontradas na view: {}", todasEmpresas.size());
+            if (!todasEmpresas.isEmpty()) {
+                log.info("🔍 [DEBUG EXCLUSÕES] Primeiras 5 empresas: {}", todasEmpresas.subList(0, Math.min(5, todasEmpresas.size())));
+            }
+        } catch (Exception e) {
+            log.error("❌ [DEBUG EXCLUSÕES] Erro ao consultar view de exclusões: {}", e.getMessage());
+        }
         
         // Conta total de empresas excluídas
         long totalExclusoes = contarTotalExclusoes();
@@ -165,12 +180,14 @@ public class SincronizacaoCompletaOdontoprevServiceImpl implements Sincronizacao
             return;
         }
         
-        log.info("Processando {} empresas excluídas em lotes de {}", totalExclusoes, tamanhoBatch);
+        log.info("🔍 [EXCLUSÕES] Processando {} empresas excluídas em lotes de {}", totalExclusoes, tamanhoBatch);
         
         // Processa exclusões em lotes
         processarExclusoesEmLotes(totalExclusoes);
         
-        log.info("Sincronização de exclusões finalizada");
+        log.info("✅ [EXCLUSÕES] ===== SINCRONIZAÇÃO DE EXCLUSÕES FINALIZADA =====");
+        log.info("✅ [EXCLUSÕES] Timestamp: {}", java.time.LocalDateTime.now());
+        log.info("✅ [EXCLUSÕES] Sincronização de exclusões finalizada");
     }
 
     /**

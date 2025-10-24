@@ -1,11 +1,9 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odontoPrev.odontoPrev.domain.service.ConsultaEmpresaOdontoprevExpandidaService;
 import com.odontoPrev.odontoPrev.domain.service.GerenciadorControleSyncService;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaExclusaoService;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevExclusaoRepository;
-import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevExclusao;
@@ -14,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 /**
  * SERVIÇO PARA PROCESSAMENTO DE EMPRESAS EXCLUÍDAS
@@ -54,17 +51,11 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
     // Repositório para buscar dados de empresas excluídas
     private final IntegracaoOdontoprevExclusaoRepository exclusaoRepository;
     
-    // Repositório para buscar dados completos de empresas
-    private final IntegracaoOdontoprevRepository empresaRepository;
-    
     // Serviço para gerenciar registros de controle e auditoria
     private final GerenciadorControleSyncService gerenciadorControleSync;
     
     // Serviço para chamar API da OdontoPrev (expandido para suportar exclusões)
     private final ConsultaEmpresaOdontoprevExpandidaService consultaEmpresaService;
-    
-    // Conversor JSON para serializar respostas da API
-    private final ObjectMapper objectMapper;
 
     /**
      * MÉTODO PRINCIPAL - PROCESSA UMA EMPRESA EXCLUÍDA INDIVIDUAL
@@ -155,16 +146,16 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
      */
     private ControleSync criarEMSalvarControleSyncExclusao(String codigoEmpresa, IntegracaoOdontoprevExclusao dados) {
         try {
-            // Busca dados completos da empresa na view principal
-            IntegracaoOdontoprev dadosCompletos = buscarDadosCompletosEmpresa(codigoEmpresa);
+            // Para exclusões, usamos apenas os dados básicos da view de exclusão
+            log.info("🔧 [CONTROLE EXCLUSÃO] Criando controle para empresa: {}", codigoEmpresa);
             
-            if (dadosCompletos == null) {
-                throw new RuntimeException("Não foi possível obter dados completos da empresa " + codigoEmpresa);
-            }
+            // Criar objeto mínimo com apenas o código da empresa
+            IntegracaoOdontoprev dadosMinimos = new IntegracaoOdontoprev();
+            dadosMinimos.setCodigoEmpresa(codigoEmpresa);
             
             ControleSync controle = gerenciadorControleSync.criarControle(
                 codigoEmpresa, 
-                dadosCompletos, 
+                dadosMinimos, 
                 ControleSync.TipoOperacao.DELETE,
                 ControleSync.TipoControle.EXCLUSAO
             );
@@ -197,63 +188,57 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
         try {
             log.debug("Chamando API OdontoPrev para excluir empresa: {}", codigoEmpresa);
             
-            // Busca dados completos da empresa na view principal
-            IntegracaoOdontoprev dadosCompletos = buscarDadosCompletosEmpresa(codigoEmpresa);
+            // LOG ANTES DA CHAMADA DA API
+            log.info("🚀 [INATIVAÇÃO EMPRESA] ===== INICIANDO CHAMADA DA API =====");
+            log.info("🚀 [INATIVAÇÃO EMPRESA] Empresa: {}", codigoEmpresa);
+            log.info("🚀 [INATIVAÇÃO EMPRESA] Chamando API OdontoPrev para inativar empresa...");
             
-            if (dadosCompletos == null) {
-                throw new RuntimeException("Dados completos da empresa não encontrados: " + codigoEmpresa);
+            // Buscar dados da view de exclusão para usar no mapper
+            List<IntegracaoOdontoprevExclusao> dadosExclusaoList = exclusaoRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
+            
+            if (dadosExclusaoList.isEmpty()) {
+                throw new RuntimeException("Dados de exclusão não encontrados para empresa: " + codigoEmpresa);
             }
             
-            // Chama API da OdontoPrev para inativar empresa
-            String responseJson = consultaEmpresaService.inativarEmpresa(dadosCompletos);
+            IntegracaoOdontoprevExclusao dadosExclusao = dadosExclusaoList.get(0);
+            log.info("🔧 [INATIVAÇÃO] Dados de exclusão encontrados: sistema={}, motivo={}, data={}", 
+                    dadosExclusao.getSistema(), dadosExclusao.getCodigoMotivoFimEmpresa(), dadosExclusao.getDataFimContrato());
+            
+            // Chama API da OdontoPrev para inativar empresa usando dados da view de exclusão
+            String responseJson = consultaEmpresaService.inativarEmpresaExclusao(dadosExclusao);
             
             long tempoResposta = System.currentTimeMillis() - inicioTempo;
+            
+            // LOG APÓS A CHAMADA DA API
+            log.info("✅ [INATIVAÇÃO EMPRESA] ===== RESPOSTA DA API RECEBIDA =====");
+            log.info("✅ [INATIVAÇÃO EMPRESA] Empresa: {}", codigoEmpresa);
+            log.info("✅ [INATIVAÇÃO EMPRESA] Tempo de resposta: {}ms", tempoResposta);
+            log.info("✅ [INATIVAÇÃO EMPRESA] Resposta da API: {}", responseJson != null ? responseJson.substring(0, Math.min(200, responseJson.length())) + "..." : "NULL");
+            log.info("✅ [INATIVAÇÃO EMPRESA] Status: SUCESSO");
             
             // Atualiza controle com sucesso
             gerenciadorControleSync.atualizarSucesso(controleSync, responseJson, tempoResposta);
             gerenciadorControleSync.salvar(controleSync);
             
-            log.info("Empresa excluída {} processada com sucesso em {}ms", codigoEmpresa, tempoResposta);
+            log.info("🎉 [INATIVAÇÃO EMPRESA] Empresa {} processada com sucesso em {}ms", codigoEmpresa, tempoResposta);
             
         } catch (Exception e) {
             long tempoResposta = System.currentTimeMillis() - inicioTempo;
+            
+            // LOG DE ERRO APÓS FALHA NA API
+            log.error("❌ [INATIVAÇÃO EMPRESA] ===== ERRO NA CHAMADA DA API =====");
+            log.error("❌ [INATIVAÇÃO EMPRESA] Empresa: {}", codigoEmpresa);
+            log.error("❌ [INATIVAÇÃO EMPRESA] Tempo até erro: {}ms", tempoResposta);
+            log.error("❌ [INATIVAÇÃO EMPRESA] Tipo do erro: {}", e.getClass().getSimpleName());
+            log.error("❌ [INATIVAÇÃO EMPRESA] Mensagem do erro: {}", e.getMessage());
+            log.error("❌ [INATIVAÇÃO EMPRESA] Status: ERRO");
             
             // Atualiza controle com erro
             gerenciadorControleSync.atualizarErro(controleSync, e.getMessage());
             gerenciadorControleSync.salvar(controleSync);
             
-            log.error("Erro ao processar empresa excluída {} em {}ms: {}", codigoEmpresa, tempoResposta, e.getMessage());
+            log.error("💥 [INATIVAÇÃO EMPRESA] Empresa {} falhou em {}ms: {}", codigoEmpresa, tempoResposta, e.getMessage());
         }
     }
 
-    /**
-     * Busca dados completos da empresa para exclusão.
-     * 
-     * Como a view de exclusão (VW_INTEGRACAO_ODONTOPREV_EXC) contém apenas informações básicas,
-     * precisamos buscar os dados completos da empresa na view principal (VW_INTEGRACAO_ODONTOPREV)
-     * para ter todas as informações necessárias para a API de exclusão.
-     * 
-     * @param codigoEmpresa código da empresa a ser excluída
-     * @return dados completos da empresa ou null se não encontrada
-     */
-    private IntegracaoOdontoprev buscarDadosCompletosEmpresa(String codigoEmpresa) {
-        try {
-            // Converte String para Long (nrSeqContrato)
-            Long nrSeqContrato = Long.valueOf(codigoEmpresa);
-            Optional<IntegracaoOdontoprev> dadosOpt = empresaRepository.buscarPrimeiroDadoPorCodigoEmpresa(nrSeqContrato);
-            
-            if (dadosOpt.isEmpty()) {
-                log.warn("Dados completos da empresa {} não encontrados na view principal", codigoEmpresa);
-                return null;
-            }
-            
-            IntegracaoOdontoprev dados = dadosOpt.get();
-            log.debug("Dados completos encontrados para empresa {}: {}", codigoEmpresa, dados.getNomeFantasia());
-            return dados;
-            
-        } catch (Exception e) {
-            log.error("Erro ao buscar dados completos da empresa {}: {}", codigoEmpresa, e.getMessage());
-            return null;
-        }
-    }
 }

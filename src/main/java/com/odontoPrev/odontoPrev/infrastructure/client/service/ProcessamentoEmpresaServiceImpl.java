@@ -9,6 +9,7 @@ import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaRe
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaPmeRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.BeneficiarioOdontoprevFeignClient;
+import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
@@ -73,8 +74,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     // Serviço para chamar API da OdontoPrev
     private final ConsultaEmpresaOdontoprevService consultaEmpresaService;
     
-    // Serviço para ativação do plano da empresa
-    private final AtivacaoPlanoEmpresaService ativacaoPlanoEmpresaService;
+    // Serviço para criação de planos (novo endpoint)
+    private final PlanoCriarServiceImpl planoCriarService;
     
     // Serviço para inclusão de empresa
     private final EmpresaInclusaoServiceImpl empresaInclusaoService;
@@ -84,6 +85,9 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     
     // Feign client para chamadas à API OdontoPrev
     private final BeneficiarioOdontoprevFeignClient feignClient;
+    
+    // Serviço para obter tokens de autenticação
+    private final TokenService tokenService;
     
     // Conversor JSON para serializar respostas da API
     private final ObjectMapper objectMapper;
@@ -123,6 +127,14 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             }
             log.info("✅ [PROCESSAMENTO EMPRESA] Dados encontrados para empresa {}: CNPJ={}, Nome={}", 
                     codigoEmpresa, dadosCompletos.getCnpj(), dadosCompletos.getNomeFantasia());
+            
+            // VALIDAÇÃO: Verificar se empresa já possui codigoEmpresa (já foi sincronizada)
+            if (dadosCompletos.getCodigoEmpresa() != null && !dadosCompletos.getCodigoEmpresa().trim().isEmpty()) {
+                log.warn("⚠️ [PROCESSAMENTO EMPRESA] Empresa {} JÁ POSSUI codigoEmpresa: {} - PULANDO processamento para evitar duplicação", 
+                        codigoEmpresa, dadosCompletos.getCodigoEmpresa());
+                log.info("🔍 [PROCESSAMENTO EMPRESA] Empresa já foi sincronizada anteriormente. Para reprocessar, limpe o codigoEmpresa na view.");
+                return;
+            }
             
             // PASSO 2: Cria ou atualiza registro de controle para auditoria
             log.info("🔍 [PROCESSAMENTO EMPRESA] PASSO 2 - Criando/atualizando registro de controle para empresa {}", codigoEmpresa);
@@ -443,12 +455,12 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             log.info("🎯 [SINCRONIZAÇÃO] Empresa {} sincronizada com sucesso, iniciando ativação do plano", 
                     controleSync.getCodigoEmpresa());
             
-            // Buscar dados completos da empresa para ativação
+            // Buscar dados completos da empresa para criação de planos
             IntegracaoOdontoprev dadosEmpresa = buscarDadosEmpresaOuSair(controleSync.getCodigoEmpresa());
             if (dadosEmpresa != null) {
-                ativacaoPlanoEmpresaService.ativarPlanoEmpresa(dadosEmpresa);
+                planoCriarService.criarPlanoEmpresa(dadosEmpresa);
             } else {
-                log.warn("⚠️ [ATIVAÇÃO PLANO] Não foi possível obter dados da empresa {} para ativação do plano", 
+                log.warn("⚠️ [CRIAÇÃO PLANO] Não foi possível obter dados da empresa {} para criação de planos", 
                         controleSync.getCodigoEmpresa());
             }
             
@@ -562,13 +574,20 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     /**
      * OBTÉM TOKEN DE AUTORIZAÇÃO
      * 
-     * Reutiliza o token obtido no serviço de inclusão.
-     * Em uma implementação real, isso seria obtido do serviço de autenticação.
+     * Obtém token válido usando o mesmo TokenService usado no POST inicial.
+     * Garante que o token seja válido e não expirado.
      */
     private String obterTokenAutorizacao() {
-        // TODO: Implementar obtenção real do token de autorização
-        // Por enquanto, retorna um token fixo para desenvolvimento
-        return "TOKEN_DEVELOPMENT";
+        try {
+            log.info("🔑 [TOKEN PME] Obtendo token de autorização para cadastro PME");
+            String token = tokenService.obterTokenValido();
+            String authorization = "Bearer " + token;
+            log.info("✅ [TOKEN PME] Token obtido com sucesso para cadastro PME");
+            return authorization;
+        } catch (Exception e) {
+            log.error("❌ [TOKEN PME] Erro ao obter token de autorização para PME: {}", e.getMessage(), e);
+            throw new RuntimeException("Falha ao obter token de autorização para cadastro PME", e);
+        }
     }
 
     /**

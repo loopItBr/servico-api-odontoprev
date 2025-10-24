@@ -5,10 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odontoPrev.odontoPrev.domain.service.ConsultaEmpresaOdontoprevExpandidaService;
 import com.odontoPrev.odontoPrev.infrastructure.client.OdontoprevClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper.EmpresaAlteracaoMapper;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper.EmpresaInativacaoMapper;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAlteracaoRequest;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaInativacaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevAlteracao;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevExclusao;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevAlteracaoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,7 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
     private final OdontoprevClient odontoprevClient;
     private final ObjectMapper objectMapper;
     private final EmpresaAlteracaoMapper empresaAlteracaoMapper;
+    private final EmpresaInativacaoMapper empresaInativacaoMapper;
     private final TokenService tokenService;
     private final IntegracaoOdontoprevAlteracaoRepository alteracaoRepository;
     
@@ -169,9 +173,13 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
     @Override
     public String inativarEmpresa(IntegracaoOdontoprev dadosEmpresa) {
         try {
-            String dadosJson = objectMapper.writeValueAsString(dadosEmpresa);
+            // Usar o mapper para converter para o DTO correto
+            EmpresaInativacaoRequest request = empresaInativacaoMapper.toInativacaoRequest(dadosEmpresa, empresa);
+            
             String token = tokenService.obterTokenValido();
             String authorization = "Bearer " + token;
+            
+            log.info("🔧 [INATIVAÇÃO] Dados enviados: {}", objectMapper.writeValueAsString(request));
             
             return odontoprevClient.inativarEmpresa(
                 authorization,
@@ -179,14 +187,37 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
                 usuario,
                 senha,
                 appId,
-                dadosJson
+                request
             );
             
-        } catch (JsonProcessingException e) {
-            log.error("Erro ao serializar dados da empresa para inativação: {}", e.getMessage());
-            throw new RuntimeException("Falha na serialização dos dados", e);
         } catch (Exception e) {
             log.error("Erro ao inativar empresa na API OdontoPrev: {}", e.getMessage());
+            throw new RuntimeException("Falha na comunicação com a API", e);
+        }
+    }
+    
+    @Override
+    public String inativarEmpresaExclusao(IntegracaoOdontoprevExclusao dadosExclusao) {
+        try {
+            // Usar o mapper para converter dados de exclusão para o DTO correto
+            EmpresaInativacaoRequest request = empresaInativacaoMapper.toInativacaoRequestExclusao(dadosExclusao, empresa);
+            
+            String token = tokenService.obterTokenValido();
+            String authorization = "Bearer " + token;
+            
+            log.info("🔧 [INATIVAÇÃO EXCLUSÃO] Dados enviados: {}", objectMapper.writeValueAsString(request));
+            
+            return odontoprevClient.inativarEmpresa(
+                authorization,
+                empresa,
+                usuario,
+                senha,
+                appId,
+                request
+            );
+            
+        } catch (Exception e) {
+            log.error("Erro ao inativar empresa (exclusão) na API OdontoPrev: {}", e.getMessage());
             throw new RuntimeException("Falha na comunicação com a API", e);
         }
     }
@@ -206,7 +237,7 @@ public class ConsultaEmpresaOdontoprevExpandidaServiceImpl implements ConsultaEm
         EmpresaAlteracaoRequest request;
         try {
             String codigoEmpresa = dadosEmpresa.getCodigoEmpresa();
-            java.util.Optional<IntegracaoOdontoprevAlteracao> viewOpt = alteracaoRepository.findByCodigoEmpresa(codigoEmpresa);
+            java.util.Optional<IntegracaoOdontoprevAlteracao> viewOpt = alteracaoRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
             if (viewOpt.isPresent()) {
                 log.debug("📄 [ALTERAÇÃO EMPRESA] Dados da view encontrados para {}. Usando CODIGOCIDADE da view.", codigoEmpresa);
                 request = empresaAlteracaoMapper.toAlteracaoRequest(viewOpt.get());

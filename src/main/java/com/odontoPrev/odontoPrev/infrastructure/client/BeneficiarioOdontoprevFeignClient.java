@@ -3,6 +3,7 @@ package com.odontoPrev.odontoPrev.infrastructure.client;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaPmeRequest;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.PlanoCriarRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -80,5 +81,11 @@ public interface BeneficiarioOdontoprevFeignClient {
     void cadastrarEmpresaPme(
         @RequestHeader("Authorization") String authorization,
         @RequestBody EmpresaPmeRequest request
+    );
+
+    @PostMapping("/empresa/2.0/plano/criar")
+    String criarPlano(
+        @RequestHeader("Authorization") String authorization,
+        @RequestBody PlanoCriarRequest request
     );
 }

@@ -1,6 +1,7 @@
 package com.odontoPrev.odontoPrev.domain.service;
 
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevExclusao;
 
 /**
  * Serviço expandido para consulta de empresas na API OdontoPrev.
@@ -31,4 +32,12 @@ public interface ConsultaEmpresaOdontoprevExpandidaService {
      * @return Resposta da API
      */
     String inativarEmpresa(IntegracaoOdontoprev dadosEmpresa);
+    
+    /**
+     * Inativa uma empresa na API OdontoPrev usando dados de exclusão.
+     * 
+     * @param dadosExclusao Dados da empresa excluída
+     * @return Resposta da API
+     */
+    String inativarEmpresaExclusao(IntegracaoOdontoprevExclusao dadosExclusao);
 }

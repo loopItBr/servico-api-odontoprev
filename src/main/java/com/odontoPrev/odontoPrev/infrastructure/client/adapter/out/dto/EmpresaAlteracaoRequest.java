@@ -303,10 +303,10 @@ public class EmpresaAlteracaoRequest {
 
     /**
      * CÓDIGO GRUPO GERENCIAL
-     * 6 caracteres
+     * 6 caracteres - REMOVIDO: não deve ser enviado junto com codigoEmpresa
      */
-    @JsonProperty("codigoGrupoGerencial")
-    private String codigoGrupoGerencial;
+    // @JsonProperty("codigoGrupoGerencial")
+    // private String codigoGrupoGerencial;
 
     /**
      * GRAUS PARENTESCO

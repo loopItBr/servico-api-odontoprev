@@ -2,6 +2,7 @@ package com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper;
 
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaInativacaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevExclusao;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -36,6 +37,18 @@ public interface EmpresaInativacaoMapper {
     @Mapping(target = "codigoUsuario", constant = "0")
     @Mapping(target = "listaDadosInativacaoEmpresa", source = "entidade", qualifiedByName = "criarListaInativacao")
     EmpresaInativacaoRequest toInativacaoRequest(IntegracaoOdontoprev entidade, String sistema);
+
+    /**
+     * CONVERTE DADOS DE EXCLUSÃO PARA REQUEST DE INATIVAÇÃO
+     *
+     * @param dadosExclusao dados da empresa excluída
+     * @param sistema código da empresa (vem do header)
+     * @return request formatado para a API
+     */
+    @Mapping(target = "sistema", source = "sistema")
+    @Mapping(target = "codigoUsuario", constant = "0")
+    @Mapping(target = "listaDadosInativacaoEmpresa", source = "dadosExclusao", qualifiedByName = "criarListaInativacaoExclusao")
+    EmpresaInativacaoRequest toInativacaoRequestExclusao(IntegracaoOdontoprevExclusao dadosExclusao, String sistema);
 
     /**
      * CRIA LISTA DE DADOS DE INATIVAÇÃO
@@ -86,6 +99,44 @@ public interface EmpresaInativacaoMapper {
             return codigoLimpo.substring(0, 6);
         } else {
             return String.format("%-6s", codigoLimpo).replace(' ', '0');
+        }
+    }
+
+    /**
+     * CRIA LISTA DE DADOS DE INATIVAÇÃO A PARTIR DE DADOS DE EXCLUSÃO
+     *
+     * Converte dados da view de exclusão em uma lista contendo os dados de inativação.
+     * Usa os dados específicos da view de exclusão (motivo, data fim, etc.).
+     */
+    @Named("criarListaInativacaoExclusao")
+    default List<EmpresaInativacaoRequest.DadosInativacaoEmpresa> criarListaInativacaoExclusao(IntegracaoOdontoprevExclusao dadosExclusao) {
+        if (dadosExclusao == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            // Formata código da empresa para 6 dígitos com zeros à esquerda
+            String codigoEmpresaFormatado = formatarCodigoEmpresa(dadosExclusao.getCodigoEmpresa());
+            
+            // Usa o motivo da view de exclusão ou valor padrão
+            String motivoFim = dadosExclusao.getCodigoMotivoFimEmpresa() != null ? 
+                dadosExclusao.getCodigoMotivoFimEmpresa().toString() : "1";
+            
+            // Usa a data da view de exclusão ou data atual
+            String dataFim = formatarData(dadosExclusao.getDataFimContrato());
+            
+            EmpresaInativacaoRequest.DadosInativacaoEmpresa dados = EmpresaInativacaoRequest.DadosInativacaoEmpresa.builder()
+                    .codigoEmpresa(codigoEmpresaFormatado)
+                    .codigoMotivoFimEmpresa(motivoFim)
+                    .codigoMotivoInativacao("2") // Valor padrão
+                    .dataFimContrato(dataFim)
+                    .build();
+
+            return Collections.singletonList(dados);
+        } catch (Exception e) {
+            // Log do erro e retorna lista vazia para evitar quebrar a transação
+            System.err.println("Erro ao criar lista de inativação de exclusão: " + e.getMessage());
+            return Collections.emptyList();
         }
     }
 

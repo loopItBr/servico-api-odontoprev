@@ -186,7 +186,7 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
             log.debug("Chamando API OdontoPrev para atualizar empresa: {}", codigoEmpresa);
             
             // Busca dados da empresa na view de alteração
-            Optional<IntegracaoOdontoprevAlteracao> dadosAlteracao = alteracaoRepository.findByCodigoEmpresa(codigoEmpresa);
+            Optional<IntegracaoOdontoprevAlteracao> dadosAlteracao = alteracaoRepository.buscarPrimeiroDadoPorCodigoEmpresa(codigoEmpresa);
             
             if (dadosAlteracao.isEmpty()) {
                 throw new RuntimeException("Dados da empresa não encontrados na view de alteração: " + codigoEmpresa);
@@ -242,17 +242,18 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
         dadosBase.setValorUltimoFaturamento(dadosAlteracao.getValorUltimoFaturamento());
         dadosBase.setSinistralidade(dadosAlteracao.getSinistralidade());
         // Campos de plano agora usam sufixo _1 na entidade base
-        dadosBase.setCodigoPlano1(dadosAlteracao.getCodigoPlano());
-        dadosBase.setDescricaoPlano1(dadosAlteracao.getDescricaoPlano());
-        dadosBase.setNomeFantasiaPlano1(dadosAlteracao.getNomeFantasiaPlano());
-        dadosBase.setNumeroRegistroAns1(dadosAlteracao.getNumeroRegistroAns() != null ? dadosAlteracao.getNumeroRegistroAns().toString() : null);
-        dadosBase.setSiglaPlano1(dadosAlteracao.getSiglaPlano());
-        dadosBase.setValorTitular1(dadosAlteracao.getValorTitular());
-        dadosBase.setValorDependente1(dadosAlteracao.getValorDependente());
-        dadosBase.setDataInicioPlano1(dadosAlteracao.getDataInicioPlano());
-        dadosBase.setDataFimPlano1(dadosAlteracao.getDataFimPlano());
-        dadosBase.setCoParticipacao1(dadosAlteracao.getCoParticipacao());
-        dadosBase.setTipoNegociacao1(dadosAlteracao.getTipoNegociacao());
+        dadosBase.setCodigoPlano1(dadosAlteracao.getCodigoPlano1());
+        dadosBase.setDescricaoPlano1(dadosAlteracao.getDescricaoPlano1());
+        dadosBase.setNomeFantasiaPlano1(dadosAlteracao.getNomeFantasiaPlano1());
+        dadosBase.setNumeroRegistroAns1(dadosAlteracao.getNumeroRegistroAns1());
+        dadosBase.setSiglaPlano1(dadosAlteracao.getSiglaPlano1());
+        dadosBase.setValorTitular1(dadosAlteracao.getValorTitular1());
+        dadosBase.setValorDependente1(dadosAlteracao.getValorDependente1());
+        dadosBase.setDataInicioPlano1(dadosAlteracao.getDataInicioPlano1());
+        dadosBase.setDataFimPlano1(dadosAlteracao.getDataFimPlano1());
+        // CoParticipacao removido pois não existe na view VW_INTEGRACAO_ODONTOPREV_ALT
+        // dadosBase.setCoParticipacao1(dadosAlteracao.getCoParticipacao());
+        dadosBase.setTipoNegociacao1(dadosAlteracao.getTipoNegociacao1());
         dadosBase.setCodigoTipoCobranca(dadosAlteracao.getCodigoTipoCobranca());
         dadosBase.setNomeTipoCobranca(dadosAlteracao.getNomeTipoCobranca());
         dadosBase.setSiglaTipoCobranca(dadosAlteracao.getSiglaTipoCobranca());

@@ -25,5 +25,13 @@ public interface ControleSyncRepository extends JpaRepository<ControleSync, Inte
      * Retorna o mais recente (último criado).
      */
     Optional<ControleSync> findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(String codigoEmpresa, Integer tipoControle);
+    
+    /**
+     * BUSCA TODOS OS CONTROLES POR EMPRESA E TIPO (ORDENADO POR DATA DE CRIAÇÃO DESC)
+     * 
+     * Usado para debug quando há múltiplos registros.
+     * Retorna todos os registros ordenados por data de criação.
+     */
+    List<ControleSync> findByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(String codigoEmpresa, Integer tipoControle);
 }
 

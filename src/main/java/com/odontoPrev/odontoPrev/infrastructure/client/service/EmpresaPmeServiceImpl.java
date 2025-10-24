@@ -159,6 +159,13 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
     private List<EmpresaPmeRequest.RedePme> criarRedes() {
         List<EmpresaPmeRequest.RedePme> redes = new ArrayList<>();
         redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("1").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("31").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("32").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("33").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("35").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("36").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("37").build());
+        redes.add(EmpresaPmeRequest.RedePme.builder().codigoRede("38").build());
         return redes;
     }
 
@@ -169,13 +176,35 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         List<EmpresaPmeRequest.ContatoPme> contatos = new ArrayList<>();
         
         contatos.add(EmpresaPmeRequest.ContatoPme.builder()
-                .cargo("Gerente")
-                .nome("Contato Principal")
-                .email("contato@empresa.com")
+                .cargo("Diretor Adjunto de Novos Projetos")
+                .nome("Gustavo de Moraes Ramalho")
+                .email("gustavoramalho@hospitalmontesinai.com.br")
                 .idCorretor("N")
                 .telefone(EmpresaPmeRequest.TelefonePme.builder()
-                        .telefone1("(32) 99999-9999")
-                        .celular("(32) 99999-9999")
+                        .telefone1("(11) 1111-1111")
+                        .celular("(11) 11111-1111")
+                        .build())
+                .build());
+        
+        contatos.add(EmpresaPmeRequest.ContatoPme.builder()
+                .cargo("Diretor")
+                .nome("Ricardo José Almeida")
+                .email("ricardojalmeida@yahoo.com.br")
+                .idCorretor("N")
+                .telefone(EmpresaPmeRequest.TelefonePme.builder()
+                        .telefone1("(11) 1111-1111")
+                        .celular("(11) 11111-1111")
+                        .build())
+                .build());
+        
+        contatos.add(EmpresaPmeRequest.ContatoPme.builder()
+                .cargo("SEM CARGO")
+                .nome("Sarah Silveira")
+                .email("evoluirconsultoriaemsaude@gmail.com")
+                .idCorretor("N")
+                .telefone(EmpresaPmeRequest.TelefonePme.builder()
+                        .telefone1("(11) 1111-1111")
+                        .celular("(11) 11111-1111")
                         .build())
                 .build());
         
@@ -190,9 +219,9 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         
         contatos.add(EmpresaPmeRequest.ContatoFatura.builder()
                 .codSequencial(1)
-                .email("fatura@empresa.com")
-                .nomeContato("Contato Fatura")
-                .relatorio(true)
+                .email("diretoria@sabinjf.com.br")
+                .nomeContato("Célio Carneiro Chagas")
+                .relatorio(false)
                 .build());
         
         return contatos;
@@ -203,7 +232,7 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
      */
     private List<EmpresaPmeRequest.GrupoPme> criarGrupos() {
         List<EmpresaPmeRequest.GrupoPme> grupos = new ArrayList<>();
-        grupos.add(EmpresaPmeRequest.GrupoPme.builder().codigoGrupo(1).build());
+        grupos.add(EmpresaPmeRequest.GrupoPme.builder().codigoGrupo(109).build());
         return grupos;
     }
 
@@ -215,6 +244,10 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("1").build());
         graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("2").build());
         graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("3").build());
+        graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("11").build());
+        graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("17").build());
+        graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("18").build());
+        graus.add(EmpresaPmeRequest.GrauParentesco.builder().codigoGrauParentesco("42").build());
         return graus;
     }
 
@@ -223,7 +256,19 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
      */
     private EmpresaPmeRequest.EnderecoPme criarEndereco() {
         return EmpresaPmeRequest.EnderecoPme.builder()
-                .cidade(EmpresaPmeRequest.CidadePme.builder().build())
+                .cep("36033318")
+                .descricao("Av. Presidente Itamar Franco")
+                .complemento("loja 202 E")
+                .tipoLogradouro("2")
+                .logradouro("Av. Presidente Itamar Franco")
+                .numero("4001")
+                .bairro("Cascatinha")
+                .cidade(EmpresaPmeRequest.CidadePme.builder()
+                        .codigo(3670)
+                        .nome("Juiz de Fora")
+                        .siglaUf("MG")
+                        .codigoPais(1)
+                        .build())
                 .build();
     }
 

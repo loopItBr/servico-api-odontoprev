@@ -23,7 +23,7 @@ public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<I
      * 
      * @return lista de códigos de empresas alteradas
      */
-    @Query("SELECT DISTINCT i.codigoEmpresa FROM IntegracaoOdontoprevAlteracao i")
+    @Query(value = "SELECT DISTINCT CODIGO_EMPRESA FROM TASY.VW_INTEGRACAO_ODONTOPREV_ALT", nativeQuery = true)
     List<String> buscarCodigosEmpresasAlteradas();
 
     /**
@@ -32,7 +32,7 @@ public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<I
      * @param pageable configuração de paginação
      * @return lista paginada de códigos de empresas alteradas
      */
-    @Query("SELECT DISTINCT i.codigoEmpresa FROM IntegracaoOdontoprevAlteracao i")
+    @Query(value = "SELECT DISTINCT CODIGO_EMPRESA FROM TASY.VW_INTEGRACAO_ODONTOPREV_ALT", nativeQuery = true)
     List<String> buscarCodigosEmpresasAlteradasPaginado(Pageable pageable);
 
     /**
@@ -40,7 +40,7 @@ public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<I
      * 
      * @return número total de empresas alteradas
      */
-    @Query("SELECT COUNT(DISTINCT i.codigoEmpresa) FROM IntegracaoOdontoprevAlteracao i")
+    @Query(value = "SELECT COUNT(DISTINCT CODIGO_EMPRESA) FROM TASY.VW_INTEGRACAO_ODONTOPREV_ALT", nativeQuery = true)
     long contarTotalEmpresasAlteradas();
 
     /**
@@ -50,8 +50,7 @@ public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<I
      * @param codigoEmpresa código da empresa
      * @return dados da empresa alterada
      */
-    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_ALT WHERE CODIGO_EMPRESA = :codigoEmpresa AND ROWNUM = 1", 
-           nativeQuery = true)
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_ALT WHERE CODIGO_EMPRESA = :codigoEmpresa AND ROWNUM = 1", nativeQuery = true)
     Optional<IntegracaoOdontoprevAlteracao> buscarPrimeiroDadoPorCodigoEmpresa(String codigoEmpresa);
 
     /**
@@ -60,14 +59,8 @@ public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<I
      * @param codigoEmpresa código da empresa
      * @return lista de dados da empresa alterada
      */
-    @Query("SELECT i FROM IntegracaoOdontoprevAlteracao i WHERE i.codigoEmpresa = :codigoEmpresa")
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_ALT WHERE CODIGO_EMPRESA = :codigoEmpresa", nativeQuery = true)
     List<IntegracaoOdontoprevAlteracao> buscarDadosPorCodigoEmpresa(String codigoEmpresa);
 
-    /**
-     * Busca dados de uma empresa alterada (método convencional do Spring Data JPA).
-     * 
-     * @param codigoEmpresa código da empresa
-     * @return dados da empresa alterada
-     */
-    Optional<IntegracaoOdontoprevAlteracao> findByCodigoEmpresa(String codigoEmpresa);
+    // Método findByCodigoEmpresa removido - usar buscarPrimeiroDadoPorCodigoEmpresa
 }

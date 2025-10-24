@@ -30,13 +30,13 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "codigoEmpresa", source = "codigoEmpresa") // OBRIGATÓRIO
     @Mapping(target = "nomeFantasia", source = "nomeFantasia") // MODIFICADO
     @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "localDateToLocalDateTime") // MODIFICADO
-    @Mapping(target = "codigoUsuario", source = "codUsuario") // OBRIGATÓRIO - da view
+    @Mapping(target = "codigoUsuario", constant = "0") // OBRIGATÓRIO - valor fixo "0" para alteração
     @Mapping(target = "endereco", source = ".", qualifiedByName = "createEnderecoFromView") // OBRIGATÓRIO - criado a partir da view
     @Mapping(target = "telefone", source = ".", qualifiedByName = "createTelefoneFromView") // Criado a partir da view
     @Mapping(target = "grausParentesco", source = ".", qualifiedByName = "createGrausParentescoFromView") // Criado a partir da view
     // CAMPOS DA VIEW QUE ESTÃO DISPONÍVEIS NO DTO
-    @Mapping(target = "codigoGrupoGerencial", source = "codigoGrupoGerencial", qualifiedByName = "longToString")
-    @Mapping(target = "sinistralidade", source = "sinistralidade", qualifiedByName = "stringToDouble")
+    // codigoGrupoGerencial removido - não deve ser enviado junto com codigoEmpresa
+    @Mapping(target = "sinistralidade", ignore = true) // Enviar como null
     // CAMPOS QUE NÃO ESTÃO NA VIEW - IGNORADOS
     @Mapping(target = "razaoSocial", ignore = true)
     @Mapping(target = "emiteCarteirinhaPlastica", ignore = true)
@@ -117,7 +117,7 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "sistema", ignore = true)
     @Mapping(target = "diaVencimentoPlano", ignore = true)
     @Mapping(target = "diaMovimentacaoCadastral", ignore = true)
-    @Mapping(target = "codigoGrupoGerencial", ignore = true)
+    // codigoGrupoGerencial removido do DTO
     @Mapping(target = "grausParentesco", ignore = true)
     EmpresaAlteracaoRequest toAlteracaoRequest(IntegracaoOdontoprev empresa);
 
