@@ -50,6 +50,12 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
     public EmpresaAtivacaoPlanoResponse ativarPlanoEmpresa(IntegracaoOdontoprev dadosEmpresa) {
         String codigoEmpresa = dadosEmpresa.getCodigoEmpresa();
         
+        // VALIDAÇÃO: Verificar se codigoEmpresa é válido
+        if (codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) {
+            log.error("❌ [ATIVAÇÃO PLANO] codigoEmpresa é null ou vazio - não é possível ativar plano");
+            throw new IllegalArgumentException("codigoEmpresa não pode ser null ou vazio para ativação do plano");
+        }
+        
         log.info("🚀 [ATIVAÇÃO PLANO] Iniciando ativação do plano para empresa: {}", codigoEmpresa);
 
         try {
@@ -71,6 +77,13 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
                 authorization,
                 request
             );
+            
+            // VALIDAÇÃO: Verificar se a resposta da API contém codigoEmpresa válido
+            if (response != null && (response.getCodigoEmpresa() == null || response.getCodigoEmpresa().trim().isEmpty())) {
+                log.warn("⚠️ [ATIVAÇÃO PLANO] API retornou codigoEmpresa vazio para empresa: {} - Response: {}", 
+                        codigoEmpresa, response);
+                // Continuar processamento mesmo com codigoEmpresa vazio da API
+            }
             
             // Etapa 5: Processar sucesso
             processarSucessoAtivacao(controleSync, response);
@@ -310,10 +323,10 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
         );
         request.setComissionamentos(comissionamentos);
 
-        // Configurar grupos
+        // Configurar grupos - Incluir grupo com codigoGrupo 109 conforme especificação
         List<EmpresaAtivacaoPlanoRequest.Grupo> grupos = List.of(
                 EmpresaAtivacaoPlanoRequest.Grupo.builder()
-                        .codigoGrupo(268)
+                        .codigoGrupo(109)
                         .build()
         );
         request.setGrupos(grupos);
@@ -329,6 +342,12 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
      */
     private ControleSync criarRegistroControleAtivacao(String codigoEmpresa, EmpresaAtivacaoPlanoRequest request) {
         try {
+            // VALIDAÇÃO: Verificar se codigoEmpresa é válido
+            if (codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) {
+                log.error("❌ [CONTROLE] codigoEmpresa é null ou vazio - não é possível criar registro de controle");
+                throw new IllegalArgumentException("codigoEmpresa não pode ser null ou vazio");
+            }
+            
             String payloadJson = objectMapper.writeValueAsString(request);
 
             ControleSync controle = ControleSync.builder()
@@ -360,6 +379,17 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
     private void processarSucessoAtivacao(ControleSync controleSync, EmpresaAtivacaoPlanoResponse response) {
         try {
             String responseJson = objectMapper.writeValueAsString(response);
+            
+            // VALIDAÇÃO: Verificar se a resposta da API contém codigoEmpresa válido
+            if (response != null && response.getCodigoEmpresa() != null && !response.getCodigoEmpresa().trim().isEmpty()) {
+                // Se a API retornou um codigoEmpresa válido, atualizar o controle
+                log.info("🔄 [ATIVAÇÃO PLANO] Atualizando codigoEmpresa do controle: {} -> {}", 
+                        controleSync.getCodigoEmpresa(), response.getCodigoEmpresa());
+                controleSync.setCodigoEmpresa(response.getCodigoEmpresa());
+            } else {
+                log.warn("⚠️ [ATIVAÇÃO PLANO] API retornou codigoEmpresa vazio - mantendo codigoEmpresa original: {}", 
+                        controleSync.getCodigoEmpresa());
+            }
             
             controleSync.setStatusSync(ControleSync.StatusSync.SUCCESS);
             controleSync.setResponseApi(responseJson);

@@ -416,9 +416,11 @@ public class EmpresaInclusaoServiceImpl {
                 EmpresaAtivacaoPlanoRequest.GrauParentesco.builder().codigoGrauParentesco("1").build()
         ));
 
-        // GRUPOS - Campo obrigatório
+        // GRUPOS - Incluir grupo com codigoGrupo 109 conforme especificação
         request.setGrupos(List.of(
-                EmpresaAtivacaoPlanoRequest.Grupo.builder().codigoGrupo(1).build()
+                EmpresaAtivacaoPlanoRequest.Grupo.builder()
+                        .codigoGrupo(109)
+                        .build()
         ));
 
         // CONTATOS - Campo obrigatório

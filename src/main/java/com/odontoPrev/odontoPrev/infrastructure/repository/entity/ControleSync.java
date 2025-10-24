@@ -179,11 +179,13 @@ public class ControleSync {
      * ADICAO: Empresas novas (valor 1)
      * ALTERACAO: Empresas modificadas (valor 2)
      * EXCLUSAO: Empresas inativadas/excluídas (valor 3)
+     * PLANOS: Cadastro PME de planos (valor 4)
      */
     public enum TipoControle {
         ADICAO(1),
         ALTERACAO(2),
-        EXCLUSAO(3);
+        EXCLUSAO(3),
+        PLANOS(4);
 
         private final Integer codigo;
 

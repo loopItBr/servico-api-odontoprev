@@ -7,6 +7,8 @@ import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaPmeRequest;
+import com.odontoPrev.odontoPrev.infrastructure.client.BeneficiarioOdontoprevFeignClient;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
@@ -76,6 +78,12 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     
     // Serviço para inclusão de empresa
     private final EmpresaInclusaoServiceImpl empresaInclusaoService;
+    
+    // Serviço para conversão PME
+    private final EmpresaPmeService empresaPmeService;
+    
+    // Feign client para chamadas à API OdontoPrev
+    private final BeneficiarioOdontoprevFeignClient feignClient;
     
     // Conversor JSON para serializar respostas da API
     private final ObjectMapper objectMapper;
@@ -169,6 +177,11 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             log.info("💾 [FLUXO INCLUSÃO] PASSO 4 - Cadastrando sucesso na TBSYNC para empresa {}", codigoEmpresa);
             processarSucesso(controleSync, responseGet, System.currentTimeMillis());
             log.info("✅ [FLUXO INCLUSÃO] Sucesso cadastrado na TBSYNC para empresa {}", codigoEmpresa);
+            
+            // PASSO 5: PME - Cadastrar empresa no endpoint PME
+            log.info("🏢 [FLUXO INCLUSÃO] PASSO 5 - Executando cadastro PME para empresa {}", codigoEmpresa);
+            executarCadastroPme(controleSync, dadosCompletos);
+            log.info("✅ [FLUXO INCLUSÃO] Cadastro PME executado com sucesso para empresa {}", codigoEmpresa);
             
             log.info("🎉 [FLUXO INCLUSÃO] Fluxo completo executado com sucesso para empresa {}", codigoEmpresa);
             
@@ -283,90 +296,6 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
         return controleSalvo;
     }
 
-    /**
-     * CHAMA API DA ODONTOPREV E PROCESSA RESULTADO
-     * 
-     * Este é o "coração" da integração. Aqui acontece a comunicação real
-     * com a API externa da OdontoPrev e o tratamento do resultado.
-     * 
-     * FLUXO:
-     * 1. Mede tempo de início da chamada
-     * 2. Chama API da OdontoPrev
-     * 3. Calcula tempo de resposta 
-     * 4. Se deu certo: processa resposta de sucesso
-     * 5. Se deu erro: captura erro e salva no controle
-     * 
-     * MEDIÇÃO DE PERFORMANCE:
-     * Registra tempo de resposta para monitorar performance da API externa.
-     * Importante para identificar lentidão ou problemas na integração.
-     */
-    private void buscarEProcessarResposta(ControleSync controleSync, String codigoEmpresa, IntegracaoOdontoprev dadosEmpresa) {
-        try {
-            // Registra momento do início da chamada para medir performance
-            long inicioTempo = System.currentTimeMillis();
-            
-            // 1) Inclusão empresarial: POST /empresa/2.0/empresas/contrato/empresarial
-            String codigoEmpresaApi = null;
-            try {
-                var resp = ativacaoPlanoEmpresaService.ativarPlanoEmpresa(dadosEmpresa);
-                codigoEmpresaApi = (resp != null) ? resp.getCodigoEmpresa() : null;
-            } catch (Exception e) {
-                log.error("❌ [INCLUSAO EMPRESA] Erro ao enviar POST empresarial para empresa {}: {}", codigoEmpresa, e.getMessage());
-            }
-
-            // 1.1) Executa procedure com NR_SEQ_CONTRATO (equivale ao NR_SEQUENCIA) e codigoEmpresa retornado
-            if (dadosEmpresa.getNrSeqContrato() != null && codigoEmpresaApi != null) {
-                log.info("🔧 [FLUXO INCLUSAO] Condições atendidas para executar procedure - nrSeqContrato: {}, codigoEmpresaApi: '{}'", 
-                        dadosEmpresa.getNrSeqContrato(), codigoEmpresaApi);
-                
-                try {
-                    log.info("🚀 [FLUXO INCLUSAO] Chamando procedure SS_PLS_CAD_CODEMPRESA_ODONTOPREV para empresa {}", codigoEmpresa);
-                    executarProcedureAtualizarCodigoEmpresa(dadosEmpresa.getNrSeqContrato(), codigoEmpresaApi);
-                    
-                    // Atualiza o controle com o codigoEmpresa real da API
-                    controleSync.setCodigoEmpresa(codigoEmpresaApi);
-                    log.info("🔄 [CONTROLE] Atualizado codigoEmpresa do controle: {} -> {}", codigoEmpresa, codigoEmpresaApi);
-                    log.info("✅ [FLUXO INCLUSAO] Procedure executada com sucesso para empresa {}", codigoEmpresa);
-                    
-                } catch (Exception e) {
-                    log.error("❌ [PROCEDURE] Erro ao executar SS_PLS_CAD_CODEMPRESA_ODONTOPREV para empresa {}: {}", codigoEmpresa, e.getMessage());
-                    log.error("📊 [PROCEDURE] Detalhes do erro - nrSeqContrato: {}, codigoEmpresaApi: '{}'", 
-                            dadosEmpresa.getNrSeqContrato(), codigoEmpresaApi);
-                }
-            } else {
-                log.warn("⚠️ [FLUXO INCLUSAO] Condições NÃO atendidas para executar procedure");
-                log.warn("📊 [FLUXO INCLUSAO] nrSeqContrato: {}, codigoEmpresaApi: '{}'", 
-                        dadosEmpresa.getNrSeqContrato(), codigoEmpresaApi);
-                
-                if (dadosEmpresa.getNrSeqContrato() == null) {
-                    log.warn("⚠️ [FLUXO INCLUSAO] nrSeqContrato é nulo - procedure não será executada");
-                }
-                if (codigoEmpresaApi == null) {
-                    log.warn("⚠️ [FLUXO INCLUSAO] codigoEmpresaApi é nulo - procedure não será executada");
-                }
-            }
-
-            // 2) GET-API: Consulta empresa após inclusão (usa o codigoEmpresa da API)
-            String codigoEmpresaParaConsulta = (codigoEmpresaApi != null) ? codigoEmpresaApi : codigoEmpresa;
-            EmpresaResponse response = consultaEmpresaService.buscarEmpresa(codigoEmpresaParaConsulta);
-            
-            // Calcula tempo total que a API demorou para responder
-            long tempoResposta = System.currentTimeMillis() - inicioTempo;
-            
-            // Se chegou aqui, API respondeu com sucesso
-            processarSucesso(controleSync, response, tempoResposta);
-            
-        } catch (Exception e) {
-            // Se deu qualquer erro na chamada da API
-            log.error("Erro ao buscar empresa {}: {}", codigoEmpresa, e.getMessage());
-            
-            // Atualiza controle com informações do erro
-            gerenciadorControleSync.atualizarErro(controleSync, e.getMessage());
-            
-            // Salva controle atualizado no banco
-            gerenciadorControleSync.salvar(controleSync);
-        }
-    }
 
     @org.springframework.beans.factory.annotation.Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -560,6 +489,152 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                     controleSalvo.getId(), codigoEmpresa);
         } catch (Exception e) {
             log.error("❌ [TBSYNC] Erro ao cadastrar erro de processamento na TBSYNC: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * EXECUTA CADASTRO PME DA EMPRESA
+     * 
+     * Esta é a etapa final do fluxo de inclusão empresarial.
+     * Após o sucesso da inclusão, procedure e consulta, cadastra
+     * a empresa no endpoint PME da OdontoPrev.
+     * 
+     * FLUXO:
+     * 1. Converte dados da view para request PME
+     * 2. Chama endpoint PME da OdontoPrev
+     * 3. Cadastra resultado na TBSYNC com tipo PLANOS
+     * 
+     * @param controleSync Controle da empresa
+     * @param dadosCompletos Dados completos da empresa da view
+     */
+    @MonitorarOperacao(
+            operacao = "CADASTRO_PME_EMPRESA",
+            incluirParametros = {"dadosCompletos"},
+            excecaoEmErro = PROCESSAMENTO_EMPRESA
+    )
+    private void executarCadastroPme(ControleSync controleSync, IntegracaoOdontoprev dadosCompletos) {
+        log.info("🏢 [CADASTRO PME] Iniciando cadastro PME para empresa: {}", dadosCompletos.getNomeFantasia());
+        
+        try {
+            // PASSO 1: Converter dados da view para request PME
+            log.info("🔄 [CADASTRO PME] PASSO 1 - Convertendo dados da view para request PME");
+            EmpresaPmeRequest requestPme = empresaPmeService.converterParaRequestPme(dadosCompletos);
+            log.info("✅ [CADASTRO PME] Request PME convertido com sucesso - {} planos", 
+                    requestPme.getPlanos() != null ? requestPme.getPlanos().size() : 0);
+            
+            // PASSO 2: Chamar endpoint PME da OdontoPrev
+            log.info("📤 [CADASTRO PME] PASSO 2 - Enviando request para endpoint PME");
+            log.info("📤 [CADASTRO PME] Endpoint: POST {{baseUrl}}/empresa/2.0/empresas/pme");
+            log.info("📤 [CADASTRO PME] Empresa: {}", dadosCompletos.getNomeFantasia());
+            log.info("📤 [CADASTRO PME] CNPJ: {}", dadosCompletos.getCnpj());
+            
+            long startTime = System.currentTimeMillis();
+            log.info("⏰ [CADASTRO PME] Iniciando chamada PME às {}", java.time.LocalDateTime.now());
+            
+            // Obter token de autorização (reutilizar do serviço de inclusão)
+            String authorization = "Bearer " + obterTokenAutorizacao();
+            
+            feignClient.cadastrarEmpresaPme(authorization, requestPme);
+            
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            log.info("⏰ [CADASTRO PME] Chamada PME finalizada às {} (duração: {}ms)", 
+                    java.time.LocalDateTime.now(), duration);
+            log.info("✅ [CADASTRO PME] Cadastro PME executado com sucesso para empresa {}", 
+                    dadosCompletos.getNomeFantasia());
+            
+            // PASSO 3: Cadastrar sucesso na TBSYNC com tipo PLANOS
+            log.info("💾 [CADASTRO PME] PASSO 3 - Cadastrando sucesso PME na TBSYNC");
+            cadastrarSucessoPmeTBSync(controleSync, requestPme);
+            log.info("✅ [CADASTRO PME] Sucesso PME cadastrado na TBSYNC para empresa {}", 
+                    dadosCompletos.getNomeFantasia());
+            
+        } catch (Exception e) {
+            log.error("❌ [CADASTRO PME] Erro no cadastro PME para empresa {}: {}", 
+                    dadosCompletos.getNomeFantasia(), e.getMessage(), e);
+            
+            // Cadastrar erro PME na TBSYNC
+            cadastrarErroPmeTBSync(controleSync, e.getMessage());
+            throw new RuntimeException("Falha no cadastro PME: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * OBTÉM TOKEN DE AUTORIZAÇÃO
+     * 
+     * Reutiliza o token obtido no serviço de inclusão.
+     * Em uma implementação real, isso seria obtido do serviço de autenticação.
+     */
+    private String obterTokenAutorizacao() {
+        // TODO: Implementar obtenção real do token de autorização
+        // Por enquanto, retorna um token fixo para desenvolvimento
+        return "TOKEN_DEVELOPMENT";
+    }
+
+    /**
+     * CADASTRA SUCESSO PME NA TBSYNC
+     * 
+     * Registra o sucesso do cadastro PME na tabela de controle
+     * com tipo PLANOS para auditoria.
+     */
+    private void cadastrarSucessoPmeTBSync(ControleSync controleSync, EmpresaPmeRequest requestPme) {
+        try {
+            log.info("📝 [TBSYNC PME] Cadastrando sucesso PME na tabela de controle");
+            
+            // Converter request para JSON
+            String dadosJson = objectMapper.writeValueAsString(requestPme);
+            
+            // Criar registro de controle com sucesso PME
+            ControleSync controlePme = ControleSync.builder()
+                    .codigoEmpresa(controleSync.getCodigoEmpresa())
+                    .tipoOperacao(ControleSync.TipoOperacao.CREATE)
+                    .tipoControle(ControleSync.TipoControle.PLANOS.getCodigo()) // Tipo PLANOS
+                    .endpointDestino("POST_EMPRESA_PME")
+                    .dadosJson(dadosJson)
+                    .statusSync(ControleSync.StatusSync.SUCCESS)
+                    .erroMensagem(null)
+                    .dataCriacao(java.time.LocalDateTime.now())
+                    .build();
+            
+            // Salvar na tabela de controle
+            ControleSync controleSalvo = gerenciadorControleSync.salvar(controlePme);
+            log.info("💾 [TBSYNC PME] Sucesso PME cadastrado na TBSYNC com ID: {} para empresa {}", 
+                    controleSalvo.getId(), controleSync.getCodigoEmpresa());
+            
+        } catch (Exception e) {
+            log.error("❌ [TBSYNC PME] Erro ao cadastrar sucesso PME na TBSYNC: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * CADASTRA ERRO PME NA TBSYNC
+     * 
+     * Registra o erro do cadastro PME na tabela de controle
+     * com tipo PLANOS para auditoria.
+     */
+    private void cadastrarErroPmeTBSync(ControleSync controleSync, String mensagemErro) {
+        try {
+            log.info("📝 [TBSYNC PME] Cadastrando erro PME na tabela de controle");
+            
+            // Criar registro de controle com erro PME
+            ControleSync controlePme = ControleSync.builder()
+                    .codigoEmpresa(controleSync.getCodigoEmpresa())
+                    .tipoOperacao(ControleSync.TipoOperacao.CREATE)
+                    .tipoControle(ControleSync.TipoControle.PLANOS.getCodigo()) // Tipo PLANOS
+                    .endpointDestino("POST_EMPRESA_PME")
+                    .dadosJson(String.format("{\"codigoEmpresa\":\"%s\"}", controleSync.getCodigoEmpresa()))
+                    .statusSync(ControleSync.StatusSync.ERROR)
+                    .erroMensagem("ERRO_PME: " + mensagemErro)
+                    .dataCriacao(java.time.LocalDateTime.now())
+                    .build();
+            
+            // Salvar na tabela de controle
+            ControleSync controleSalvo = gerenciadorControleSync.salvar(controlePme);
+            log.info("💾 [TBSYNC PME] Erro PME cadastrado na TBSYNC com ID: {} para empresa {}", 
+                    controleSalvo.getId(), controleSync.getCodigoEmpresa());
+            
+        } catch (Exception e) {
+            log.error("❌ [TBSYNC PME] Erro ao cadastrar erro PME na TBSYNC: {}", e.getMessage(), e);
         }
     }
 

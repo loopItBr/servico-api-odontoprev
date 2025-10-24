@@ -103,11 +103,7 @@ Baseado no método `converterParaRequestEmpresarial` do `EmpresaInclusaoServiceI
       "codigoGrauParentesco": "1"
     }
   ],
-  "grupos": [
-    {
-      "codigoGrupo": 1
-    }
-  ],
+  // "grupos": [] - Removido pois não é obrigatório para inclusão de empresas
   "contatos": [
     {
       "cargo": "Gerente",
