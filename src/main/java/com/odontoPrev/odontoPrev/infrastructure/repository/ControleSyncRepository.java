@@ -2,6 +2,7 @@ package com.odontoPrev.odontoPrev.infrastructure.repository;
 
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -33,5 +34,21 @@ public interface ControleSyncRepository extends JpaRepository<ControleSync, Inte
      * Retorna todos os registros ordenados por data de criação.
      */
     List<ControleSync> findByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(String codigoEmpresa, Integer tipoControle);
+    
+    /**
+     * BUSCA EMPRESAS COM ERRO NA CRIAÇÃO DE PLANOS
+     * 
+     * Busca todas as empresas que falharam na criação de planos
+     * (tipo PLANOS = 4 e status ERROR).
+     */
+    List<ControleSync> findByTipoControleAndStatusSyncOrderByDataCriacaoDesc(Integer tipoControle, ControleSync.StatusSync statusSync);
+    
+    /**
+     * BUSCA CÓDIGOS ÚNICOS DE EMPRESAS COM ERRO DE PLANOS
+     * 
+     * Retorna apenas os codigoEmpresa distintos que tiveram erro.
+     */
+    @Query("SELECT DISTINCT c.codigoEmpresa FROM ControleSync c WHERE c.tipoControle = ?1 AND c.statusSync = ?2")
+    List<String> findDistinctCodigoEmpresaByTipoControleAndStatusSync(Integer tipoControle, ControleSync.StatusSync statusSync);
 }
 

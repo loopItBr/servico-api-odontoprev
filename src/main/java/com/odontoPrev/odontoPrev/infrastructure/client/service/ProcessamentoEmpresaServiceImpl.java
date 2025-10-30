@@ -8,8 +8,10 @@ import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaPmeRequest;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.PlanoCriarRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.BeneficiarioOdontoprevFeignClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;
+import com.odontoPrev.odontoPrev.infrastructure.repository.ControleSyncRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
@@ -19,6 +21,8 @@ import org.springframework.stereotype.Service;
 
 import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.*;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,11 +75,11 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     // Serviço para gerenciar registros de controle e auditoria
     private final GerenciadorControleSyncService gerenciadorControleSync;
     
+    // Repository para acesso direto aos controles
+    private final ControleSyncRepository controleSyncRepository;
+    
     // Serviço para chamar API da OdontoPrev
     private final ConsultaEmpresaOdontoprevService consultaEmpresaService;
-    
-    // Serviço para criação de planos (novo endpoint)
-    private final PlanoCriarServiceImpl planoCriarService;
     
     // Serviço para inclusão de empresa
     private final EmpresaInclusaoServiceImpl empresaInclusaoService;
@@ -190,10 +194,10 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             processarSucesso(controleSync, responseGet, System.currentTimeMillis());
             log.info("✅ [FLUXO INCLUSÃO] Sucesso cadastrado na TBSYNC para empresa {}", codigoEmpresa);
             
-            // PASSO 5: PME - Cadastrar empresa no endpoint PME
-            log.info("🏢 [FLUXO INCLUSÃO] PASSO 5 - Executando cadastro PME para empresa {}", codigoEmpresa);
-            executarCadastroPme(controleSync, dadosCompletos);
-            log.info("✅ [FLUXO INCLUSÃO] Cadastro PME executado com sucesso para empresa {}", codigoEmpresa);
+            // PASSO 5: PLANOS - Criar planos via endpoint /plano/criar
+            log.info("📋 [FLUXO INCLUSÃO] PASSO 5 - Executando criação de planos para empresa {}", codigoEmpresa);
+            executarCriacaoPlanos(codigoEmpresaApi, dadosCompletos);
+            log.info("✅ [FLUXO INCLUSÃO] Planos criados com sucesso para empresa {}", codigoEmpresa);
             
             log.info("🎉 [FLUXO INCLUSÃO] Fluxo completo executado com sucesso para empresa {}", codigoEmpresa);
             
@@ -451,19 +455,6 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             log.info("💾 [PROCESSAR SUCESSO] Controle salvo com ID: {} para empresa: {}", 
                     controleSalvo.getId(), controleSalvo.getCodigoEmpresa());
             
-            // 🚀 NOVA FUNCIONALIDADE: Ativar plano da empresa após sincronização bem-sucedida
-            log.info("🎯 [SINCRONIZAÇÃO] Empresa {} sincronizada com sucesso, iniciando ativação do plano", 
-                    controleSync.getCodigoEmpresa());
-            
-            // Buscar dados completos da empresa para criação de planos
-            IntegracaoOdontoprev dadosEmpresa = buscarDadosEmpresaOuSair(controleSync.getCodigoEmpresa());
-            if (dadosEmpresa != null) {
-                planoCriarService.criarPlanoEmpresa(dadosEmpresa);
-            } else {
-                log.warn("⚠️ [CRIAÇÃO PLANO] Não foi possível obter dados da empresa {} para criação de planos", 
-                        controleSync.getCodigoEmpresa());
-            }
-            
         } catch (Exception e) {
             // Erro na conversão para JSON (raro, mas pode acontecer)
             log.error("Erro ao processar resposta da empresa {}: {}", 
@@ -478,6 +469,273 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
         }
     }
 
+    /**
+     * EXECUTA CRIAÇÃO DE PLANOS
+     * 
+     * Cria planos para a empresa usando o endpoint /plano/criar
+     * e registra na TBSYNC com tipo PLANOS.
+     */
+    private void executarCriacaoPlanos(String codigoEmpresaApi, IntegracaoOdontoprev dadosCompletos) {
+        log.info("📋 [CRIAÇÃO PLANOS] Iniciando criação de planos para empresa: {}", codigoEmpresaApi);
+        
+        try {
+            // PASSO 1: Preparar dados da view
+            log.info("📋 [CRIAÇÃO PLANOS] Dados da view - CODIGO_PLANO_1={}, CODIGO_PLANO_2={}, CODIGO_PLANO_3={}", 
+                    dadosCompletos.getCodigoPlano1(), 
+                    dadosCompletos.getCodigoPlano2(), 
+                    dadosCompletos.getCodigoPlano3());
+            log.info("📋 [CRIAÇÃO PLANOS] Valores - TITULAR_1={}, DEPENDENTE_1={}, TITULAR_2={}, DEPENDENTE_2={}, TITULAR_3={}, DEPENDENTE_3={}", 
+                    dadosCompletos.getValorTitular1(), 
+                    dadosCompletos.getValorDependente1(),
+                    dadosCompletos.getValorTitular2(), 
+                    dadosCompletos.getValorDependente2(),
+                    dadosCompletos.getValorTitular3(), 
+                    dadosCompletos.getValorDependente3());
+            log.info("📋 [CRIAÇÃO PLANOS] Datas - INICIO_PLANO_1={}, INICIO_PLANO_2={}, INICIO_PLANO_3={}", 
+                    dadosCompletos.getDataInicioPlano1(), 
+                    dadosCompletos.getDataInicioPlano2(), 
+                    dadosCompletos.getDataInicioPlano3());
+            
+            // PASSO 2: Criar request de planos
+            log.info("📋 [CRIAÇÃO PLANOS] Criando request de planos...");
+            PlanoCriarRequest request = criarRequestPlanos(codigoEmpresaApi, dadosCompletos);
+            log.info("✅ [CRIAÇÃO PLANOS] Request criado com {} planos", 
+                    request.getListaPlano() != null ? request.getListaPlano().size() : 0);
+            
+            // Log detalhado dos planos criados
+            if (request.getListaPlano() != null && !request.getListaPlano().isEmpty()) {
+                for (int i = 0; i < request.getListaPlano().size(); i++) {
+                    PlanoCriarRequest.PlanoItem plano = request.getListaPlano().get(i);
+                    log.info("📋 [CRIAÇÃO PLANOS] PLANO {}: codigoPlano={}, valorTitular={}, valorDependente={}, dataInicio={}", 
+                            i + 1, 
+                            plano.getCodigoPlano(), 
+                            plano.getValorTitular(), 
+                            plano.getValorDependente(), 
+                            plano.getDataInicioPlano());
+                }
+            }
+            
+            // Log do JSON completo
+            try {
+                String requestJson = objectMapper.writeValueAsString(request);
+                log.info("📤 [CRIAÇÃO PLANOS] JSON completo que será enviado:");
+                log.info("{}", requestJson);
+                log.info("📤 [CRIAÇÃO PLANOS] Tamanho do JSON: {} caracteres", requestJson.length());
+            } catch (Exception e) {
+                log.warn("⚠️ [CRIAÇÃO PLANOS] Erro ao converter request para JSON: {}", e.getMessage());
+            }
+            
+            // PASSO 3: Chamar endpoint /plano/criar
+            log.info("📤 [CRIAÇÃO PLANOS] Enviando request para endpoint /empresa/2.0/plano/criar");
+            long startTime = System.currentTimeMillis();
+            
+            String authorization = "Bearer " + obterTokenAutorizacao();
+            String response = feignClient.criarPlano(authorization, request);
+            
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            log.info("⏰ [CRIAÇÃO PLANOS] Chamada finalizada (duração: {}ms)", duration);
+            log.info("📄 [CRIAÇÃO PLANOS] Resposta da API: {}", response);
+            log.info("✅ [CRIAÇÃO PLANOS] Planos criados com sucesso para empresa {}", codigoEmpresaApi);
+            
+            // PASSO 4: Cadastrar sucesso na TBSYNC com tipo PLANOS
+            log.info("💾 [CRIAÇÃO PLANOS] Cadastrando sucesso na TBSYNC com tipo PLANOS");
+            cadastrarSucessoPlanosTBSync(codigoEmpresaApi, request, response);
+            log.info("✅ [CRIAÇÃO PLANOS] Sucesso registrado na TBSYNC para empresa {}", codigoEmpresaApi);
+            
+        } catch (Exception e) {
+            log.error("❌ [CRIAÇÃO PLANOS] Erro na criação de planos para empresa {}: {}", 
+                    codigoEmpresaApi, e.getMessage(), e);
+            cadastrarErroPlanosTBSync(codigoEmpresaApi, e.getMessage());
+            throw new RuntimeException("Falha na criação de planos: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * CRIA REQUEST DE PLANOS
+     */
+    private PlanoCriarRequest criarRequestPlanos(String codigoEmpresaApi, IntegracaoOdontoprev dadosCompletos) {
+        log.info("🔧 [CRIAÇÃO PLANOS] Criando request de planos para empresa: {}", codigoEmpresaApi);
+        
+        List<PlanoCriarRequest.PlanoItem> listaPlano = new ArrayList<>();
+        
+        // PLANO 1 - Se presente
+        if (dadosCompletos.getCodigoPlano1() != null) {
+            PlanoCriarRequest.PlanoItem plano1 = criarPlanoItem(
+                dadosCompletos.getCodigoPlano1(),
+                dadosCompletos.getDataInicioPlano1(),
+                dadosCompletos.getValorTitular1(),
+                dadosCompletos.getValorDependente1()
+            );
+            listaPlano.add(plano1);
+            log.info("📋 [CRIAÇÃO PLANOS] Plano 1 adicionado: {}", dadosCompletos.getCodigoPlano1());
+        }
+        
+        // PLANO 2 - Se presente
+        if (dadosCompletos.getCodigoPlano2() != null) {
+            PlanoCriarRequest.PlanoItem plano2 = criarPlanoItem(
+                dadosCompletos.getCodigoPlano2(),
+                dadosCompletos.getDataInicioPlano2(),
+                dadosCompletos.getValorTitular2(),
+                dadosCompletos.getValorDependente2()
+            );
+            listaPlano.add(plano2);
+            log.info("📋 [CRIAÇÃO PLANOS] Plano 2 adicionado: {}", dadosCompletos.getCodigoPlano2());
+        }
+        
+        // PLANO 3 - Se presente
+        if (dadosCompletos.getCodigoPlano3() != null) {
+            PlanoCriarRequest.PlanoItem plano3 = criarPlanoItem(
+                dadosCompletos.getCodigoPlano3(),
+                dadosCompletos.getDataInicioPlano3(),
+                dadosCompletos.getValorTitular3(),
+                dadosCompletos.getValorDependente3()
+            );
+            listaPlano.add(plano3);
+            log.info("📋 [CRIAÇÃO PLANOS] Plano 3 adicionado: {}", dadosCompletos.getCodigoPlano3());
+        }
+        
+        // Construir request (SEM codigoEmpresa - API rejeita)
+        String codigoGrupoGerencial = dadosCompletos.getCodigoGrupoGerencial() != null 
+                ? dadosCompletos.getCodigoGrupoGerencial().toString() 
+                : "";
+        
+        PlanoCriarRequest request = PlanoCriarRequest.builder()
+                .codigoGrupoGerencial(codigoGrupoGerencial)
+                // .codigoEmpresa(List.of(codigoEmpresaApi)) // REMOVIDO - API rejeita
+                .sistema("Sabin Sinai")
+                .codigoUsuario("0")
+                .listaPlano(listaPlano)
+                .build();
+        
+        log.info("✅ [CRIAÇÃO PLANOS] Request criado com {} planos", listaPlano.size());
+        return request;
+    }
+    
+    /**
+     * CRIA ITEM DE PLANO INDIVIDUAL
+     */
+    private PlanoCriarRequest.PlanoItem criarPlanoItem(Long codigoPlano, LocalDate dataInicio, 
+                                                       String valorTitular, String valorDependente) {
+        
+        // Redes padrão
+        List<PlanoCriarRequest.Rede> redes = List.of(
+            PlanoCriarRequest.Rede.builder().codigoRede("1").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("31").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("32").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("33").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("35").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("36").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("37").build(),
+            PlanoCriarRequest.Rede.builder().codigoRede("38").build()
+        );
+        
+        return PlanoCriarRequest.PlanoItem.builder()
+                .valorTitular(converterStringParaDouble(valorTitular))
+                .codigoPlano(codigoPlano.intValue())
+                .dataInicioPlano(dataInicio != null ? dataInicio.atStartOfDay() : java.time.LocalDateTime.now())
+                .valorDependente(converterStringParaDouble(valorDependente))
+                .valorReembolsoUO(0.0)
+                .percentualAgregadoRedeGenerica(0.0)
+                .percentualDependenteRedeGenerica(0.0)
+                .idSegmentacaoGrupoRede(0)
+                .idNomeFantasia(0)
+                .redes(redes)
+                .percentualAssociado(0.0)
+                .planoFamiliar("")
+                .periodicidade("")
+                .build();
+    }
+    
+    /**
+     * CONVERTE STRING PARA DOUBLE
+     */
+    private Double converterStringParaDouble(String valor) {
+        if (valor == null || valor.trim().isEmpty()) {
+            return 0.0;
+        }
+        try {
+            return Double.parseDouble(valor.replace(",", "."));
+        } catch (NumberFormatException e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao converter valor '{}' para double: {}", valor, e.getMessage());
+            return 0.0;
+        }
+    }
+    
+    /**
+     * CADASTRA SUCESSO DE PLANOS NA TBSYNC
+     */
+    private void cadastrarSucessoPlanosTBSync(String codigoEmpresaApi, PlanoCriarRequest request, String response) {
+        try {
+            log.info("📝 [TBSYNC PLANOS] Cadastrando sucesso de planos na tabela de controle");
+            log.info("📝 [TBSYNC PLANOS] Criando registro com tipo PLANOS (4) para empresa {}", codigoEmpresaApi);
+            
+            // Converter request para JSON
+            String dadosJson = objectMapper.writeValueAsString(request);
+            log.info("📝 [TBSYNC PLANOS] JSON convertido - tamanho: {} caracteres", dadosJson.length());
+            
+            // Criar registro de controle com sucesso de planos
+            ControleSync controlePlanos = ControleSync.builder()
+                    .codigoEmpresa(codigoEmpresaApi)
+                    .tipoOperacao(ControleSync.TipoOperacao.CREATE)
+                    .tipoControle(ControleSync.TipoControle.PLANOS.getCodigo()) // Tipo PLANOS (4)
+                    .endpointDestino("POST_EMPRESA_PLANO_CRIAR")
+                    .dadosJson(dadosJson)
+                    .responseApi(response)
+                    .statusSync(ControleSync.StatusSync.SUCCESS)
+                    .erroMensagem(null)
+                    .dataCriacao(java.time.LocalDateTime.now())
+                    .dataSucesso(java.time.LocalDateTime.now())
+                    .build();
+            
+            log.info("📝 [TBSYNC PLANOS] Controle criado - tipoControle: {}, codigoEmpresa: {}, status: {}", 
+                    controlePlanos.getTipoControle(), 
+                    controlePlanos.getCodigoEmpresa(), 
+                    controlePlanos.getStatusSync());
+            
+            // Salvar na tabela de controle
+            ControleSync controleSalvo = gerenciadorControleSync.salvar(controlePlanos);
+            log.info("💾 [TBSYNC PLANOS] Sucesso! Registro PLANOS cadastrado na TBSYNC:");
+            log.info("   - ID: {}", controleSalvo.getId());
+            log.info("   - codigoEmpresa: {}", controleSalvo.getCodigoEmpresa());
+            log.info("   - tipoControle: PLANOS ({})", controleSalvo.getTipoControle());
+            log.info("   - status: {}", controleSalvo.getStatusSync());
+            log.info("   - endpoint: {}", controleSalvo.getEndpointDestino());
+            log.info("   - dataCriacao: {}", controleSalvo.getDataCriacao());
+            log.info("   - dataSucesso: {}", controleSalvo.getDataSucesso());
+            
+        } catch (Exception e) {
+            log.error("❌ [TBSYNC PLANOS] Erro ao cadastrar sucesso de planos na TBSYNC: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * CADASTRA ERRO DE PLANOS NA TBSYNC
+     */
+    private void cadastrarErroPlanosTBSync(String codigoEmpresaApi, String mensagemErro) {
+        try {
+            log.info("📝 [TBSYNC PLANOS] Cadastrando erro de planos na tabela de controle");
+            
+            ControleSync controlePlanos = ControleSync.builder()
+                    .codigoEmpresa(codigoEmpresaApi)
+                    .tipoOperacao(ControleSync.TipoOperacao.CREATE)
+                    .tipoControle(ControleSync.TipoControle.PLANOS.getCodigo()) // Tipo PLANOS (4)
+                    .endpointDestino("POST_EMPRESA_PLANO_CRIAR")
+                    .dadosJson(String.format("{\"codigoEmpresa\":\"%s\"}", codigoEmpresaApi))
+                    .statusSync(ControleSync.StatusSync.ERROR)
+                    .erroMensagem("ERRO_PLANOS: " + mensagemErro)
+                    .dataCriacao(java.time.LocalDateTime.now())
+                    .build();
+            
+            ControleSync controleSalvo = gerenciadorControleSync.salvar(controlePlanos);
+            log.info("💾 [TBSYNC PLANOS] Erro cadastrado na TBSYNC com ID: {} para empresa {}", 
+                    controleSalvo.getId(), codigoEmpresaApi);
+            
+        } catch (Exception e) {
+            log.error("❌ [TBSYNC PLANOS] Erro ao cadastrar erro de planos na TBSYNC: {}", e.getMessage(), e);
+        }
+    }
+    
     /**
      * CADASTRA ERRO DE PROCESSAMENTO NA TBSYNC
      * 
@@ -530,9 +788,38 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
         try {
             // PASSO 1: Converter dados da view para request PME
             log.info("🔄 [CADASTRO PME] PASSO 1 - Convertendo dados da view para request PME");
+            log.info("📋 [CADASTRO PME] Dados da view: CODIGO_PLANO_1={}, CODIGO_PLANO_2={}, CODIGO_PLANO_3={}", 
+                    dadosCompletos.getCodigoPlano1(), 
+                    dadosCompletos.getCodigoPlano2(), 
+                    dadosCompletos.getCodigoPlano3());
+            log.info("📋 [CADASTRO PME] Valores - TITULAR_1={}, DEPENDENTE_1={}, TITULAR_2={}, DEPENDENTE_2={}, TITULAR_3={}, DEPENDENTE_3={}", 
+                    dadosCompletos.getValorTitular1(), 
+                    dadosCompletos.getValorDependente1(),
+                    dadosCompletos.getValorTitular2(), 
+                    dadosCompletos.getValorDependente2(),
+                    dadosCompletos.getValorTitular3(), 
+                    dadosCompletos.getValorDependente3());
+            log.info("📋 [CADASTRO PME] Datas - INICIO_PLANO_1={}, INICIO_PLANO_2={}, INICIO_PLANO_3={}", 
+                    dadosCompletos.getDataInicioPlano1(), 
+                    dadosCompletos.getDataInicioPlano2(), 
+                    dadosCompletos.getDataInicioPlano3());
+            
             EmpresaPmeRequest requestPme = empresaPmeService.converterParaRequestPme(dadosCompletos);
             log.info("✅ [CADASTRO PME] Request PME convertido com sucesso - {} planos", 
                     requestPme.getPlanos() != null ? requestPme.getPlanos().size() : 0);
+            
+            // Log detalhado dos planos criados
+            if (requestPme.getPlanos() != null && !requestPme.getPlanos().isEmpty()) {
+                for (int i = 0; i < requestPme.getPlanos().size(); i++) {
+                    var plano = requestPme.getPlanos().get(i);
+                    log.info("📋 [CADASTRO PME] PLANO {}: codigoPlano={}, valorTitular={}, valorDependente={}, dataInicio={}", 
+                            i + 1, 
+                            plano.getCodigoPlano(), 
+                            plano.getValorTitular(), 
+                            plano.getValorDependente(), 
+                            plano.getDataInicioPlano());
+                }
+            }
             
             // PASSO 2: Chamar endpoint PME da OdontoPrev
             log.info("📤 [CADASTRO PME] PASSO 2 - Enviando request para endpoint PME");
@@ -546,6 +833,16 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             // Obter token de autorização (reutilizar do serviço de inclusão)
             String authorization = "Bearer " + obterTokenAutorizacao();
             
+            // Log do JSON completo que será enviado
+            try {
+                String requestJson = objectMapper.writeValueAsString(requestPme);
+                log.info("📤 [CADASTRO PME] JSON completo que será enviado:");
+                log.info("{}", requestJson);
+                log.info("📤 [CADASTRO PME] Tamanho do JSON: {} caracteres", requestJson.length());
+            } catch (Exception e) {
+                log.warn("⚠️ [CADASTRO PME] Erro ao converter request para JSON: {}", e.getMessage());
+            }
+            
             feignClient.cadastrarEmpresaPme(authorization, requestPme);
             
             long endTime = System.currentTimeMillis();
@@ -556,9 +853,13 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                     dadosCompletos.getNomeFantasia());
             
             // PASSO 3: Cadastrar sucesso na TBSYNC com tipo PLANOS
-            log.info("💾 [CADASTRO PME] PASSO 3 - Cadastrando sucesso PME na TBSYNC");
+            log.info("💾 [CADASTRO PME] PASSO 3 - Cadastrando sucesso PME na TBSYNC com tipo PLANOS");
+            log.info("💾 [CADASTRO PME] Registro TBSYNC será criado com:");
+            log.info("   - tipoControle: PLANOS (4)");
+            log.info("   - codigoEmpresa: {}", controleSync.getCodigoEmpresa());
+            log.info("   - statusSync: SUCCESS");
             cadastrarSucessoPmeTBSync(controleSync, requestPme);
-            log.info("✅ [CADASTRO PME] Sucesso PME cadastrado na TBSYNC para empresa {}", 
+            log.info("✅ [CADASTRO PME] Sucesso PME cadastrado na TBSYNC com tipo PLANOS para empresa {}", 
                     dadosCompletos.getNomeFantasia());
             
         } catch (Exception e) {
@@ -599,26 +900,41 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     private void cadastrarSucessoPmeTBSync(ControleSync controleSync, EmpresaPmeRequest requestPme) {
         try {
             log.info("📝 [TBSYNC PME] Cadastrando sucesso PME na tabela de controle");
+            log.info("📝 [TBSYNC PME] Criando registro com tipo PLANOS (4) para empresa {}", 
+                    controleSync.getCodigoEmpresa());
             
             // Converter request para JSON
             String dadosJson = objectMapper.writeValueAsString(requestPme);
+            log.info("📝 [TBSYNC PME] JSON convertido - tamanho: {} caracteres", dadosJson.length());
             
             // Criar registro de controle com sucesso PME
             ControleSync controlePme = ControleSync.builder()
                     .codigoEmpresa(controleSync.getCodigoEmpresa())
                     .tipoOperacao(ControleSync.TipoOperacao.CREATE)
-                    .tipoControle(ControleSync.TipoControle.PLANOS.getCodigo()) // Tipo PLANOS
+                    .tipoControle(ControleSync.TipoControle.PLANOS.getCodigo()) // Tipo PLANOS (4)
                     .endpointDestino("POST_EMPRESA_PME")
                     .dadosJson(dadosJson)
                     .statusSync(ControleSync.StatusSync.SUCCESS)
                     .erroMensagem(null)
                     .dataCriacao(java.time.LocalDateTime.now())
+                    .dataSucesso(java.time.LocalDateTime.now())
                     .build();
+            
+            log.info("📝 [TBSYNC PME] Controle criado - tipoControle: {}, codigoEmpresa: {}, status: {}", 
+                    controlePme.getTipoControle(), 
+                    controlePme.getCodigoEmpresa(), 
+                    controlePme.getStatusSync());
             
             // Salvar na tabela de controle
             ControleSync controleSalvo = gerenciadorControleSync.salvar(controlePme);
-            log.info("💾 [TBSYNC PME] Sucesso PME cadastrado na TBSYNC com ID: {} para empresa {}", 
-                    controleSalvo.getId(), controleSync.getCodigoEmpresa());
+            log.info("💾 [TBSYNC PME] Sucesso! Registro PLANOS cadastrado na TBSYNC:");
+            log.info("   - ID: {}", controleSalvo.getId());
+            log.info("   - codigoEmpresa: {}", controleSalvo.getCodigoEmpresa());
+            log.info("   - tipoControle: PLANOS ({})", controleSalvo.getTipoControle());
+            log.info("   - status: {}", controleSalvo.getStatusSync());
+            log.info("   - endpoint: {}", controleSalvo.getEndpointDestino());
+            log.info("   - dataCriacao: {}", controleSalvo.getDataCriacao());
+            log.info("   - dataSucesso: {}", controleSalvo.getDataSucesso());
             
         } catch (Exception e) {
             log.error("❌ [TBSYNC PME] Erro ao cadastrar sucesso PME na TBSYNC: {}", e.getMessage(), e);
@@ -654,6 +970,80 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             
         } catch (Exception e) {
             log.error("❌ [TBSYNC PME] Erro ao cadastrar erro PME na TBSYNC: {}", e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * REPROCESSA EMPRESAS QUE FALHARAM NA CRIAÇÃO DE PLANOS
+     * 
+     * Busca empresas que tiveram erro (status ERROR) na criação de planos
+     * (tipo PLANOS = 4) e tenta criar os planos novamente.
+     * 
+     * FLUXO:
+     * 1. Busca empresas com erro no tipo PLANOS
+     * 2. Para cada empresa, busca dados da view
+     * 3. Tenta criar os planos novamente
+     */
+    public void reprocessarPlanosComErro() {
+        log.info("🔄 [REPROCESSAMENTO PLANOS] Iniciando reprocessamento de empresas com erro na criação de planos");
+        
+        try {
+            // Buscar empresas com erro no tipo PLANOS
+            List<ControleSync> empresasComErro = controleSyncRepository
+                    .findByTipoControleAndStatusSyncOrderByDataCriacaoDesc(
+                            ControleSync.TipoControle.PLANOS.getCodigo(), 
+                            ControleSync.StatusSync.ERROR);
+            
+            log.info("📊 [REPROCESSAMENTO PLANOS] Encontradas {} empresas com erro na criação de planos", 
+                    empresasComErro.size());
+            
+            if (empresasComErro.isEmpty()) {
+                log.info("✅ [REPROCESSAMENTO PLANOS] Nenhuma empresa com erro encontrada");
+                return;
+            }
+            
+            // Processar cada empresa
+            int sucesso = 0;
+            int erro = 0;
+            
+            for (ControleSync controleErro : empresasComErro) {
+                String codigoEmpresa = controleErro.getCodigoEmpresa();
+                log.info("🔄 [REPROCESSAMENTO PLANOS] Reprocessando empresa: {}", codigoEmpresa);
+                
+                try {
+                    // Buscar dados da empresa na view
+                    IntegracaoOdontoprev dadosEmpresa = buscarDadosEmpresaOuSair(codigoEmpresa);
+                    
+                    if (dadosEmpresa == null) {
+                        log.warn("⚠️ [REPROCESSAMENTO PLANOS] Dados não encontrados para empresa {}", codigoEmpresa);
+                        erro++;
+                        continue;
+                    }
+                    
+                    // Verificar se empresa possui codigoEmpresa (já foi sincronizada)
+                    if (dadosEmpresa.getCodigoEmpresa() == null || dadosEmpresa.getCodigoEmpresa().trim().isEmpty()) {
+                        log.warn("⚠️ [REPROCESSAMENTO PLANOS] Empresa {} ainda não foi sincronizada (não possui codigoEmpresa)", 
+                                codigoEmpresa);
+                        erro++;
+                        continue;
+                    }
+                    
+                    // Criar planos
+                    executarCriacaoPlanos(dadosEmpresa.getCodigoEmpresa(), dadosEmpresa);
+                    sucesso++;
+                    log.info("✅ [REPROCESSAMENTO PLANOS] Empresa {} reprocessada com sucesso", codigoEmpresa);
+                    
+                } catch (Exception e) {
+                    erro++;
+                    log.error("❌ [REPROCESSAMENTO PLANOS] Erro ao reprocessar empresa {}: {}", 
+                            codigoEmpresa, e.getMessage());
+                }
+            }
+            
+            log.info("🎉 [REPROCESSAMENTO PLANOS] Concluído - Sucesso: {}, Erro: {}", sucesso, erro);
+            
+        } catch (Exception e) {
+            log.error("❌ [REPROCESSAMENTO PLANOS] Erro no reprocessamento de planos: {}", e.getMessage(), e);
         }
     }
 

@@ -103,10 +103,10 @@ public class PlanoCriarServiceImpl {
             log.info("📋 [CRIAÇÃO PLANO] Plano 3 adicionado: {}", dadosEmpresa.getCodigoPlano3());
         }
         
-        // Construir request
+        // Construir request (SEM codigoEmpresa - API rejeita)
         PlanoCriarRequest request = PlanoCriarRequest.builder()
                 .codigoGrupoGerencial("") // Vazio conforme exemplo
-                .codigoEmpresa(List.of(dadosEmpresa.getCodigoEmpresa()))
+                // .codigoEmpresa(List.of(dadosEmpresa.getCodigoEmpresa())) // REMOVIDO - API rejeita
                 .sistema("Sabin Sinai")
                 .codigoUsuario("0")
                 .listaPlano(listaPlano)

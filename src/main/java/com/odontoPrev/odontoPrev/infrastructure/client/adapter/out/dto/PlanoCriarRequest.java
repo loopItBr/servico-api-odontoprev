@@ -1,6 +1,7 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,13 +20,15 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PlanoCriarRequest {
 
     @JsonProperty("codigoGrupoGerencial")
     private String codigoGrupoGerencial;
 
-    @JsonProperty("codigoEmpresa")
-    private List<String> codigoEmpresa;
+    // NÃO INCLUIR codigoEmpresa - a API rejeita este campo
+    // @JsonProperty("codigoEmpresa")
+    // private List<String> codigoEmpresa;
 
     @JsonProperty("sistema")
     private String sistema;
