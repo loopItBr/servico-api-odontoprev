@@ -78,9 +78,9 @@ public class IntegracaoOdontoprevExclusao {
      * Exemplo: "A001", "EMP123", "XYZ789"
      */
     @Id
-    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 6)
+    @Column(name = "CODIGOEMPRESA", nullable = false, length = 255)
     @NotBlank(message = "Código da empresa é obrigatório")
-    @Size(min = 1, max = 6, message = "Código da empresa deve ter entre 1 e 6 caracteres")
+    @Size(min = 1, max = 255, message = "Código da empresa deve ter entre 1 e 255 caracteres")
     @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Código da empresa deve conter apenas letras e números")
     private String codigoEmpresa;
 

@@ -229,38 +229,33 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
         // Copia todos os campos comuns
         dadosBase.setCodigoEmpresa(dadosAlteracao.getCodigoEmpresa());
         dadosBase.setCnpj(dadosAlteracao.getCnpj());
-        dadosBase.setCodigoClienteOperadora(dadosAlteracao.getCodigoClienteOperadora());
         dadosBase.setNomeFantasia(dadosAlteracao.getNomeFantasia());
-        dadosBase.setDataInicioContrato(dadosAlteracao.getDataInicioContrato());
-        dadosBase.setDataFimContrato(dadosAlteracao.getDataFimContrato());
-        dadosBase.setDataVigencia(dadosAlteracao.getDataVigencia());
-        dadosBase.setEmpresaPf(dadosAlteracao.getEmpresaPf() != null ? dadosAlteracao.getEmpresaPf().toString() : null);
+        dadosBase.setDataInicioContrato(dadosAlteracao.getDataInicioContrato() != null ? dadosAlteracao.getDataInicioContrato().toString() : null);
+        dadosBase.setDataVigencia(dadosAlteracao.getDataVigencia() != null ? dadosAlteracao.getDataVigencia().toString() : null);
         dadosBase.setCodigoGrupoGerencial(dadosAlteracao.getCodigoGrupoGerencial());
-        dadosBase.setCodigoMarca(dadosAlteracao.getCodigoMarca() != null ? dadosAlteracao.getCodigoMarca().toString() : null);
-        dadosBase.setCodigoCelula(dadosAlteracao.getCodigoCelula() != null ? dadosAlteracao.getCodigoCelula().toString() : null);
-        dadosBase.setVidasAtivas(dadosAlteracao.getVidasAtivas());
-        dadosBase.setValorUltimoFaturamento(dadosAlteracao.getValorUltimoFaturamento());
-        dadosBase.setSinistralidade(dadosAlteracao.getSinistralidade());
+        dadosBase.setCodigoMarca(dadosAlteracao.getCodigoMarca());
+        dadosBase.setCodigoCelula(dadosAlteracao.getCodigoCelula());
         // Campos de plano agora usam sufixo _1 na entidade base
         dadosBase.setCodigoPlano1(dadosAlteracao.getCodigoPlano1());
-        dadosBase.setDescricaoPlano1(dadosAlteracao.getDescricaoPlano1());
-        dadosBase.setNomeFantasiaPlano1(dadosAlteracao.getNomeFantasiaPlano1());
-        dadosBase.setNumeroRegistroAns1(dadosAlteracao.getNumeroRegistroAns1());
-        dadosBase.setSiglaPlano1(dadosAlteracao.getSiglaPlano1());
-        dadosBase.setValorTitular1(dadosAlteracao.getValorTitular1());
-        dadosBase.setValorDependente1(dadosAlteracao.getValorDependente1());
-        dadosBase.setDataInicioPlano1(dadosAlteracao.getDataInicioPlano1());
-        dadosBase.setDataFimPlano1(dadosAlteracao.getDataFimPlano1());
-        // CoParticipacao removido pois não existe na view VW_INTEGRACAO_ODONTOPREV_ALT
-        // dadosBase.setCoParticipacao1(dadosAlteracao.getCoParticipacao());
-        dadosBase.setTipoNegociacao1(dadosAlteracao.getTipoNegociacao1());
-        dadosBase.setCodigoTipoCobranca(dadosAlteracao.getCodigoTipoCobranca());
-        dadosBase.setNomeTipoCobranca(dadosAlteracao.getNomeTipoCobranca());
-        dadosBase.setSiglaTipoCobranca(dadosAlteracao.getSiglaTipoCobranca());
-        dadosBase.setNumeroBanco(dadosAlteracao.getNumeroBanco());
-        dadosBase.setNomeBanco(dadosAlteracao.getNomeBanco());
-        dadosBase.setNumeroParcelas(dadosAlteracao.getNumeroParcelas());
+        dadosBase.setValorTitular1(converterStringParaLong(dadosAlteracao.getValorTitular1()));
+        dadosBase.setValorDependente1(converterStringParaLong(dadosAlteracao.getValorDependente1()));
+        dadosBase.setDataInicioPlano1(dadosAlteracao.getDataInicioPlano1() != null ? dadosAlteracao.getDataInicioPlano1().toString() : null);
         
         return dadosBase;
+    }
+
+    /**
+     * CONVERTE STRING PARA LONG
+     */
+    private Long converterStringParaLong(String valor) {
+        if (valor == null || valor.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(valor.replace(",", "."));
+        } catch (NumberFormatException e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao converter valor '{}' para Long: {}", valor, e.getMessage());
+            return null;
+        }
     }
 }

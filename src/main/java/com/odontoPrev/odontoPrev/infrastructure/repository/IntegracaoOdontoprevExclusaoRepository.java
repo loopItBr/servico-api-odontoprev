@@ -24,7 +24,7 @@ public interface IntegracaoOdontoprevExclusaoRepository extends JpaRepository<In
      * 
      * @return lista de códigos de empresas excluídas
      */
-    @Query(value = "SELECT DISTINCT CODIGO_EMPRESA FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC", nativeQuery = true)
+    @Query(value = "SELECT DISTINCT CODIGOEMPRESA FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC", nativeQuery = true)
     List<String> buscarCodigosEmpresasExcluidas();
 
     /**
@@ -33,7 +33,7 @@ public interface IntegracaoOdontoprevExclusaoRepository extends JpaRepository<In
      * @param pageable configuração de paginação
      * @return lista paginada de códigos de empresas excluídas
      */
-    @Query(value = "SELECT DISTINCT CODIGO_EMPRESA FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC", nativeQuery = true)
+    @Query(value = "SELECT DISTINCT CODIGOEMPRESA FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC", nativeQuery = true)
     List<String> buscarCodigosEmpresasExcluidasPaginado(Pageable pageable);
 
     /**
@@ -41,7 +41,7 @@ public interface IntegracaoOdontoprevExclusaoRepository extends JpaRepository<In
      * 
      * @return número total de empresas excluídas
      */
-    @Query(value = "SELECT COUNT(DISTINCT CODIGO_EMPRESA) FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC", nativeQuery = true)
+    @Query(value = "SELECT COUNT(DISTINCT CODIGOEMPRESA) FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC", nativeQuery = true)
     long contarTotalEmpresasExcluidas();
 
     /**
@@ -51,7 +51,7 @@ public interface IntegracaoOdontoprevExclusaoRepository extends JpaRepository<In
      * @param codigoEmpresa código da empresa
      * @return dados da empresa excluída
      */
-    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC WHERE CODIGO_EMPRESA = :codigoEmpresa", nativeQuery = true)
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC WHERE CODIGOEMPRESA = :codigoEmpresa", nativeQuery = true)
     List<IntegracaoOdontoprevExclusao> buscarPrimeiroDadoPorCodigoEmpresa(String codigoEmpresa);
 
     /**
@@ -60,7 +60,7 @@ public interface IntegracaoOdontoprevExclusaoRepository extends JpaRepository<In
      * @param codigoEmpresa código da empresa
      * @return lista de dados da empresa excluída
      */
-    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC WHERE CODIGO_EMPRESA = :codigoEmpresa", nativeQuery = true)
+    @Query(value = "SELECT * FROM TASY.VW_INTEGRACAO_ODONTOPREV_EXC WHERE CODIGOEMPRESA = :codigoEmpresa", nativeQuery = true)
     List<IntegracaoOdontoprevExclusao> buscarDadosPorCodigoEmpresa(String codigoEmpresa);
 
     /**

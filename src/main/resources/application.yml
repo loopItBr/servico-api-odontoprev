@@ -89,9 +89,9 @@ odontoprev:
 
   scheduler:
     empresa:
-      enabled: true
-    beneficiario:
       enabled: false
+    beneficiario:
+      enabled: true
 
   sync:
     # Configurações para processamento de empresas

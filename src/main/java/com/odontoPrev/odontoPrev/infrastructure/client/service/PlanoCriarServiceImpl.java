@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -73,7 +71,8 @@ public class PlanoCriarServiceImpl {
                 dadosEmpresa.getCodigoPlano1(),
                 dadosEmpresa.getDataInicioPlano1(),
                 dadosEmpresa.getValorTitular1(),
-                dadosEmpresa.getValorDependente1()
+                dadosEmpresa.getValorDependente1(),
+                dadosEmpresa.getPeriodicidade1()
             );
             listaPlano.add(plano1);
             log.info("📋 [CRIAÇÃO PLANO] Plano 1 adicionado: {}", dadosEmpresa.getCodigoPlano1());
@@ -85,7 +84,8 @@ public class PlanoCriarServiceImpl {
                 dadosEmpresa.getCodigoPlano2(),
                 dadosEmpresa.getDataInicioPlano2(),
                 dadosEmpresa.getValorTitular2(),
-                dadosEmpresa.getValorDependente2()
+                dadosEmpresa.getValorDependente2(),
+                dadosEmpresa.getPeriodicidade2()
             );
             listaPlano.add(plano2);
             log.info("📋 [CRIAÇÃO PLANO] Plano 2 adicionado: {}", dadosEmpresa.getCodigoPlano2());
@@ -97,7 +97,8 @@ public class PlanoCriarServiceImpl {
                 dadosEmpresa.getCodigoPlano3(),
                 dadosEmpresa.getDataInicioPlano3(),
                 dadosEmpresa.getValorTitular3(),
-                dadosEmpresa.getValorDependente3()
+                dadosEmpresa.getValorDependente3(),
+                dadosEmpresa.getPeriodicidade3()
             );
             listaPlano.add(plano3);
             log.info("📋 [CRIAÇÃO PLANO] Plano 3 adicionado: {}", dadosEmpresa.getCodigoPlano3());
@@ -119,8 +120,8 @@ public class PlanoCriarServiceImpl {
     /**
      * Cria item de plano individual
      */
-    private PlanoCriarRequest.PlanoItem criarPlanoItem(Long codigoPlano, LocalDate dataInicio, 
-                                                       String valorTitular, String valorDependente) {
+    private PlanoCriarRequest.PlanoItem criarPlanoItem(Long codigoPlano, String dataInicio, 
+                                                       Long valorTitular, Long valorDependente, String periodicidade) {
         
         // Redes padrão
         List<PlanoCriarRequest.Rede> redes = List.of(
@@ -135,10 +136,10 @@ public class PlanoCriarServiceImpl {
         );
         
         return PlanoCriarRequest.PlanoItem.builder()
-                .valorTitular(converterStringParaDouble(valorTitular))
+                .valorTitular(converterLongParaDouble(valorTitular))
                 .codigoPlano(codigoPlano.intValue())
-                .dataInicioPlano(dataInicio != null ? dataInicio.atStartOfDay() : LocalDateTime.now())
-                .valorDependente(converterStringParaDouble(valorDependente))
+                .dataInicioPlano(converterStringParaLocalDateTime(dataInicio))
+                .valorDependente(converterLongParaDouble(valorDependente))
                 .valorReembolsoUO(0.0)
                 .percentualAgregadoRedeGenerica(0.0)
                 .percentualDependenteRedeGenerica(0.0)
@@ -147,8 +148,58 @@ public class PlanoCriarServiceImpl {
                 .redes(redes)
                 .percentualAssociado(0.0)
                 .planoFamiliar("")
-                .periodicidade("")
+                .periodicidade(periodicidade != null && !periodicidade.trim().isEmpty() ? periodicidade : "N")
                 .build();
+    }
+
+    /**
+     * CONVERTE LONG PARA DOUBLE
+     */
+    private Double converterLongParaDouble(Long valor) {
+        if (valor == null) {
+            return 0.0;
+        }
+        return valor.doubleValue();
+    }
+
+    /**
+     * CONVERTE STRING PARA LOCALDATETIME
+     */
+    private java.time.LocalDateTime converterStringParaLocalDateTime(String data) {
+        if (data == null || data.trim().isEmpty()) {
+            return java.time.LocalDateTime.now();
+        }
+        try {
+            // Se já está no formato correto, converte diretamente
+            if (data.contains("T")) {
+                return java.time.LocalDateTime.parse(data, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+            }
+            // Se é apenas data, adiciona horário
+            return java.time.LocalDateTime.parse(data + "T00:00:00.000Z", java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao converter data '{}' para LocalDateTime: {}", data, e.getMessage());
+            return java.time.LocalDateTime.now();
+        }
+    }
+
+    /**
+     * FORMATA STRING DE DATA PARA FORMATO ISO
+     */
+    private String formatarDataString(String data) {
+        if (data == null || data.trim().isEmpty()) {
+            return java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        }
+        try {
+            // Se já está no formato correto, retorna como está
+            if (data.contains("T")) {
+                return data;
+            }
+            // Se é apenas data, adiciona horário
+            return data + "T00:00:00.000Z";
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao formatar data '{}': {}", data, e.getMessage());
+            return java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        }
     }
 
     /**

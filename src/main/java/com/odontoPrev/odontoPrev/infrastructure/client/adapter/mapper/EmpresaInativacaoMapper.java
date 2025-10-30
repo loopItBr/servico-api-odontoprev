@@ -70,7 +70,7 @@ public interface EmpresaInativacaoMapper {
                     .codigoEmpresa(codigoEmpresaFormatado)
                     .codigoMotivoFimEmpresa("1") // Valor padrão - pode ser configurável
                     .codigoMotivoInativacao("2") // Valor padrão - pode ser configurável
-                    .dataFimContrato(formatarData(entidade.getDataFimContrato()))
+                    .dataFimContrato(formatarData(null)) // Campo removido da view
                     .build();
 
             return Collections.singletonList(dados);

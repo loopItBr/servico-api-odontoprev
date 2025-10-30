@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 
 import static com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao.TipoExcecao.*;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -565,7 +564,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                 dadosCompletos.getCodigoPlano1(),
                 dadosCompletos.getDataInicioPlano1(),
                 dadosCompletos.getValorTitular1(),
-                dadosCompletos.getValorDependente1()
+                dadosCompletos.getValorDependente1(),
+                dadosCompletos.getPeriodicidade1()
             );
             listaPlano.add(plano1);
             log.info("📋 [CRIAÇÃO PLANOS] Plano 1 adicionado: {}", dadosCompletos.getCodigoPlano1());
@@ -577,7 +577,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                 dadosCompletos.getCodigoPlano2(),
                 dadosCompletos.getDataInicioPlano2(),
                 dadosCompletos.getValorTitular2(),
-                dadosCompletos.getValorDependente2()
+                dadosCompletos.getValorDependente2(),
+                dadosCompletos.getPeriodicidade2()
             );
             listaPlano.add(plano2);
             log.info("📋 [CRIAÇÃO PLANOS] Plano 2 adicionado: {}", dadosCompletos.getCodigoPlano2());
@@ -589,7 +590,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                 dadosCompletos.getCodigoPlano3(),
                 dadosCompletos.getDataInicioPlano3(),
                 dadosCompletos.getValorTitular3(),
-                dadosCompletos.getValorDependente3()
+                dadosCompletos.getValorDependente3(),
+                dadosCompletos.getPeriodicidade3()
             );
             listaPlano.add(plano3);
             log.info("📋 [CRIAÇÃO PLANOS] Plano 3 adicionado: {}", dadosCompletos.getCodigoPlano3());
@@ -615,8 +617,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
     /**
      * CRIA ITEM DE PLANO INDIVIDUAL
      */
-    private PlanoCriarRequest.PlanoItem criarPlanoItem(Long codigoPlano, LocalDate dataInicio, 
-                                                       String valorTitular, String valorDependente) {
+    private PlanoCriarRequest.PlanoItem criarPlanoItem(Long codigoPlano, String dataInicio, 
+                                                       Long valorTitular, Long valorDependente, String periodicidade) {
         
         // Redes padrão
         List<PlanoCriarRequest.Rede> redes = List.of(
@@ -631,10 +633,10 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
         );
         
         return PlanoCriarRequest.PlanoItem.builder()
-                .valorTitular(converterStringParaDouble(valorTitular))
+                .valorTitular(converterLongParaDouble(valorTitular))
                 .codigoPlano(codigoPlano.intValue())
-                .dataInicioPlano(dataInicio != null ? dataInicio.atStartOfDay() : java.time.LocalDateTime.now())
-                .valorDependente(converterStringParaDouble(valorDependente))
+                .dataInicioPlano(converterStringParaLocalDateTime(dataInicio))
+                .valorDependente(converterLongParaDouble(valorDependente))
                 .valorReembolsoUO(0.0)
                 .percentualAgregadoRedeGenerica(0.0)
                 .percentualDependenteRedeGenerica(0.0)
@@ -643,10 +645,60 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                 .redes(redes)
                 .percentualAssociado(0.0)
                 .planoFamiliar("")
-                .periodicidade("")
+                .periodicidade(periodicidade != null && !periodicidade.trim().isEmpty() ? periodicidade : "N")
                 .build();
     }
     
+    /**
+     * CONVERTE LONG PARA DOUBLE
+     */
+    private Double converterLongParaDouble(Long valor) {
+        if (valor == null) {
+            return 0.0;
+        }
+        return valor.doubleValue();
+    }
+
+    /**
+     * CONVERTE STRING PARA LOCALDATETIME
+     */
+    private java.time.LocalDateTime converterStringParaLocalDateTime(String data) {
+        if (data == null || data.trim().isEmpty()) {
+            return java.time.LocalDateTime.now();
+        }
+        try {
+            // Se já está no formato correto, converte diretamente
+            if (data.contains("T")) {
+                return java.time.LocalDateTime.parse(data, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+            }
+            // Se é apenas data, adiciona horário
+            return java.time.LocalDateTime.parse(data + "T00:00:00.000Z", java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao converter data '{}' para LocalDateTime: {}", data, e.getMessage());
+            return java.time.LocalDateTime.now();
+        }
+    }
+
+    /**
+     * FORMATA STRING DE DATA PARA FORMATO ISO
+     */
+    private String formatarDataString(String data) {
+        if (data == null || data.trim().isEmpty()) {
+            return java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        }
+        try {
+            // Se já está no formato correto, retorna como está
+            if (data.contains("T")) {
+                return data;
+            }
+            // Se é apenas data, adiciona horário
+            return data + "T00:00:00.000Z";
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao formatar data '{}': {}", data, e.getMessage());
+            return java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"));
+        }
+    }
+
     /**
      * CONVERTE STRING PARA DOUBLE
      */

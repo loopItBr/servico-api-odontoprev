@@ -296,96 +296,84 @@ public class EmpresaInclusaoServiceImpl {
     // Conversão baseada no fluxo já existente de ativação
     private EmpresaAtivacaoPlanoRequest converterParaRequestEmpresarial(IntegracaoOdontoprev dadosEmpresa) {
         EmpresaAtivacaoPlanoRequest request = EmpresaAtivacaoPlanoRequest.builder()
-                .sistema("SabinSinai")
-                .tipoPessoa("J")
-                .emiteCarteirinhaPlastica("N")
-                .codigoEmpresaGestora(1)
-                .codigoFilialEmpresaGestora(1)
-                .codigoGrupoGerencial("787392")
-                .codigoNaturezaJuridica("6550-2")
-                .nomeNaturezaJuridica("Planos de saúde")
-                .situacaoCadastral("ATIVO")
-                .inscricaoMunicipal("997.179.737.204")
-                .inscricaoEstadual("997.179.737.204")
-                .dataConstituicao("2025-10-01T00:00:00.000Z")
-                .renovacaoAutomatica("S")
-                .codigoClausulaReajusteDiferenciado("1")
-                .departamento("SEM DEPARTAMENTO")
-                .dependentePaga("N")
-                .permissaoCadastroDep(true)
+                .sistema(dadosEmpresa.getSistema() != null ? dadosEmpresa.getSistema() : "SabinSinai")
+                .tipoPessoa(dadosEmpresa.getTipoPessoa() != null ? dadosEmpresa.getTipoPessoa() : "J")
+                .emiteCarteirinhaPlastica(dadosEmpresa.getEmiteCarteirinhaPlastica() != null ? dadosEmpresa.getEmiteCarteirinhaPlastica() : "N")
+                .codigoEmpresaGestora(dadosEmpresa.getCodigoEmpresaGestora() != null ? dadosEmpresa.getCodigoEmpresaGestora().intValue() : 1)
+                .codigoFilialEmpresaGestora(dadosEmpresa.getCodigoFilialEmpresaGestora() != null ? dadosEmpresa.getCodigoFilialEmpresaGestora().intValue() : 1)
+                .codigoGrupoGerencial(dadosEmpresa.getCodigoGrupoGerencial() != null ? dadosEmpresa.getCodigoGrupoGerencial().toString() : "787392")
+                .codigoNaturezaJuridica(dadosEmpresa.getCodigoNaturezaJuridica() != null ? dadosEmpresa.getCodigoNaturezaJuridica() : "6550-2")
+                .nomeNaturezaJuridica(dadosEmpresa.getNomeNaturezaJuridica() != null ? dadosEmpresa.getNomeNaturezaJuridica() : "Planos de saúde")
+                .situacaoCadastral(dadosEmpresa.getSituacaoCadastral() != null ? dadosEmpresa.getSituacaoCadastral() : "ATIVO")
+                .inscricaoMunicipal(dadosEmpresa.getInscricaoMunicipal() != null ? dadosEmpresa.getInscricaoMunicipal() : "997.179.737.204")
+                .inscricaoEstadual(dadosEmpresa.getInscricaoEstadual() != null ? dadosEmpresa.getInscricaoEstadual() : "997.179.737.204")
+                .dataConstituicao(dadosEmpresa.getDataConstituicao() != null ? dadosEmpresa.getDataConstituicao() : "2025-10-01T00:00:00.000Z")
+                .renovacaoAutomatica(dadosEmpresa.getRenovacaoAutomatica() != null ? dadosEmpresa.getRenovacaoAutomatica() : "S")
+                .codigoClausulaReajusteDiferenciado(dadosEmpresa.getCodigoClausulaReajusteDiferenciado() != null ? dadosEmpresa.getCodigoClausulaReajusteDiferenciado().toString() : "1")
+                .departamento(dadosEmpresa.getDepartamento() != null ? dadosEmpresa.getDepartamento().toString() : "SEM DEPARTAMENTO")
+                .dependentePaga(dadosEmpresa.getDependentePaga() != null ? dadosEmpresa.getDependentePaga() : "N")
+                .permissaoCadastroDep(dadosEmpresa.getPermissaoCadastroDep() != null ? dadosEmpresa.getPermissaoCadastroDep().equals("S") : true)
                 .modeloCobrancaVarejo(false)
-                .numeroMinimoAssociados(3)
-                .numeroFuncionarios(0)
-                .numeroDepedentes(0)
-                .idadeLimiteDependente(21)
-                .valorFator(1)
+                .numeroMinimoAssociados(dadosEmpresa.getNumeroMinimoAssociados() != null ? dadosEmpresa.getNumeroMinimoAssociados().intValue() : 3)
+                .numeroFuncionarios(dadosEmpresa.getNumeroFuncionarios() != null ? dadosEmpresa.getNumeroFuncionarios().intValue() : 0)
+                .numeroDepedentes(dadosEmpresa.getNumeroDependentes() != null ? dadosEmpresa.getNumeroDependentes().intValue() : 0)
+                .idadeLimiteDependente(dadosEmpresa.getIdadeLimiteDependente() != null ? dadosEmpresa.getIdadeLimiteDependente().intValue() : 21)
+                .valorFator(dadosEmpresa.getValorFator() != null ? dadosEmpresa.getValorFator().intValue() : 1)
                 .tipoRetornoCritica("T")
-                .codigoLayoutCarteirinha("B")
-                .codigoOrdemCarteira(3)
+                .codigoLayoutCarteirinha(dadosEmpresa.getCodigoLayoutCarteirinha() != null ? dadosEmpresa.getCodigoLayoutCarteirinha() : "B")
+                .codigoOrdemCarteira(dadosEmpresa.getCodigoOrdemCarteira() != null ? dadosEmpresa.getCodigoOrdemCarteira().intValue() : 3)
                 .codigoDocumentoContrato(0)
-                .codigoCelula(9)
-                .codigoMarca(1)
+                .codigoCelula(dadosEmpresa.getCodigoCelula() != null ? dadosEmpresa.getCodigoCelula().intValue() : 9)
+                .codigoMarca(dadosEmpresa.getCodigoMarca() != null ? dadosEmpresa.getCodigoMarca().intValue() : 1)
                 .codigoDescricaoNF(0)
-                .diaVencimentoAg(19)
-                .codigoPerfilClienteFatura(3)
-                .codigoBancoFatura("085 ")
-                .multaFatura(0)
-                .descontaIR("N")
-                .retencaoIss("N")
-                .liberaSenhaInternet("S")
-                .faturamentoNotaCorte("N")
-                .proRata("N")
-                .custoFamiliar("S")
-                .planoFamiliar("S")
-                .percSinistroContrato(60)
-                .idadeLimiteUniversitaria(24)
+                .diaVencimentoAg(dadosEmpresa.getDiaVencimentoAg() != null ? dadosEmpresa.getDiaVencimentoAg().intValue() : 19)
+                .codigoPerfilClienteFatura(dadosEmpresa.getCodigoPerfilClienteFatura() != null ? dadosEmpresa.getCodigoPerfilClienteFatura().intValue() : 3)
+                .codigoBancoFatura(dadosEmpresa.getCodigoBancoFatura() != null ? dadosEmpresa.getCodigoBancoFatura().toString().trim() + " " : "085 ")
+                .multaFatura(dadosEmpresa.getMultaFatura() != null ? dadosEmpresa.getMultaFatura().intValue() : 0)
+                .descontaIR(dadosEmpresa.getDescontaIr() != null ? dadosEmpresa.getDescontaIr() : "N")
+                .retencaoIss(dadosEmpresa.getRetencaoIss() != null ? dadosEmpresa.getRetencaoIss() : "N")
+                .liberaSenhaInternet(dadosEmpresa.getLiberaSenhaInternet() != null ? dadosEmpresa.getLiberaSenhaInternet() : "S")
+                .faturamentoNotaCorte(dadosEmpresa.getFaturamentoNotaCorte() != null ? dadosEmpresa.getFaturamentoNotaCorte() : "N")
+                .proRata(dadosEmpresa.getProrata() != null ? dadosEmpresa.getProrata() : "N")
+                .custoFamiliar(dadosEmpresa.getCustoFamiliar() != null ? dadosEmpresa.getCustoFamiliar() : "S")
+                .planoFamiliar(dadosEmpresa.getPlanoFamiliar() != null ? dadosEmpresa.getPlanoFamiliar() : "S")
+                .percSinistroContrato(dadosEmpresa.getValorSinistroContrato() != null ? dadosEmpresa.getValorSinistroContrato().intValue() : 60)
+                .idadeLimiteUniversitaria(dadosEmpresa.getIdadeLimiteUniversitario() != null ? dadosEmpresa.getIdadeLimiteUniversitario().intValue() : 24)
                 .percentualINSSAutoGestao(0)
                 .percentualMateriaisAutoGestao(0)
-                .valorSinistroContrato(60.0)
+                .valorSinistroContrato(dadosEmpresa.getValorSinistroContrato() != null ? dadosEmpresa.getValorSinistroContrato().doubleValue() : 60.0)
                 .percentualAssociado(0)
-                .codigoRegiao(0)
-                .codigoImagemFatura(1)
-                .codigoMoeda("7")
+                .codigoRegiao(dadosEmpresa.getCodigoRegiao() != null ? dadosEmpresa.getCodigoRegiao().intValue() : 0)
+                .codigoImagemFatura(dadosEmpresa.getCodigoImagemFatura() != null ? dadosEmpresa.getCodigoImagemFatura().intValue() : 1)
+                .codigoMoeda(dadosEmpresa.getCodigoMoeda() != null ? dadosEmpresa.getCodigoMoeda().toString() : "7")
                 .codigoParceriaEstrategica(0)
                 .sinistralidade(60)
-                .posicaoIniTIT(1)
-                .posicaoFimTIT(7)
+                .posicaoIniTIT(dadosEmpresa.getPosicaoInitTit() != null ? dadosEmpresa.getPosicaoInitTit().intValue() : 1)
+                .posicaoFimTIT(dadosEmpresa.getPosicaoFimTit() != null ? dadosEmpresa.getPosicaoFimTit().intValue() : 7)
                 .regraDowngrade(0)
                 .mesCompetenciaProximoFaturamento("09")
                 .codigoUsuarioFaturamento("")
                 .codigoUsuarioCadastro("")
-                .ramo("Massificado")
+                .ramo("2")
                 .cgc(dadosEmpresa.getCnpj())
-                .razaoSocial(dadosEmpresa.getNomeFantasia())
+                .razaoSocial(dadosEmpresa.getRazaoSocial() != null ? dadosEmpresa.getRazaoSocial() : dadosEmpresa.getNomeFantasia())
                 .nomeFantasia(dadosEmpresa.getNomeFantasia())
-                .diaInicioFaturamento(20)
-                .codigoUsuarioConsultor("FEODPV01583")
-                .mesAniversarioReajuste(7)
-                .dataInicioContrato("2025-07-17T03:00:00.000")
-                .dataVigencia("2025-07-17T03:00:00.000")
-                .descricaoRamoAtividade("Saúde Suplementar")
-                .diaVencimento(15)
-                .cnae("6550-2/00")
-                .codigoManual("1 ")
+                .diaInicioFaturamento(dadosEmpresa.getDiaInicioFaturamento() != null ? dadosEmpresa.getDiaInicioFaturamento().intValue() : 20)
+                .codigoUsuarioConsultor(dadosEmpresa.getCodigoUsuarioConsultor() != null ? dadosEmpresa.getCodigoUsuarioConsultor().toString() : "0")
+                .mesAniversarioReajuste(dadosEmpresa.getMesAniversarioReajuste() != null ? dadosEmpresa.getMesAniversarioReajuste().intValue() : 7)
+                .dataInicioContrato(formatarDataInicioContrato(dadosEmpresa.getDataInicioContrato()))
+                .dataVigencia(formatarDataVigencia(dadosEmpresa.getDataVigencia()))
+                .descricaoRamoAtividade(dadosEmpresa.getDescricaoRamoAtividade() != null ? dadosEmpresa.getDescricaoRamoAtividade() : "Saúde Suplementar")
+                .diaVencimento(dadosEmpresa.getDiaVencimento() != null ? dadosEmpresa.getDiaVencimento().intValue() : 15)
+                .cnae(dadosEmpresa.getCnae() != null ? dadosEmpresa.getCnae() : "6550-2/00")
+                .codigoManual(dadosEmpresa.getCodigoManual() != null ? dadosEmpresa.getCodigoManual().toString().trim() + " " : "1 ")
                 .diaLimiteConsumoAg(19)
-                .email("diretoria@sabinjf.com.br")
-                .diaMovAssociadoEmpresa(15)
+                .email(dadosEmpresa.getEmail() != null ? dadosEmpresa.getEmail() : "diretoria@sabinjf.com.br")
+                .diaMovAssociadoEmpresa(dadosEmpresa.getDiaMovAssociadoEmpresa() != null ? dadosEmpresa.getDiaMovAssociadoEmpresa().intValue() : 15)
                 .build();
 
-        // Planos padrão (exemplo)
-        List<EmpresaAtivacaoPlanoRequest.Plano> planos = new ArrayList<>();
-        planos.add(EmpresaAtivacaoPlanoRequest.Plano.builder()
-                .codigoPlano("9972")
-                .dataInicioPlano("2025-01-01T03:00:00.000")
-                .valorDependente(27.42)
-                .valorReembolsoUO(0.0)
-                .valorTitular(27.42)
-                .periodicidade("N")
-                .percentualAssociado(0.0)
-                .percentualDependenteRedeGenerica(0.0)
-                .percentualAgregadoRedeGenerica(0.0)
-                .redes(List.of(EmpresaAtivacaoPlanoRequest.Rede.builder().codigoRede("1").build()))
-                .build());
+        // Planos usando dados da view
+        List<EmpresaAtivacaoPlanoRequest.Plano> planos = criarPlanos(dadosEmpresa);
         request.setPlanos(planos);
 
         // Endereço e cobrança (exemplo mínimo)
@@ -423,37 +411,285 @@ public class EmpresaInclusaoServiceImpl {
                         .build()
         ));
 
-        // CONTATOS - Campo obrigatório
-        request.setContatos(List.of(
-                EmpresaAtivacaoPlanoRequest.Contato.builder()
-                        .cargo("Gerente")
-                        .nome("Contato Principal")
-                        .email("contato@empresa.com")
-                        .idCorretor("N")
-                        .telefone(EmpresaAtivacaoPlanoRequest.Telefone.builder()
-                                .telefone1("(32) 99999-9999")
-                                .celular("(32) 99999-9999")
-                                .build())
-                        .listaTipoComunicacao(List.of(
-                                EmpresaAtivacaoPlanoRequest.TipoComunicacao.builder()
-                                        .id("1")
-                                        .descricao("E-mail")
-                                        .build()
-                        ))
-                        .build()
-        ));
+        // CONTATOS - Usar dados da view
+        request.setContatos(criarContatos(dadosEmpresa));
 
-        // CONTATOS DA FATURA - Campo obrigatório
-        request.setContatosDaFatura(List.of(
-                EmpresaAtivacaoPlanoRequest.ContatoFatura.builder()
-                        .codSequencial(1)
-                        .email("fatura@empresa.com")
-                        .nomeContato("Contato Fatura")
-                        .relatorio(true)
-                        .build()
-        ));
+        // CONTATOS DA FATURA - Usar dados da view
+        request.setContatosDaFatura(criarContatosDaFatura(dadosEmpresa));
+
+        // COMISSIONAMENTOS - Usar dados da view
+        List<EmpresaAtivacaoPlanoRequest.Comissionamento> comissionamentos = criarComissionamentos(dadosEmpresa);
+        request.setComissionamentos(comissionamentos);
 
         return request;
+    }
+
+    /**
+     * FORMATA DATA DE INÍCIO DO CONTRATO
+     */
+    private String formatarDataInicioContrato(String dataInicioContrato) {
+        if (dataInicioContrato == null || dataInicioContrato.trim().isEmpty()) {
+            return java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"));
+        }
+        try {
+            // Se já está no formato correto, retorna como está
+            if (dataInicioContrato.contains("T")) {
+                return dataInicioContrato;
+            }
+            // Se é apenas data, adiciona horário
+            return dataInicioContrato + "T00:00:00.000";
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao formatar dataInicioContrato '{}': {}", dataInicioContrato, e.getMessage());
+            return java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"));
+        }
+    }
+
+    /**
+     * FORMATA DATA DE VIGÊNCIA
+     */
+    private String formatarDataVigencia(String dataVigencia) {
+        if (dataVigencia == null || dataVigencia.trim().isEmpty()) {
+            return java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"));
+        }
+        try {
+            // Se já está no formato correto, retorna como está
+            if (dataVigencia.contains("T")) {
+                return dataVigencia;
+            }
+            // Se é apenas data, adiciona horário
+            return dataVigencia + "T00:00:00.000";
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao formatar dataVigencia '{}': {}", dataVigencia, e.getMessage());
+            return java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Sao_Paulo"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"));
+        }
+    }
+
+    /**
+     * CRIA COMISSIONAMENTOS USANDO DADOS DA VIEW
+     */
+    private List<EmpresaAtivacaoPlanoRequest.Comissionamento> criarComissionamentos(IntegracaoOdontoprev dadosEmpresa) {
+        List<EmpresaAtivacaoPlanoRequest.Comissionamento> comissionamentos = new ArrayList<>();
+        
+        // Verificar se há dados de comissionamento na view
+        if (dadosEmpresa.getCnpjCorretor() != null && !dadosEmpresa.getCnpjCorretor().trim().isEmpty()) {
+            comissionamentos.add(EmpresaAtivacaoPlanoRequest.Comissionamento.builder()
+                    .cnpjCorretor(dadosEmpresa.getCnpjCorretor())
+                    .codigoRegra(dadosEmpresa.getCodigoRegra() != null ? dadosEmpresa.getCodigoRegra().intValue() : 1)
+                    .numeroParcelaDe(dadosEmpresa.getNumeroParcelaDe() != null ? dadosEmpresa.getNumeroParcelaDe().intValue() : 1)
+                    .numeroParcelaAte(dadosEmpresa.getNumeroParcelaAte() != null ? dadosEmpresa.getNumeroParcelaAte().intValue() : 12)
+                    .porcentagem(dadosEmpresa.getPorcentagem() != null ? dadosEmpresa.getPorcentagem().intValue() : 0)
+                    .build());
+        } else {
+            // Comissionamento padrão se não houver dados na view
+            comissionamentos.add(EmpresaAtivacaoPlanoRequest.Comissionamento.builder()
+                    .cnpjCorretor("00000000000000")
+                    .codigoRegra(1)
+                    .numeroParcelaDe(1)
+                    .numeroParcelaAte(12)
+                    .porcentagem(0)
+                    .build());
+        }
+        
+        return comissionamentos;
+    }
+
+    /**
+     * CRIA CONTATOS USANDO DADOS DA VIEW
+     */
+    private List<EmpresaAtivacaoPlanoRequest.Contato> criarContatos(IntegracaoOdontoprev dadosEmpresa) {
+        List<EmpresaAtivacaoPlanoRequest.Contato> contatos = new ArrayList<>();
+        
+        // Verificar se há dados de contato na view
+        if (dadosEmpresa.getNomeContato() != null && !dadosEmpresa.getNomeContato().trim().isEmpty()) {
+            contatos.add(EmpresaAtivacaoPlanoRequest.Contato.builder()
+                    .cargo(dadosEmpresa.getCargoContato() != null ? dadosEmpresa.getCargoContato() : "Gerente")
+                    .nome(dadosEmpresa.getNomeContato())
+                    .email(dadosEmpresa.getEmailContato() != null ? dadosEmpresa.getEmailContato() : dadosEmpresa.getEmail())
+                    .idCorretor("N")
+                    .telefone(EmpresaAtivacaoPlanoRequest.Telefone.builder()
+                            .telefone1("(32) 99999-9999")
+                            .celular("(32) 99999-9999")
+                            .build())
+                    .listaTipoComunicacao(List.of(
+                            EmpresaAtivacaoPlanoRequest.TipoComunicacao.builder()
+                                    .id("1")
+                                    .descricao("E-mail")
+                                    .build()
+                    ))
+                    .build());
+        } else {
+            // Contato padrão se não houver dados na view
+            contatos.add(EmpresaAtivacaoPlanoRequest.Contato.builder()
+                    .cargo("Gerente")
+                    .nome("Contato Principal")
+                    .email("contato@empresa.com")
+                    .idCorretor("N")
+                    .telefone(EmpresaAtivacaoPlanoRequest.Telefone.builder()
+                            .telefone1("(32) 99999-9999")
+                            .celular("(32) 99999-9999")
+                            .build())
+                    .listaTipoComunicacao(List.of(
+                            EmpresaAtivacaoPlanoRequest.TipoComunicacao.builder()
+                                    .id("1")
+                                    .descricao("E-mail")
+                                    .build()
+                    ))
+                    .build());
+        }
+        
+        return contatos;
+    }
+
+    /**
+     * CRIA CONTATOS DA FATURA USANDO DADOS DA VIEW
+     */
+    private List<EmpresaAtivacaoPlanoRequest.ContatoFatura> criarContatosDaFatura(IntegracaoOdontoprev dadosEmpresa) {
+        List<EmpresaAtivacaoPlanoRequest.ContatoFatura> contatosFatura = new ArrayList<>();
+        
+        // Verificar se há dados de contato da fatura na view
+        if (dadosEmpresa.getNomeContatoFatura() != null && !dadosEmpresa.getNomeContatoFatura().trim().isEmpty()) {
+            contatosFatura.add(EmpresaAtivacaoPlanoRequest.ContatoFatura.builder()
+                    .codSequencial(dadosEmpresa.getCodSequencial() != null ? dadosEmpresa.getCodSequencial().intValue() : 1)
+                    .email(dadosEmpresa.getEmailContatoFatura() != null ? dadosEmpresa.getEmailContatoFatura() : dadosEmpresa.getEmail())
+                    .nomeContato(dadosEmpresa.getNomeContatoFatura())
+                    .relatorio(true)
+                    .build());
+        } else {
+            // Contato da fatura padrão se não houver dados na view
+            contatosFatura.add(EmpresaAtivacaoPlanoRequest.ContatoFatura.builder()
+                    .codSequencial(1)
+                    .email("fatura@empresa.com")
+                    .nomeContato("Contato Fatura")
+                    .relatorio(true)
+                    .build());
+        }
+        
+        return contatosFatura;
+    }
+
+    /**
+     * CRIA PLANOS USANDO DADOS DA VIEW
+     */
+    private List<EmpresaAtivacaoPlanoRequest.Plano> criarPlanos(IntegracaoOdontoprev dadosEmpresa) {
+        List<EmpresaAtivacaoPlanoRequest.Plano> planos = new ArrayList<>();
+        
+        // Plano 1
+        if (dadosEmpresa.getCodigoPlano1() != null) {
+            planos.add(criarPlano(
+                    dadosEmpresa.getCodigoPlano1().toString(),
+                    dadosEmpresa.getDataInicioPlano1(),
+                    dadosEmpresa.getValorTitular1(),
+                    dadosEmpresa.getValorDependente1(),
+                    dadosEmpresa.getPeriodicidade1(),
+                    dadosEmpresa.getCodigoRede1()
+            ));
+        }
+        
+        // Plano 2
+        if (dadosEmpresa.getCodigoPlano2() != null) {
+            planos.add(criarPlano(
+                    dadosEmpresa.getCodigoPlano2().toString(),
+                    dadosEmpresa.getDataInicioPlano2(),
+                    dadosEmpresa.getValorTitular2(),
+                    dadosEmpresa.getValorDependente2(),
+                    dadosEmpresa.getPeriodicidade2(),
+                    dadosEmpresa.getCodigoRede2()
+            ));
+        }
+        
+        // Plano 3
+        if (dadosEmpresa.getCodigoPlano3() != null) {
+            planos.add(criarPlano(
+                    dadosEmpresa.getCodigoPlano3().toString(),
+                    dadosEmpresa.getDataInicioPlano3(),
+                    dadosEmpresa.getValorTitular3(),
+                    dadosEmpresa.getValorDependente3(),
+                    dadosEmpresa.getPeriodicidade3(),
+                    dadosEmpresa.getCodigoRede3()
+            ));
+        }
+        
+        // Se não há planos na view, adiciona um plano padrão
+        if (planos.isEmpty()) {
+            planos.add(EmpresaAtivacaoPlanoRequest.Plano.builder()
+                    .codigoPlano("9972")
+                    .dataInicioPlano("2025-01-01T03:00:00.000")
+                    .valorDependente(27.42)
+                    .valorReembolsoUO(0.0)
+                    .valorTitular(27.42)
+                    .periodicidade("N")
+                    .percentualAssociado(0.0)
+                    .percentualDependenteRedeGenerica(0.0)
+                    .percentualAgregadoRedeGenerica(0.0)
+                    .redes(List.of(EmpresaAtivacaoPlanoRequest.Rede.builder().codigoRede("1").build()))
+                    .build());
+        }
+        
+        return planos;
+    }
+
+    /**
+     * CRIA UM PLANO INDIVIDUAL
+     */
+    private EmpresaAtivacaoPlanoRequest.Plano criarPlano(String codigoPlano, String dataInicioPlano, 
+                                                         Long valorTitular, Long valorDependente, 
+                                                         String periodicidade, String codigoRede) {
+        return EmpresaAtivacaoPlanoRequest.Plano.builder()
+                .codigoPlano(codigoPlano)
+                .dataInicioPlano(formatarDataInicioPlano(dataInicioPlano))
+                .valorTitular(converterLongParaDouble(valorTitular))
+                .valorDependente(converterLongParaDouble(valorDependente))
+                .valorReembolsoUO(0.0)
+                .periodicidade(periodicidade != null && !periodicidade.trim().isEmpty() ? periodicidade : "N")
+                .percentualAssociado(0.0)
+                .percentualDependenteRedeGenerica(0.0)
+                .percentualAgregadoRedeGenerica(0.0)
+                .redes(criarRedes(codigoRede))
+                .build();
+    }
+
+    /**
+     * CRIA REDES PARA O PLANO
+     */
+    private List<EmpresaAtivacaoPlanoRequest.Rede> criarRedes(String codigoRede) {
+        if (codigoRede != null && !codigoRede.trim().isEmpty()) {
+            return List.of(EmpresaAtivacaoPlanoRequest.Rede.builder().codigoRede(codigoRede).build());
+        }
+        return List.of(EmpresaAtivacaoPlanoRequest.Rede.builder().codigoRede("1").build());
+    }
+
+    /**
+     * FORMATA DATA DE INÍCIO DO PLANO
+     */
+    private String formatarDataInicioPlano(String dataInicioPlano) {
+        if (dataInicioPlano == null || dataInicioPlano.trim().isEmpty()) {
+            return "2025-01-01T03:00:00.000";
+        }
+        try {
+            // Se já está no formato correto, retorna como está
+            if (dataInicioPlano.contains("T")) {
+                return dataInicioPlano;
+            }
+            // Se é apenas data, adiciona horário
+            return dataInicioPlano + "T03:00:00.000";
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao formatar dataInicioPlano '{}': {}", dataInicioPlano, e.getMessage());
+            return "2025-01-01T03:00:00.000";
+        }
+    }
+
+    /**
+     * CONVERTE LONG PARA DOUBLE
+     */
+    private Double converterLongParaDouble(Long valor) {
+        if (valor == null) {
+            return 0.0;
+        }
+        return valor.doubleValue();
     }
 }
 

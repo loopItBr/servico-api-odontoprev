@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-import java.time.LocalDate;
 
 /**
  * ENTIDADE QUE REPRESENTA OS DADOS DE INTEGRAÇÃO COM ODONTOPREV
@@ -84,15 +83,6 @@ public class IntegracaoOdontoprev {
     @Column(name = "CODIGO_EMPRESA", nullable = true, length = 20)
     private String codigoEmpresa;
 
-    /**
-     * CÓDIGO DA EMPRESA NA OPERADORA ODONTOPREV
-     * 
-     * Quando a empresa já existe na OdontoPrev, ela recebe um código específico
-     * deles. Este campo armazena esse código para futuras sincronizações.
-     * Campo opcional porque empresas novas ainda não têm código na operadora.
-     */
-    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true, length = 6)
-    private String codigoClienteOperadora;
 
 
     /**
@@ -102,7 +92,7 @@ public class IntegracaoOdontoprev {
      * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
      * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
      */
-    @Column(name = "CNPJ", nullable = true, length = 18)
+     @Column(name = "CGC", nullable = true, length = 18)
     @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
              message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
     private String cnpj;
@@ -114,218 +104,386 @@ public class IntegracaoOdontoprev {
      * Nome pelo qual a empresa é conhecida no mercado.
      * Exemplo: "Sabin Medicina Diagnóstica", "Laboratório ABC Ltda"
      */
-    @Column(name = "NOME_FANTASIA", nullable = true, length = 80)
+    @Column(name = "NOMEFANTASIA", nullable = true, length = 20)
     private String nomeFantasia;
 
     /**
      * DATA DE INÍCIO DA VIGÊNCIA DO CONTRATO
      * Quando o contrato da empresa começou a valer
      */
-    @Column(name = "DATA_INICIO_CONTRATO", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataInicioContrato;
-
-    /**
-     * DATA DE FIM DA VIGÊNCIA DO CONTRATO
-     * Quando o contrato da empresa vai expirar ou já expirou
-     */
-    @Column(name = "DATA_FIM_CONTRATO", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataFimContrato;
+    @Column(name = "DATAINICIOCONTRATO", nullable = true, length = 20)
+    private String dataInicioContrato;
 
     /**
      * DATA DE VIGÊNCIA ATUAL
      * Data de referência para validar se contrato está ativo
      */
-    @Column(name = "DATA_VIGENCIA", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataVigencia;
-
-    /**
-     * TIPO DE EMPRESA: PESSOA FÍSICA OU JURÍDICA
-     * Indica se é empresa (PJ) ou pessoa física (PF)
-     */
-    @Column(name = "EMPRESA_PF", nullable = true)
-    private String empresaPf;
+    @Column(name = "DATAVIGENCIA", nullable = true, length = 20)
+    private String dataVigencia;
 
     // Campos organizacionais da estrutura interna
     @Column(name = "CODIGOGRUPOGERENCIAL", nullable = true)
     private Long codigoGrupoGerencial;
 
-    @Column(name = "CODIGO_MARCA", nullable = true)
-    private String codigoMarca;
+    @Column(name = "CODIGOMARCA", nullable = true)
+    private Long codigoMarca;
 
-    @Column(name = "CODIGO_CELULA", nullable = true)
-    private String codigoCelula;
+    @Column(name = "CODIGOCELULA", nullable = true)
+    private Long codigoCelula;
 
-    /**
-     * NÚMERO DE BENEFICIÁRIOS ATIVOS NO PLANO
-     * Quantas pessoas estão cobertas pelo plano odontológico da empresa.
-     * Métrica importante para cálculos de faturamento e risco.
-     */
-    @Column(name = "VIDAS_ATIVAS", nullable = true)
-    private Long vidasAtivas;
-
-    /**
-     * VALOR DO ÚLTIMO FATURAMENTO DA EMPRESA
-     * Quanto a empresa pagou na última cobrança.
-     * Usado para análises financeiras e de risco.
-     */
-    @Column(name = "VALOR_ULTIMO_FATURAMENTO", nullable = true)
-    private String valorUltimoFaturamento;
-
-    /**
-     * ÍNDICE DE SINISTRALIDADE DA EMPRESA
-     * Relação entre o que a empresa paga e o que gasta em tratamentos.
-     * Sinistralidade alta = empresa gasta mais do que paga.
-     */
-    @Column(name = "SINISTRALIDADE", nullable = true)
-    private String sinistralidade;
 
     // ===== COLUNAS DE PLANO (SUFIXO _1, _2, _3) =====
-    @Column(name = "CODIGO_PLANO_1", nullable = true)
+    @Column(name = "CODIGOPLANO_1", nullable = true)
     private Long codigoPlano1;
 
-    @Column(name = "DESCRICAO_PLANO_1", nullable = true, length = 80)
-    private String descricaoPlano1;
+    @Column(name = "VALORTITULAR_1", nullable = true)
+    private Long valorTitular1;
 
-    @Column(name = "NOME_FANTASIA_PLANO_1", nullable = true, length = 255)
-    private String nomeFantasiaPlano1;
+    @Column(name = "VALORDEPENDENTE_1", nullable = true)
+    private Long valorDependente1;
 
-    @Column(name = "NUMERO_REGISTRO_ANS_1", nullable = true, length = 20)
-    private String numeroRegistroAns1;
+    @Column(name = "DATAINICIOPLANO_1", nullable = true, length = 20)
+    private String dataInicioPlano1;
 
-    @Column(name = "SIGLA_PLANO_1", nullable = true)
-    private String siglaPlano1;
+    @Column(name = "VALORREEMBOLSOUO_1", nullable = true)
+    private Long valorReembolsoUo1;
 
-    @Column(name = "VALOR_TITULAR_1", nullable = true)
-    private String valorTitular1;
+    @Column(name = "PERCENTUALDEPENDENTEREDEGENERICA_1", nullable = true)
+    private Long percentualDependenteRedeGenerica1;
 
-    @Column(name = "VALOR_DEPENDENTE_1", nullable = true)
-    private String valorDependente1;
+    @Column(name = "PERCENTUALAGREGADOREDEGENERICA_1", nullable = true)
+    private Long percentualAgregadoRedeGenerica1;
 
-    @Column(name = "DATA_INICIO_PLANO_1", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataInicioPlano1;
+    @Column(name = "PERIODICIDADE_1", nullable = true, length = 1)
+    private String periodicidade1;
 
-    @Column(name = "DATA_FIM_PLANO_1", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataFimPlano1;
+    @Column(name = "PERCENTUALASSOCIADO_1", nullable = true)
+    private Long percentualAssociado1;
 
-    @Column(name = "CO_PARTICIPACAO_1", nullable = true, length = 1)
-    private String coParticipacao1;
+    @Column(name = "CODIGOREDE_1", nullable = true, length = 45)
+    private String codigoRede1;
 
-    @Column(name = "TIPO_NEGOCIACAO_1", nullable = true, length = 2)
-    private String tipoNegociacao1;
-
-    @Column(name = "CODIGO_PLANO_2", nullable = true)
+    @Column(name = "CODIGOPLANO_2", nullable = true)
     private Long codigoPlano2;
 
-    @Column(name = "DESCRICAO_PLANO_2", nullable = true, length = 80)
-    private String descricaoPlano2;
+    @Column(name = "VALORTITULAR_2", nullable = true)
+    private Long valorTitular2;
 
-    @Column(name = "NOME_FANTASIA_PLANO_2", nullable = true, length = 255)
-    private String nomeFantasiaPlano2;
+    @Column(name = "VALORDEPENDENTE_2", nullable = true)
+    private Long valorDependente2;
 
-    @Column(name = "NUMERO_REGISTRO_ANS_2", nullable = true, length = 20)
-    private String numeroRegistroAns2;
+    @Column(name = "DATAINICIOPLANO_2", nullable = true, length = 22)
+    private String dataInicioPlano2;
 
-    @Column(name = "SIGLA_PLANO_2", nullable = true)
-    private String siglaPlano2;
+    @Column(name = "VALORREEMBOLSOUO_2", nullable = true)
+    private Long valorReembolsoUo2;
 
-    @Column(name = "VALOR_TITULAR_2", nullable = true)
-    private String valorTitular2;
+    @Column(name = "PERCENTUALDEPENDENTEREDEGENERICA_2", nullable = true)
+    private Long percentualDependenteRedeGenerica2;
 
-    @Column(name = "VALOR_DEPENDENTE_2", nullable = true)
-    private String valorDependente2;
+    @Column(name = "PERCENTUALAGREGADOREDEGENERICA_2", nullable = true)
+    private Long percentualAgregadoRedeGenerica2;
 
-    @Column(name = "DATA_INICIO_PLANO_2", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataInicioPlano2;
+    @Column(name = "PERIODICIDADE_2", nullable = true, length = 1)
+    private String periodicidade2;
 
-    @Column(name = "DATA_FIM_PLANO_2", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataFimPlano2;
+    @Column(name = "PERCENTUALASSOCIADO_2", nullable = true)
+    private Long percentualAssociado2;
 
-    @Column(name = "CO_PARTICIPACAO_2", nullable = true, length = 1)
-    private String coParticipacao2;
+    @Column(name = "CODIGOREDE_2", nullable = true, length = 45)
+    private String codigoRede2;
 
-    @Column(name = "TIPO_NEGOCIACAO_2", nullable = true, length = 2)
-    private String tipoNegociacao2;
-
-    @Column(name = "CODIGO_PLANO_3", nullable = true)
+    @Column(name = "CODIGOPLANO_3", nullable = true)
     private Long codigoPlano3;
 
-    @Column(name = "DESCRICAO_PLANO_3", nullable = true, length = 80)
-    private String descricaoPlano3;
+    @Column(name = "VALORTITULAR_3", nullable = true)
+    private Long valorTitular3;
 
-    @Column(name = "NOME_FANTASIA_PLANO_3", nullable = true, length = 255)
-    private String nomeFantasiaPlano3;
+    @Column(name = "VALORDEPENDENTE_3", nullable = true)
+    private Long valorDependente3;
 
-    @Column(name = "NUMERO_REGISTRO_ANS_3", nullable = true, length = 20)
-    private String numeroRegistroAns3;
+    @Column(name = "DATAINICIOPLANO_3", nullable = true, length = 22)
+    private String dataInicioPlano3;
 
-    @Column(name = "SIGLA_PLANO_3", nullable = true)
-    private String siglaPlano3;
+    @Column(name = "VALORREEMBOLSOUO_3", nullable = true)
+    private Long valorReembolsoUo3;
 
-    @Column(name = "VALOR_TITULAR_3", nullable = true)
-    private String valorTitular3;
+    @Column(name = "PERCENTUALDEPENDENTEREDEGENERICA_3", nullable = true)
+    private Long percentualDependenteRedeGenerica3;
 
-    @Column(name = "VALOR_DEPENDENTE_3", nullable = true)
-    private String valorDependente3;
+    @Column(name = "PERCENTUALAGREGADOREDEGENERICA_3", nullable = true)
+    private Long percentualAgregadoRedeGenerica3;
 
-    @Column(name = "DATA_INICIO_PLANO_3", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataInicioPlano3;
+    @Column(name = "PERIODICIDADE_3", nullable = true, length = 1)
+    private String periodicidade3;
 
-    @Column(name = "DATA_FIM_PLANO_3", nullable = true)
-    @Temporal(TemporalType.DATE)
-    private LocalDate dataFimPlano3;
+    @Column(name = "PERCENTUALASSOCIADO_3", nullable = true)
+    private Long percentualAssociado3;
 
-    @Column(name = "CO_PARTICIPACAO_3", nullable = true, length = 1)
-    private String coParticipacao3;
-
-    @Column(name = "TIPO_NEGOCIACAO_3", nullable = true, length = 2)
-    private String tipoNegociacao3;
+    @Column(name = "CODIGOREDE_3", nullable = true, length = 45)
+    private String codigoRede3;
 
 
-    // === INFORMAÇÕES DE COBRANÇA E PAGAMENTO ===
+    // === CAMPOS ADICIONAIS DA VIEW ===
     
-    /**
-     * CÓDIGO DO TIPO DE COBRANÇA
-     * Identifica a forma de cobrança (boleto, débito, cartão, etc.)
-     */
-    @Column(name = "CODIGO_TIPO_COBRANCA", nullable = true)
-    private String codigoTipoCobranca;
+    @Column(name = "SISTEMA", nullable = true, length = 10)
+    private String sistema;
 
-    /**
-     * NOME DO TIPO DE COBRANÇA
-     * Descrição da forma de pagamento escolhida pela empresa
-     */
-    @Column(name = "NOME_TIPO_COBRANCA", nullable = true)
-    private String nomeTipoCobranca;
+    @Column(name = "TIPOPESSOA", nullable = true, length = 1)
+    private String tipoPessoa;
 
-    @Column(name = "SIGLA_TIPO_COBRANCA", nullable = true)
-    private String siglaTipoCobranca;
+    @Column(name = "EMITECARTEIRINHAPLASTICA", nullable = true, length = 1)
+    private String emiteCarteirinhaPlastica;
 
-    /**
-     * CÓDIGO DO BANCO PARA COBRANÇA
-     * Número do banco usado para débito automático ou boletos
-     */
-    @Column(name = "NUMERO_BANCO", nullable = true)
-    private String numeroBanco;
+    @Column(name = "CODIGOEMPRESAGESTORA", nullable = true)
+    private Long codigoEmpresaGestora;
 
-    /**
-     * NOME DO BANCO PARA COBRANÇA
-     * Nome da instituição financeira usada para pagamentos
-     */
-    @Column(name = "NOME_BANCO", nullable = true)
-    private String nomeBanco;
+    @Column(name = "CODIGOFILIALEMPRESAGESTORA", nullable = true)
+    private Long codigoFilialEmpresaGestora;
 
-    /**
-     * QUANTIDADE DE PARCELAS PARA PAGAMENTO
-     * Em quantas vezes o valor será cobrado (normalmente 1 = mensal)
-     */
-    @Column(name = "NUMERO_PARCELAS", nullable = true)
-    private String numeroParcelas;
+    @Column(name = "CODIGONATUREZAJURIDICA", nullable = true, length = 50)
+    private String codigoNaturezaJuridica;
+
+    @Column(name = "NOMENATUREZAJURIDICA", nullable = true, length = 50)
+    private String nomeNaturezaJuridica;
+
+    @Column(name = "SITUACAOCADASTRAL", nullable = true, length = 5)
+    private String situacaoCadastral;
+
+    @Column(name = "INSCRICAOMUNICIPAL", nullable = true, length = 20)
+    private String inscricaoMunicipal;
+
+    @Column(name = "INSCRICAOESTADUAL", nullable = true, length = 20)
+    private String inscricaoEstadual;
+
+    @Column(name = "DATACONSTITUICAO", nullable = true, length = 20)
+    private String dataConstituicao;
+
+    @Column(name = "RENOVACAOAUTOMATICA", nullable = true, length = 1)
+    private String renovacaoAutomatica;
+
+    @Column(name = "CODIGOCLAUSULAREAJUSTEDIFERENCIADO", nullable = true)
+    private Long codigoClausulaReajusteDiferenciado;
+
+    @Column(name = "DEPARTAMENTO", nullable = true)
+    private Long departamento;
+
+    @Column(name = "DEPENDENTEPAGA", nullable = true, length = 1)
+    private String dependentePaga;
+
+    @Column(name = "PERMISSAOCADASTRODEP", nullable = true, length = 1)
+    private String permissaoCadastroDep;
+
+    @Column(name = "NUMEROMINIMOASSOCIADOS", nullable = true)
+    private Long numeroMinimoAssociados;
+
+    @Column(name = "NUMEROFUNCIONARIOS", nullable = true)
+    private Long numeroFuncionarios;
+
+    @Column(name = "NUMERODEPENDENTES", nullable = true)
+    private Long numeroDependentes;
+
+    @Column(name = "IDADELIMITEDEPENDENTE", nullable = true)
+    private Long idadeLimiteDependente;
+
+    @Column(name = "VALORFATOR", nullable = true)
+    private Long valorFator;
+
+    @Column(name = "CODIGOLAYOUTCARTEIRINHA", nullable = true, length = 1)
+    private String codigoLayoutCarteirinha;
+
+    @Column(name = "CODIGOORDEMCARTEIRA", nullable = true)
+    private Long codigoOrdemCarteira;
+
+    @Column(name = "DIAVENCIMENTOAG", nullable = true)
+    private Long diaVencimentoAg;
+
+    @Column(name = "CODIGOPERFILCLIENTEFATURA", nullable = true)
+    private Long codigoPerfilClienteFatura;
+
+    @Column(name = "CODIGOBANCOFATURA", nullable = true)
+    private Long codigoBancoFatura;
+
+    @Column(name = "MULTAFATURA", nullable = true)
+    private Long multaFatura;
+
+    @Column(name = "DESCONTAIR", nullable = true, length = 1)
+    private String descontaIr;
+
+    @Column(name = "RETENCAOISS", nullable = true, length = 1)
+    private String retencaoIss;
+
+    @Column(name = "LIBERASENHAINTERNET", nullable = true, length = 1)
+    private String liberaSenhaInternet;
+
+    @Column(name = "FATURAMENTONOTACORTE", nullable = true, length = 1)
+    private String faturamentoNotaCorte;
+
+    @Column(name = "PRORATA", nullable = true, length = 1)
+    private String prorata;
+
+    @Column(name = "CUSTOFAMILIAR", nullable = true, length = 1)
+    private String custoFamiliar;
+
+    @Column(name = "PLANOFAMILIAR", nullable = true, length = 1)
+    private String planoFamiliar;
+
+    @Column(name = "POSICAOFIMTIT", nullable = true)
+    private Long posicaoFimTit;
+
+    @Column(name = "IDADELIMITEUNIVERSITARIA", nullable = true)
+    private Long idadeLimiteUniversitario;
+
+    @Column(name = "VALORSINISTROCONTRATO", nullable = true)
+    private Long valorSinistroContrato;
+
+    @Column(name = "CODIGOREGIAO", nullable = true)
+    private Long codigoRegiao;
+
+    @Column(name = "CODIGOIMAGEMFATURA", nullable = true)
+    private Long codigoImagemFatura;
+
+    @Column(name = "CODIGOMOEDA", nullable = true)
+    private Long codigoMoeda;
+
+    @Column(name = "POSICAOINITIT", nullable = true)
+    private Long posicaoInitTit;
+
+    @Column(name = "RAZAOSOCIAL", nullable = true, length = 45)
+    private String razaoSocial;
+
+    @Column(name = "DIAINICIOFATURAMENTO", nullable = true)
+    private Long diaInicioFaturamento;
+
+    @Column(name = "CODIGOUSUARIOCONSULTOR", nullable = true)
+    private Long codigoUsuarioConsultor;
+
+    @Column(name = "MESANIVERSARIREAJUSTE", nullable = true)
+    private Long mesAniversarioReajuste;
+
+    @Column(name = "DESCRICAORAMOATIVIDADE", nullable = true, length = 15)
+    private String descricaoRamoAtividade;
+
+    @Column(name = "DIAVENCIMENTO", nullable = true)
+    private Long diaVencimento;
+
+    @Column(name = "CNAE", nullable = true, length = 50)
+    private String cnae;
+
+    @Column(name = "CODIGOMANUAL", nullable = true)
+    private Long codigoManual;
+
+    @Column(name = "CODIGOGRAUPARENTESCO", nullable = true, length = 121)
+    private String codigoGrauParentesco;
+
+    @Column(name = "CODSEQUENCIAL", nullable = true)
+    private Long codSequencial;
+
+    @Column(name = "EMAILCONTATOFATURA", nullable = true, length = 32)
+    private String emailContatoFatura;
+
+    @Column(name = "NOMECONTATOFATURA", nullable = true, length = 14)
+    private String nomeContatoFatura;
+
+    @Column(name = "EMAIL", nullable = true, length = 32)
+    private String email;
+
+    @Column(name = "TIPOLOGRADOURO", nullable = true)
+    private Long tipoLogradouro;
+
+    @Column(name = "LOGRADOURO", nullable = true, length = 40)
+    private String logradouro;
+
+    @Column(name = "NUMERO", nullable = true, length = 10)
+    private String numero;
+
+    @Column(name = "BAIRRO", nullable = true, length = 40)
+    private String bairro;
+
+    @Column(name = "CODIGO", nullable = true, length = 10)
+    private String codigo;
+
+    @Column(name = "NOMECIDADE", nullable = true, length = 40)
+    private String nomeCidade;
+
+    @Column(name = "SIGLAUF", nullable = true, length = 15)
+    private String siglaUf;
+
+    @Column(name = "CODIGOPAIS", nullable = true)
+    private Long codigoPais;
+
+    @Column(name = "CEP", nullable = true, length = 9)
+    private String cep;
+
+    @Column(name = "NOMECOBRANCA", nullable = true, length = 11)
+    private String nomeCobranca;
+
+    @Column(name = "TIPOLOGRADOUROCOBRANCA", nullable = true)
+    private Long tipoLogradouroCobranca;
+
+    @Column(name = "LOGRADOUROCOBRANCA", nullable = true, length = 24)
+    private String logradouroCobranca;
+
+    @Column(name = "NUMEROCOBRANCA", nullable = true)
+    private Long numeroCobranca;
+
+    @Column(name = "BAIRROCOBRANCA", nullable = true, length = 10)
+    private String bairroCobranca;
+
+    @Column(name = "CODIGOCOBRANCA", nullable = true)
+    private Long codigoCobranca;
+
+    @Column(name = "NOMECIDADECOBRANCA", nullable = true, length = 12)
+    private String nomeCidadeCobranca;
+
+    @Column(name = "SIGLAUFCOBRANCA", nullable = true, length = 2)
+    private String siglaUfCobranca;
+
+    @Column(name = "CODIGOPAISCOBRANCA", nullable = true)
+    private Long codigoPaisCobranca;
+
+    @Column(name = "CEPCOBRANCA", nullable = true, length = 9)
+    private String cepCobranca;
+
+    @Column(name = "CGCCOBRANCA", nullable = true, length = 18)
+    private String cgcCobranca;
+
+    @Column(name = "DIAMOVASSOCIADOEMPRESA", nullable = true)
+    private Long diaMovAssociadoEmpresa;
+
+    @Column(name = "CARGOCONTATO", nullable = true, length = 2)
+    private String cargoContato;
+
+    @Column(name = "NOMECONTATO", nullable = true, length = 13)
+    private String nomeContato;
+
+    @Column(name = "EMAILCONTATO", nullable = true, length = 32)
+    private String emailContato;
+
+    @Column(name = "DEPARTAMENTOCONTATO", nullable = true, length = 2)
+    private String departamentoContato;
+
+    @Column(name = "ID", nullable = true)
+    private Long id;
+
+    @Column(name = "DESCRICAO", nullable = true, length = 6)
+    private String descricao;
+
+    @Column(name = "CNPJCORRETOR", nullable = true, length = 14)
+    private String cnpjCorretor;
+
+    @Column(name = "CODIGOREGRA", nullable = true)
+    private Long codigoRegra;
+
+    @Column(name = "NUMEROPARCELADE", nullable = true)
+    private Long numeroParcelaDe;
+
+    @Column(name = "NUMEROPARCELAATE", nullable = true)
+    private Long numeroParcelaAte;
+
+    @Column(name = "PORCENTAGEM", nullable = true)
+    private Long porcentagem;
+
+    @Column(name = "CODIGOGRUPO", nullable = true)
+    private Long codigoGrupo;
 }

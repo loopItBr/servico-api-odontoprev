@@ -41,8 +41,8 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         String nomeFantasia = dadosEmpresa.getNomeFantasia();
         
         // DATAS - Converter para formato ISO
-        String dataInicioContrato = formatarDataLocalDate(dadosEmpresa.getDataInicioContrato());
-        String dataVigencia = formatarDataLocalDate(dadosEmpresa.getDataVigencia());
+        String dataInicioContrato = formatarDataString(dadosEmpresa.getDataInicioContrato());
+        String dataVigencia = formatarDataString(dadosEmpresa.getDataVigencia());
         
         log.info("📋 [CONVERSÃO PME] Dados básicos - CNPJ: {}, Nome: {}, Data Início: {}", 
                 cgc, nomeFantasia, dataInicioContrato);
@@ -102,9 +102,9 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         if (dadosEmpresa.getCodigoPlano1() != null) {
             EmpresaPmeRequest.PlanoPme plano1 = EmpresaPmeRequest.PlanoPme.builder()
                     .codigoPlano(String.valueOf(dadosEmpresa.getCodigoPlano1()))
-                    .dataInicioPlano(formatarDataLocalDate(dadosEmpresa.getDataInicioPlano1()))
-                    .valorTitular(converterStringParaDouble(dadosEmpresa.getValorTitular1()))
-                    .valorDependente(converterStringParaDouble(dadosEmpresa.getValorDependente1()))
+                    .dataInicioPlano(formatarDataString(dadosEmpresa.getDataInicioPlano1()))
+                    .valorTitular(converterLongParaDouble(dadosEmpresa.getValorTitular1()))
+                    .valorDependente(converterLongParaDouble(dadosEmpresa.getValorDependente1()))
                     .redes(criarRedes())
                     .build();
             planos.add(plano1);
@@ -115,9 +115,9 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         if (dadosEmpresa.getCodigoPlano2() != null) {
             EmpresaPmeRequest.PlanoPme plano2 = EmpresaPmeRequest.PlanoPme.builder()
                     .codigoPlano(String.valueOf(dadosEmpresa.getCodigoPlano2()))
-                    .dataInicioPlano(formatarDataLocalDate(dadosEmpresa.getDataInicioPlano2()))
-                    .valorTitular(converterStringParaDouble(dadosEmpresa.getValorTitular2()))
-                    .valorDependente(converterStringParaDouble(dadosEmpresa.getValorDependente2()))
+                    .dataInicioPlano(formatarDataString(dadosEmpresa.getDataInicioPlano2()))
+                    .valorTitular(converterLongParaDouble(dadosEmpresa.getValorTitular2()))
+                    .valorDependente(converterLongParaDouble(dadosEmpresa.getValorDependente2()))
                     .redes(criarRedes())
                     .build();
             planos.add(plano2);
@@ -128,9 +128,9 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         if (dadosEmpresa.getCodigoPlano3() != null) {
             EmpresaPmeRequest.PlanoPme plano3 = EmpresaPmeRequest.PlanoPme.builder()
                     .codigoPlano(String.valueOf(dadosEmpresa.getCodigoPlano3()))
-                    .dataInicioPlano(formatarDataLocalDate(dadosEmpresa.getDataInicioPlano3()))
-                    .valorTitular(converterStringParaDouble(dadosEmpresa.getValorTitular3()))
-                    .valorDependente(converterStringParaDouble(dadosEmpresa.getValorDependente3()))
+                    .dataInicioPlano(formatarDataString(dadosEmpresa.getDataInicioPlano3()))
+                    .valorTitular(converterLongParaDouble(dadosEmpresa.getValorTitular3()))
+                    .valorDependente(converterLongParaDouble(dadosEmpresa.getValorDependente3()))
                     .redes(criarRedes())
                     .build();
             planos.add(plano3);
@@ -313,6 +313,36 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
             return formatarData(LocalDateTime.now());
         }
         return data.atStartOfDay().format(DATE_FORMATTER);
+    }
+
+    /**
+     * FORMATA STRING DE DATA PARA FORMATO ISO
+     */
+    private String formatarDataString(String data) {
+        if (data == null || data.trim().isEmpty()) {
+            return formatarData(LocalDateTime.now());
+        }
+        try {
+            // Se já está no formato correto, retorna como está
+            if (data.contains("T")) {
+                return data;
+            }
+            // Se é apenas data, adiciona horário
+            return data + "T00:00:00.000Z";
+        } catch (Exception e) {
+            log.warn("⚠️ [CONVERSÃO] Erro ao formatar data '{}': {}", data, e.getMessage());
+            return formatarData(LocalDateTime.now());
+        }
+    }
+
+    /**
+     * CONVERTE LONG PARA DOUBLE
+     */
+    private Double converterLongParaDouble(Long valor) {
+        if (valor == null) {
+            return 0.0;
+        }
+        return valor.doubleValue();
     }
 
     /**
