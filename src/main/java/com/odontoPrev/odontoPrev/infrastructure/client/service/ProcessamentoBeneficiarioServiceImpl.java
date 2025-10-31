@@ -6,9 +6,13 @@ import com.odontoPrev.odontoPrev.domain.entity.ControleSyncBeneficiario;
 import com.odontoPrev.odontoPrev.domain.repository.ControleSyncBeneficiarioRepository;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoBeneficiarioService;
 import com.odontoPrev.odontoPrev.infrastructure.aop.MonitorarOperacao;
+import com.odontoPrev.odontoPrev.domain.repository.BeneficiarioOdontoprevRepository;
+import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevBeneficiarioRepository;
+import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.BeneficiarioOdontoprevFeignClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoRequestNew;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponseNew;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioDependenteInclusaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.service.BeneficiarioTokenService;
 import com.odontoPrev.odontoPrev.infrastructure.exception.ProcessamentoBeneficiarioException;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +55,8 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
 
     private final BeneficiarioOdontoprevFeignClient odontoprevClient;
     private final ControleSyncBeneficiarioRepository controleSyncRepository;
+    private final BeneficiarioOdontoprevRepository beneficiarioRepository;
+    private final IntegracaoOdontoprevBeneficiarioRepository integracaoRepository;
     private final JdbcTemplate jdbcTemplate;
     private final OdontoprevApiHeaderService headerService;
     private final BeneficiarioTokenService beneficiarioTokenService;
@@ -98,7 +104,20 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             //     throw new ProcessamentoBeneficiarioException(mensagem, codigoMatricula, INCLUSAO);
             // }
 
-            // Etapa 2: Validação final do telefone antes de criar o request
+            // Etapa 2: Verificar se é dependente ou titular
+            boolean isDependente = "D".equals(beneficiario.getIdentificacao());
+            
+            if (isDependente) {
+                log.info("👨‍👩‍👧‍👦 PROCESSANDO DEPENDENTE - Matrícula: {} | Empresa: {}", 
+                        codigoMatricula, beneficiario.getCodigoEmpresa());
+                processarInclusaoDependente(beneficiario);
+                return; // Dependente processado, encerra método
+            }
+            
+            log.info("👤 PROCESSANDO TITULAR - Matrícula: {} | Empresa: {}", 
+                    codigoMatricula, beneficiario.getCodigoEmpresa());
+            
+            // Etapa 2.1: Validação final do telefone antes de criar o request (apenas para titular)
             String telefoneFinal = beneficiario.getTelefoneCelular();
             if (telefoneFinal != null) {
                 String telefoneLimpo = telefoneFinal.replaceAll("[^0-9]", "");
@@ -109,7 +128,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 }
             }
             
-            // Etapa 3: Conversão para DTO de request
+            // Etapa 3: Conversão para DTO de request (apenas para titular)
             BeneficiarioInclusaoRequestNew request = converterParaInclusaoRequestNew(beneficiario);
             
             // DEBUG: Log detalhado do payload para investigar erro 403
@@ -309,7 +328,47 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     // Não falhar o processamento por causa da procedure
                 }
                 
-                registrarTentativaSucesso(controleSync, "Beneficiário já cadastrado na OdontoPrev");
+                // MARCAR COMO SUCESSO na TBSYNC quando o beneficiário já está cadastrado (é considerado sucesso)
+                log.info("✅ BENEFICIÁRIO JÁ CADASTRADO - Marcando como SUCESSO na TBSYNC | Matrícula: {}", codigoMatricula);
+                if (controleSync != null) {
+                    // Atualizar o registro como SUCESSO ao invés de deletar
+                    try {
+                        // Extrair mensagem da resposta de erro para usar como responseApi
+                        String responseApi = "Beneficiário já cadastrado na OdontoPrev";
+                        if (e.getMessage() != null && e.getMessage().contains("{")) {
+                            // Tentar extrair JSON da mensagem
+                            int jsonStart = e.getMessage().indexOf("{");
+                            if (jsonStart >= 0) {
+                                responseApi = e.getMessage().substring(jsonStart);
+                            }
+                        }
+                        registrarTentativaSucesso(controleSync, responseApi);
+                        log.info("✅ Registro atualizado como SUCESSO na TBSYNC para beneficiário já cadastrado | Matrícula: {}", codigoMatricula);
+                    } catch (Exception updateException) {
+                        log.warn("⚠️ Não foi possível atualizar registro da TBSYNC como sucesso: {}", updateException.getMessage());
+                    }
+                } else {
+                    // Se não havia registro, criar um novo marcando como sucesso
+                    try {
+                        // Criar registro mínimo de sucesso
+                        String responseApi = "Beneficiário já cadastrado na OdontoPrev";
+                        if (e.getMessage() != null && e.getMessage().contains("{")) {
+                            int jsonStart = e.getMessage().indexOf("{");
+                            if (jsonStart >= 0) {
+                                responseApi = e.getMessage().substring(jsonStart);
+                            }
+                        }
+                        // Criar request mínimo para o registro (usar BeneficiarioInclusaoRequestNew vazio ou básico)
+                        BeneficiarioInclusaoRequestNew requestMinimo = converterParaInclusaoRequestNew(beneficiario);
+                        ControleSyncBeneficiario controleNovo = criarRegistroControle(beneficiario, "INCLUSAO", requestMinimo);
+                        if (controleNovo != null) {
+                            registrarTentativaSucesso(controleNovo, responseApi);
+                            log.info("✅ Novo registro criado como SUCESSO na TBSYNC para beneficiário já cadastrado | Matrícula: {}", codigoMatricula);
+                        }
+                    } catch (Exception createException) {
+                        log.warn("⚠️ Não foi possível criar registro de sucesso na TBSYNC: {}", createException.getMessage());
+                    }
+                }
                 return; // Não lançar exceção, apenas logar e continuar
             }
             
@@ -462,7 +521,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 .nomeBeneficiario(beneficiario.getNomeBeneficiario())
                 .nomeDaMae(beneficiario.getNomeMae())
                 .sexo(beneficiario.getSexo())
-                .identificacao("T") // T = Titular (fixo para inclusão)
+                .identificacao(beneficiario.getIdentificacao() != null ? beneficiario.getIdentificacao() : "T") // T = Titular, D = Dependente (usa da view, com fallback para T)
                 .rg(beneficiario.getRg())
                 .rgEmissor(beneficiario.getRgEmissor())
                 .estadoCivil(beneficiario.getEstadoCivil())
@@ -595,6 +654,530 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
     }
 
     /**
+     * PROCESSA INCLUSÃO DE DEPENDENTE
+     *
+     * Fluxo específico para inclusão de dependente:
+     * 1. Busca código do associado titular
+     * 2. Converte beneficiário para request de dependente
+     * 3. Chama endpoint /incluirDependente
+     * 4. Processa resposta e salva na TBSYNC
+     */
+    private void processarInclusaoDependente(BeneficiarioOdontoprev beneficiario) {
+        String codigoMatricula = beneficiario.getCodigoMatricula();
+        ControleSyncBeneficiario controleSync = null;
+        String codigoAssociadoTitularParaSucesso = null; // Variável para usar no catch de "já cadastrado"
+
+        try {
+            log.info("🔍 INICIANDO PROCESSAMENTO DE DEPENDENTE - Matrícula: {}", codigoMatricula);
+
+            // Etapa 1: Buscar código do associado titular
+            // PRIORIDADE: Usar valor da view se disponível, senão buscar na TBSYNC
+            String codigoAssociadoTitular = beneficiario.getCodigoAssociadoTitularTemp();
+            log.info("🔍 [DEBUG] codigoAssociadoTitularTemp do beneficiário: '{}'", codigoAssociadoTitular);
+            
+            if (codigoAssociadoTitular == null || codigoAssociadoTitular.trim().isEmpty()) {
+                log.warn("⚠️ codigoAssociadoTitular não veio na view - Buscando na TBSYNC para empresa: {}", 
+                        beneficiario.getCodigoEmpresa());
+                codigoAssociadoTitular = buscarCodigoAssociadoTitular(beneficiario.getCodigoEmpresa());
+                log.info("🔍 [DEBUG] codigoAssociadoTitular da TBSYNC: '{}'", codigoAssociadoTitular);
+            } else {
+                log.info("✅ Usando codigoAssociadoTitular da view: '{}'", codigoAssociadoTitular);
+            }
+            
+            // Guardar valor para usar no catch de "já cadastrado"
+            codigoAssociadoTitularParaSucesso = codigoAssociadoTitular;
+            
+            if (codigoAssociadoTitular == null || codigoAssociadoTitular.trim().isEmpty()) {
+                String mensagem = "Não foi possível encontrar código do associado titular para empresa: " + beneficiario.getCodigoEmpresa();
+                log.error("❌ ERRO - {}", mensagem);
+                registrarTentativaErro(beneficiario, "INCLUSAO", null, mensagem, null);
+                throw new ProcessamentoBeneficiarioException(mensagem, codigoMatricula, INCLUSAO);
+            }
+
+            log.info("✅ CÓDIGO DO TITULAR ENCONTRADO - Matrícula dependente: {} | Código titular: {}", 
+                    codigoMatricula, codigoAssociadoTitular);
+
+            // Etapa 2: Converter beneficiário para request de dependente
+            BeneficiarioDependenteInclusaoRequest request = converterParaDependenteRequest(beneficiario, codigoAssociadoTitular);
+
+            // DEBUG: Log do payload completo antes de enviar
+            try {
+                String requestJson = objectMapper.writeValueAsString(request);
+                log.info("📤 PAYLOAD DEPENDENTE ENVIADO - Beneficiário {}: {}", codigoMatricula, requestJson);
+            } catch (Exception e) {
+                log.warn("⚠️ ERRO ao serializar request de dependente: {}", e.getMessage());
+            }
+
+            // Etapa 3: Criar registro de controle ANTES de chamar a API
+            // IMPORTANTE: Criar registro mesmo que request seja null (caso de "já cadastrado")
+            controleSync = criarRegistroControle(beneficiario, "INCLUSAO", request != null ? request : new Object());
+            if (controleSync == null) {
+                log.error("❌ ERRO CRÍTICO - Não foi possível criar registro de controle para dependente {}", codigoMatricula);
+                throw new ProcessamentoBeneficiarioException(
+                        "Não foi possível criar registro de controle na TBSYNC",
+                        codigoMatricula,
+                        INCLUSAO
+                );
+            }
+
+            // Etapa 4: Obter tokens para autenticação dupla
+            String[] tokens = beneficiarioTokenService.obterTokensCompletos();
+            String tokenOAuth2 = tokens[0];
+            String tokenLoginEmpresa = tokens[1];
+
+            log.info("🚀 INICIANDO CHAMADA API DEPENDENTE - Enviando dependente {} para inclusão na OdontoPrev", codigoMatricula);
+
+            long inicioChamada = System.currentTimeMillis();
+            BeneficiarioInclusaoResponseNew response = odontoprevClient.incluirDependente(
+                    tokenOAuth2,
+                    tokenLoginEmpresa,
+                    request
+            );
+            long tempoResposta = System.currentTimeMillis() - inicioChamada;
+
+            log.info("✅ RESPOSTA RECEBIDA DA API DEPENDENTE - Dependente {} processado em {}ms", codigoMatricula, tempoResposta);
+
+            // Etapa 5: Extrair cdAssociado da resposta (da listaBeneficiarios)
+            String cdAssociado = null;
+            if (response.getListaBeneficiarios() != null && !response.getListaBeneficiarios().isEmpty()) {
+                for (var item : response.getListaBeneficiarios()) {
+                    if (item.getCodigoMatricula() != null && item.getCodigoMatricula().equals(codigoMatricula)) {
+                        cdAssociado = item.getCodigoAssociado();
+                        log.info("✅ CD_ASSOCIADO DO DEPENDENTE EXTRAÍDO: '{}'", cdAssociado);
+                        break;
+                    }
+                }
+            }
+
+            if (cdAssociado == null || cdAssociado.trim().isEmpty()) {
+                String mensagem = "OdontoPrev não retornou código do associado (codigoAssociado) válido para o dependente";
+                log.error("❌ FALHA NA EXTRAÇÃO DO CD_ASSOCIADO - Dependente {}: {}", codigoMatricula, mensagem);
+                registrarTentativaErro(beneficiario, "INCLUSAO", controleSync, mensagem, null);
+                throw new ProcessamentoBeneficiarioException(mensagem, codigoMatricula, INCLUSAO);
+            }
+
+            // Etapa 6: Executar procedure no Tasy (mesmo processo do titular)
+            log.info("🔄 EXECUTANDO PROCEDURE - Chamando SS_PLS_CAD_CARTEIRINHA_ODONTOPREV para dependente {} com cdAssociado {}", 
+                    codigoMatricula, cdAssociado);
+            executarProcedureTasy(beneficiario, cdAssociado);
+            log.info("✅ PROCEDURE EXECUTADA - SS_PLS_CAD_CARTEIRINHA_ODONTOPREV concluída com sucesso para dependente {}", codigoMatricula);
+
+            // Etapa 7: Registrar sucesso no controle
+            registrarTentativaSucesso(controleSync, objectMapper.writeValueAsString(response));
+
+            log.info("🎉 DEPENDENTE PROCESSADO COM SUCESSO - {} | CdAssociado: {} | Tempo total: {}ms",
+                    codigoMatricula, cdAssociado, tempoResposta);
+
+        } catch (Exception e) {
+            log.error("❌ Erro durante processamento de inclusão de dependente: {}", e.getMessage(), e);
+            
+            // Verificar se é erro de dependente já cadastrado (status 417 ou mensagem específica)
+            // A mensagem pode vir de várias formas: no getMessage(), na causa, ou no stack trace
+            String mensagemErro = e.getMessage() != null ? e.getMessage() : "";
+            String causaMensagem = (e.getCause() != null && e.getCause().getMessage() != null) ? e.getCause().getMessage() : "";
+            String mensagemCompleta = mensagemErro + " " + causaMensagem;
+            
+            // Verificar na mensagem completa (pode ter JSON com a mensagem)
+            boolean dependenteJaExiste = (mensagemCompleta.contains("existe para o titular") || 
+                                         mensagemCompleta.contains("417") ||
+                                         (mensagemCompleta.contains("Dependente") && mensagemCompleta.contains("existe")) ||
+                                         mensagemCompleta.contains("\"mensagem\":\"Dependente") ||
+                                         mensagemCompleta.toLowerCase().contains("dependente") && mensagemCompleta.toLowerCase().contains("existe"));
+            
+            log.info("🔍 VERIFICAÇÃO DE DEPENDENTE JÁ CADASTRADO - Mensagem: '{}' | Causa: '{}' | JaExiste: {}", 
+                    mensagemErro, causaMensagem, dependenteJaExiste);
+            
+            if (dependenteJaExiste) {
+                log.warn("⚠️ DEPENDENTE JÁ CADASTRADO - {}: {}", codigoMatricula, mensagemErro);
+                
+                // Mesmo quando o dependente já está cadastrado, precisamos executar a procedure
+                // para atualizar o sistema Tasy
+                try {
+                    log.info("🔄 EXECUTANDO PROCEDURE PARA DEPENDENTE JÁ CADASTRADO - Chamando SS_PLS_CAD_CARTEIRINHA_ODONTOPREV para dependente {}", codigoMatricula);
+                    
+                    // Para dependentes já cadastrados, usar o código da matrícula como identificador
+                    String cdAssociadoParaProcedure = codigoMatricula;
+                    log.info("🔄 USANDO CÓDIGO DA MATRÍCULA COMO IDENTIFICADOR - cdAssociado: {} para dependente já cadastrado {}", cdAssociadoParaProcedure, codigoMatricula);
+                    
+                    executarProcedureTasy(beneficiario, cdAssociadoParaProcedure);
+                    log.info("✅ PROCEDURE EXECUTADA PARA DEPENDENTE JÁ CADASTRADO - SS_PLS_CAD_CARTEIRINHA_ODONTOPREV concluída para dependente {} com cdAssociado {}", codigoMatricula, cdAssociadoParaProcedure);
+                    
+                } catch (Exception procedureException) {
+                    log.error("❌ ERRO AO EXECUTAR PROCEDURE PARA DEPENDENTE JÁ CADASTRADO - Dependente {}: {}", 
+                             codigoMatricula, procedureException.getMessage(), procedureException);
+                    // Não falhar o processamento por causa da procedure
+                }
+                
+                // MARCAR COMO SUCESSO na TBSYNC quando o dependente já está cadastrado (é considerado sucesso)
+                log.info("✅ DEPENDENTE JÁ CADASTRADO - Marcando como SUCESSO na TBSYNC | Matrícula: {}", codigoMatricula);
+                if (controleSync != null) {
+                    // Atualizar o registro como SUCESSO ao invés de deletar
+                    try {
+                        // Extrair mensagem da resposta de erro para usar como responseApi
+                        String responseApi = "Dependente já cadastrado na OdontoPrev";
+                        if (mensagemCompleta != null && mensagemCompleta.contains("{")) {
+                            // Tentar extrair JSON da mensagem
+                            int jsonStart = mensagemCompleta.indexOf("{");
+                            if (jsonStart >= 0) {
+                                responseApi = mensagemCompleta.substring(jsonStart);
+                            }
+                        }
+                        registrarTentativaSucesso(controleSync, responseApi);
+                        log.info("✅ Registro atualizado como SUCESSO na TBSYNC para dependente já cadastrado | Matrícula: {}", codigoMatricula);
+                    } catch (Exception updateException) {
+                        log.warn("⚠️ Não foi possível atualizar registro da TBSYNC como sucesso: {}", updateException.getMessage());
+                    }
+                } else {
+                    // Se não havia registro, criar um novo marcando como sucesso
+                    try {
+                        // Criar registro mínimo de sucesso
+                        String responseApi = "Dependente já cadastrado na OdontoPrev";
+                        if (mensagemCompleta != null && mensagemCompleta.contains("{")) {
+                            int jsonStart = mensagemCompleta.indexOf("{");
+                            if (jsonStart >= 0) {
+                                responseApi = mensagemCompleta.substring(jsonStart);
+                            }
+                        }
+                        // Criar request mínimo para o registro (usar BeneficiarioDependenteInclusaoRequest básico)
+                        // Tentar criar request mínimo com dados disponíveis
+                        try {
+                            // Usar codigoAssociadoTitularParaSucesso ou buscar novamente
+                            String codigoTitularParaRequest = codigoAssociadoTitularParaSucesso;
+                            if (codigoTitularParaRequest == null || codigoTitularParaRequest.trim().isEmpty()) {
+                                codigoTitularParaRequest = beneficiario.getCodigoAssociadoTitularTemp();
+                                if (codigoTitularParaRequest == null || codigoTitularParaRequest.trim().isEmpty()) {
+                                    codigoTitularParaRequest = buscarCodigoAssociadoTitular(beneficiario.getCodigoEmpresa());
+                                }
+                            }
+                            
+                            if (codigoTitularParaRequest != null && !codigoTitularParaRequest.trim().isEmpty()) {
+                                BeneficiarioDependenteInclusaoRequest requestMinimo = converterParaDependenteRequest(beneficiario, codigoTitularParaRequest);
+                                ControleSyncBeneficiario controleNovo = criarRegistroControle(beneficiario, "INCLUSAO", requestMinimo);
+                                if (controleNovo != null) {
+                                    registrarTentativaSucesso(controleNovo, responseApi);
+                                    log.info("✅ Novo registro criado como SUCESSO na TBSYNC para dependente já cadastrado | Matrícula: {}", codigoMatricula);
+                                }
+                            } else {
+                                throw new Exception("Não foi possível obter codigoAssociadoTitular para criar request");
+                            }
+                        } catch (Exception createRequestException) {
+                            log.warn("⚠️ Não foi possível criar request mínimo para registro de sucesso: {}", createRequestException.getMessage());
+                            // Tentar criar registro sem request (com JSON vazio)
+                            try {
+                                ControleSyncBeneficiario controleNovo = criarRegistroControle(beneficiario, "INCLUSAO", new Object());
+                                if (controleNovo != null) {
+                                    registrarTentativaSucesso(controleNovo, responseApi);
+                                    log.info("✅ Novo registro criado como SUCESSO na TBSYNC (sem request) para dependente já cadastrado | Matrícula: {}", codigoMatricula);
+                                }
+                            } catch (Exception fallbackException) {
+                                log.error("❌ Não foi possível criar registro de sucesso na TBSYNC: {}", fallbackException.getMessage());
+                            }
+                        }
+                    } catch (Exception createException) {
+                        log.warn("⚠️ Não foi possível criar registro de sucesso na TBSYNC: {}", createException.getMessage());
+                    }
+                }
+                return; // Não lançar exceção, apenas logar e continuar
+            }
+            
+            registrarTentativaErro(beneficiario, "INCLUSAO", controleSync, e.getMessage(), e);
+            throw new ProcessamentoBeneficiarioException(
+                    "Falha no processamento de inclusão de dependente: " + e.getMessage(),
+                    codigoMatricula,
+                    INCLUSAO
+            );
+        }
+    }
+
+    /**
+     * BUSCA CÓDIGO DO ASSOCIADO TITULAR
+     *
+     * Busca o código do associado (carteirinha) do titular da empresa
+     * para poder incluir o dependente.
+     * 
+     * IMPORTANTE: Busca o titular na view VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS
+     * e extrai o cdAssociado da resposta da API salva na TBSYNC.
+     */
+    private String buscarCodigoAssociadoTitular(String codigoEmpresa) {
+        try {
+            log.info("🔍 BUSCANDO CÓDIGO DO ASSOCIADO TITULAR - Empresa: {}", codigoEmpresa);
+            
+            // PASSO 1: Buscar titular na view VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS
+            var titularesView = integracaoRepository.findByCodigoEmpresa(codigoEmpresa)
+                    .stream()
+                    .filter(b -> "T".equals(b.getIdentificacao()))
+                    .toList();
+            
+            if (titularesView.isEmpty()) {
+                log.error("❌ NENHUM TITULAR ENCONTRADO NA VIEW - Empresa: {}", codigoEmpresa);
+                return null;
+            }
+            
+            log.info("✅ {} TITULAR(ES) ENCONTRADO(S) NA VIEW - Empresa: {}", titularesView.size(), codigoEmpresa);
+            
+            // PASSO 2: Para cada titular, verificar se já foi processado com sucesso na TBSYNC
+            for (IntegracaoOdontoprevBeneficiario titularView : titularesView) {
+                String codigoMatriculaTitular = titularView.getCodigoMatricula();
+                log.info("🔍 VERIFICANDO TITULAR - Matrícula: {} | Nome: {}", 
+                        codigoMatriculaTitular, titularView.getNomeDoBeneficiario());
+                
+                // Buscar controles de sincronização do titular na TBSYNC (pode haver múltiplos registros)
+                var controles = controleSyncRepository
+                        .findByCodigoEmpresaAndCodigoBeneficiario(codigoEmpresa, codigoMatriculaTitular);
+                
+                if (!controles.isEmpty()) {
+                    log.info("📋 {} REGISTRO(S) ENCONTRADO(S) NA TBSYNC PARA TITULAR - Matrícula: {}", 
+                            controles.size(), codigoMatriculaTitular);
+                    
+                    // Filtrar apenas registros de INCLUSAO com status SUCESSO e ordenar por data de sucesso (mais recente primeiro)
+                    var controleSucesso = controles.stream()
+                            .filter(c -> "INCLUSAO".equals(c.getTipoOperacao()))
+                            .filter(c -> "SUCESSO".equals(c.getStatusSync()) || "SUCCESS".equals(c.getStatusSync()))
+                            .filter(c -> c.getResponseApi() != null && !c.getResponseApi().trim().isEmpty())
+                            .sorted((c1, c2) -> {
+                                // Ordenar por data de sucesso (mais recente primeiro)
+                                if (c1.getDataSucesso() != null && c2.getDataSucesso() != null) {
+                                    return c2.getDataSucesso().compareTo(c1.getDataSucesso());
+                                }
+                                if (c1.getDataSucesso() != null) return -1;
+                                if (c2.getDataSucesso() != null) return 1;
+                                // Se não tem data de sucesso, ordenar por data de última tentativa
+                                if (c1.getDataUltimaTentativa() != null && c2.getDataUltimaTentativa() != null) {
+                                    return c2.getDataUltimaTentativa().compareTo(c1.getDataUltimaTentativa());
+                                }
+                                return 0;
+                            })
+                            .findFirst();
+                    
+                    if (controleSucesso.isPresent()) {
+                        ControleSyncBeneficiario controle = controleSucesso.get();
+                        log.info("✅ REGISTRO DE SUCESSO ENCONTRADO - ID: {} | Status: {} | Data Sucesso: {}", 
+                                controle.getId(), controle.getStatusSync(), controle.getDataSucesso());
+                        
+                        // PASSO 3: Extrair cdAssociado da resposta da API salva na TBSYNC
+                        String responseApi = controle.getResponseApi();
+                        try {
+                            BeneficiarioInclusaoResponseNew response = objectMapper.readValue(
+                                    responseApi, BeneficiarioInclusaoResponseNew.class);
+                            
+                            String cdAssociado = null;
+                            
+                            // Tentar extrair do objeto beneficiarios principal
+                            if (response.getBeneficiarios() != null) {
+                                cdAssociado = response.getBeneficiarios().getCodigoAssociado();
+                            }
+                            
+                            // Se não conseguiu extrair do objeto principal, tentar da lista
+                            if ((cdAssociado == null || cdAssociado.trim().isEmpty()) && 
+                                response.getListaBeneficiarios() != null && 
+                                !response.getListaBeneficiarios().isEmpty()) {
+                                cdAssociado = response.getListaBeneficiarios().get(0).getCodigoAssociado();
+                            }
+                            
+                            if (cdAssociado != null && !cdAssociado.trim().isEmpty()) {
+                                log.info("✅ CD_ASSOCIADO DO TITULAR EXTRAÍDO DA TBSYNC - Matrícula: {} | CdAssociado: {}", 
+                                        codigoMatriculaTitular, cdAssociado);
+                                return cdAssociado;
+                            } else {
+                                log.warn("⚠️ CD_ASSOCIADO NÃO ENCONTRADO NA RESPOSTA - Matrícula: {} | Response: {}", 
+                                        codigoMatriculaTitular, responseApi);
+                            }
+                        } catch (Exception e) {
+                            log.error("❌ ERRO ao extrair cdAssociado da resposta da API para titular {}: {}", 
+                                    codigoMatriculaTitular, e.getMessage());
+                        }
+                    } else {
+                        log.warn("⚠️ NENHUM REGISTRO DE SUCESSO ENCONTRADO NA TBSYNC - Matrícula: {} | Total de registros: {}", 
+                                codigoMatriculaTitular, controles.size());
+                        // Log dos status encontrados para debug
+                        controles.forEach(c -> log.debug("   - ID: {} | Tipo: {} | Status: {} | Data: {}", 
+                                c.getId(), c.getTipoOperacao(), c.getStatusSync(), c.getDataUltimaTentativa()));
+                    }
+                } else {
+                    log.warn("⚠️ TITULAR NÃO ENCONTRADO NA TBSYNC - Matrícula: {} | Ainda não foi processado", 
+                            codigoMatriculaTitular);
+                }
+            }
+            
+            log.error("❌ NENHUM TITULAR COM CD_ASSOCIADO ENCONTRADO - Empresa: {}", codigoEmpresa);
+            return null;
+
+        } catch (Exception e) {
+            log.error("❌ ERRO ao buscar código do associado titular para empresa {}: {}", 
+                     codigoEmpresa, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * CONVERTE BENEFICIÁRIO PARA REQUEST DE DEPENDENTE
+     *
+     * Converte a entidade BeneficiarioOdontoprev para o formato
+     * BeneficiarioDependenteInclusaoRequest conforme documentação da API.
+     * 
+     * IMPORTANTE: Todos os campos numéricos devem ser convertidos de String para Long/Integer
+     * conforme exemplo da documentação.
+     */
+    private BeneficiarioDependenteInclusaoRequest converterParaDependenteRequest(
+            BeneficiarioOdontoprev beneficiario, String codigoAssociadoTitular) {
+        
+        // PRIORIDADE: Se codigoAssociadoTitularTemp existe no beneficiário, usar ele primeiro
+        if (beneficiario.getCodigoAssociadoTitularTemp() != null && !beneficiario.getCodigoAssociadoTitularTemp().trim().isEmpty()) {
+            codigoAssociadoTitular = beneficiario.getCodigoAssociadoTitularTemp();
+            log.debug("✅ [DEPENDENTE] Usando codigoAssociadoTitularTemp do beneficiário: '{}'", codigoAssociadoTitular);
+        } else if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
+            log.debug("✅ [DEPENDENTE] Usando codigoAssociadoTitular do parâmetro: '{}'", codigoAssociadoTitular);
+        }
+        
+        // TODOS OS CAMPOS NUMÉRICOS SERÃO ENVIADOS COMO STRING
+        // Limpar e preparar codigoAssociadoTitular (manter como String)
+        String codigoAssociadoTitularStr = null;
+        if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
+            // Remove caracteres não numéricos e mantém como String
+            codigoAssociadoTitularStr = codigoAssociadoTitular.replaceAll("[^0-9]", "");
+            log.debug("✅ [DEPENDENTE] codigoAssociadoTitular preparado: '{}'", codigoAssociadoTitularStr);
+        } else {
+            log.warn("⚠️ [DEPENDENTE] codigoAssociadoTitular está vazio ou null!");
+        }
+        
+        // Preparar codigoPlano (manter como String)
+        String codigoPlanoStr = null;
+        if (beneficiario.getCodigoPlano() != null && !beneficiario.getCodigoPlano().trim().isEmpty()) {
+            codigoPlanoStr = beneficiario.getCodigoPlano().replaceAll("[^0-9]", "");
+        }
+        
+        // Preparar numero do endereço (manter como String)
+        String numeroStr = null;
+        if (beneficiario.getNumero() != null && !beneficiario.getNumero().trim().isEmpty()) {
+            // Remove caracteres não numéricos e mantém como String
+            String numeroLimpo = beneficiario.getNumero().replaceAll("[^0-9]", "");
+            if (!numeroLimpo.isEmpty()) {
+                numeroStr = numeroLimpo;
+            } else {
+                numeroStr = beneficiario.getNumero(); // Mantém original se não tem números
+            }
+        }
+        
+        // Preparar tpEndereco (converter de Long para String)
+        String tpEnderecoStr = null;
+        if (beneficiario.getTpEndereco() != null) {
+            tpEnderecoStr = String.valueOf(beneficiario.getTpEndereco());
+        }
+        
+        // Preparar grauParentesco (manter como String) - usado no beneficiario.grauParentesco
+        String grauParentescoStr = null;
+        if (beneficiario.getGrauParentesco() != null && !beneficiario.getGrauParentesco().trim().isEmpty()) {
+            String grauParentescoLimpo = beneficiario.getGrauParentesco().replaceAll("[^0-9]", "");
+            if (!grauParentescoLimpo.isEmpty()) {
+                grauParentescoStr = grauParentescoLimpo;
+            } else {
+                grauParentescoStr = beneficiario.getGrauParentesco(); // Mantém original
+            }
+        }
+        
+        // Preparar parentesco (prioridade: usar parentescoTemp da view, senão usar grauParentescoStr)
+        // parentesco deve ser enviado como Integer (número)
+        Integer parentescoInteger = null;
+        if (beneficiario.getParentescoTemp() != null) {
+            parentescoInteger = beneficiario.getParentescoTemp().intValue();
+            log.debug("✅ Usando parentesco da view (parentescoTemp): {}", parentescoInteger);
+        } else if (grauParentescoStr != null && !grauParentescoStr.isEmpty()) {
+            try {
+                parentescoInteger = Integer.parseInt(grauParentescoStr);
+                log.debug("✅ Usando grauParentesco como fallback para parentesco: {}", parentescoInteger);
+            } catch (NumberFormatException e) {
+                log.warn("⚠️ Erro ao converter grauParentesco '{}' para Integer, usando 0", grauParentescoStr);
+                parentescoInteger = 0;
+            }
+        } else {
+            parentescoInteger = 0; // Valor padrão se não houver parentesco
+            log.debug("⚠️ Parentesco não encontrado, usando valor padrão: {}", parentescoInteger);
+        }
+        
+        // Preparar usuario: PRIORIDADE usar valor da view (usuarioTemp), senão usar headerService
+        String usuarioStr = null;
+        if (beneficiario.getUsuarioTemp() != null) {
+            usuarioStr = String.valueOf(beneficiario.getUsuarioTemp());
+            log.debug("✅ Usando usuario da view: {}", usuarioStr);
+        } else {
+            String usuarioStrFromHeader = headerService.getUsuario();
+            if (usuarioStrFromHeader != null && !usuarioStrFromHeader.trim().isEmpty()) {
+                usuarioStr = usuarioStrFromHeader.replaceAll("[^0-9]", "");
+                log.debug("✅ Usando usuario do headerService: {}", usuarioStr);
+            }
+        }
+        
+        // Preparar codigoEmpresa (manter como String)
+        String codigoEmpresaStr = null;
+        if (beneficiario.getCodigoEmpresa() != null && !beneficiario.getCodigoEmpresa().trim().isEmpty()) {
+            codigoEmpresaStr = beneficiario.getCodigoEmpresa().replaceAll("[^0-9]", "");
+        }
+        
+        // Preparar departamento (manter como String)
+        String departamentoStr = null;
+        if (beneficiario.getDepartamento() != null && !beneficiario.getDepartamento().trim().isEmpty()) {
+            departamentoStr = beneficiario.getDepartamento().replaceAll("[^0-9]", "");
+        }
+        
+        // Construir objeto Beneficiario (dados do dependente)
+        var beneficiarioData = BeneficiarioDependenteInclusaoRequest.Beneficiario.builder()
+                .beneficiarioTitular(codigoAssociadoTitularStr) // Código do associado titular como String
+                .campanha(null)
+                .codigoMatricula(beneficiario.getCodigoMatricula())
+                .codigoPlano(codigoPlanoStr) // String
+                .cpf(beneficiario.getCpf())
+                .dataDeNascimento(beneficiario.getDataNascimento() != null ? 
+                        beneficiario.getDataNascimento().format(DATE_FORMATTER) : null)
+                .dtVigenciaRetroativa(beneficiario.getDtVigenciaRetroativa() != null ? 
+                        beneficiario.getDtVigenciaRetroativa().format(DATE_FORMATTER) : null)
+                .email(null)
+                .empresaNova(null)
+                .endereco(beneficiario.getLogradouro() != null ? 
+                        BeneficiarioDependenteInclusaoRequest.Endereco.builder()
+                                .bairro(beneficiario.getBairro())
+                                .cep(beneficiario.getCep())
+                                .cidade(beneficiario.getCidade())
+                                .cidadeBeneficiario(null)
+                                .complemento(beneficiario.getComplemento())
+                                .logradouro(beneficiario.getLogradouro())
+                                .numero(numeroStr) // String
+                                .tpEndereco(tpEnderecoStr) // String
+                                .uf(beneficiario.getUf())
+                                .build() : null)
+                .estadoCivil(beneficiario.getEstadoCivil())
+                .grauParentesco(grauParentescoStr) // String
+                .identificacao(null) // Opcional conforme exemplo
+                .motivoExclusao(null)
+                .nmCargo(beneficiario.getNmCargo())
+                .nomeBeneficiario(beneficiario.getNomeBeneficiario())
+                .nomeDaMae(beneficiario.getNomeMae())
+                .pisPasep(beneficiario.getPisPasep())
+                .rg(beneficiario.getRg())
+                .rgEmissor(beneficiario.getRgEmissor())
+                .sexo(beneficiario.getSexo())
+                .telefoneCelular(beneficiario.getTelefoneCelular())
+                .telefoneComercial(null)
+                .telefoneResidencial(beneficiario.getTelefoneResidencial())
+                .build();
+
+        // Construir BeneficiarioDependente
+        var beneficiarioDependente = BeneficiarioDependenteInclusaoRequest.BeneficiarioDependente.builder()
+                .beneficiario(beneficiarioData)
+                .codigoEmpresa(codigoEmpresaStr) // String
+                .departamento(departamentoStr) // String
+                .parentesco(parentescoInteger) // Integer - Usar parentescoTemp da view ou grauParentesco como fallback
+                .build();
+
+        // Construir request completo
+        return BeneficiarioDependenteInclusaoRequest.builder()
+                .codigoAssociadoTitular(codigoAssociadoTitularStr) // String
+                .usuario(usuarioStr) // String
+                .cdUsuario(usuarioStr) // String - Usando mesmo valor do usuario
+                .beneficiarios(java.util.Collections.singletonList(beneficiarioDependente))
+                .build();
+    }
+
+    /**
      * CRIA REGISTRO DE CONTROLE DE SINCRONIZAÇÃO
      *
      * Cria um registro na tabela TB_CONTROLE_SYNC_ODONTOPREV_BENEF
@@ -604,14 +1187,28 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
         try {
             String payloadJson = objectMapper.writeValueAsString(request);
             
+            // Determinar tipoLog e endpoint baseado no tipo de operação e se é dependente
+            String tipoLog = "I"; // I = Inclusão
+            String endpointDestino = "/cadastroonline-pj/1.0/incluir"; // Endpoint padrão para titular
+            
+            // Se é dependente, usar endpoint específico
+            if ("D".equals(beneficiario.getIdentificacao())) {
+                endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
+            }
+            
             ControleSyncBeneficiario controle = ControleSyncBeneficiario.builder()
                     .codigoEmpresa(beneficiario.getCodigoEmpresa())
                     .codigoBeneficiario(beneficiario.getCodigoMatricula())
+                    .tipoLog(tipoLog)
                     .tipoOperacao(tipoOperacao)
+                    .endpointDestino(endpointDestino)
                     .statusSync("PROCESSANDO")
                     .dadosJson(payloadJson)
                     .dataUltimaTentativa(LocalDateTime.now())
                     .build();
+
+            log.debug("📝 [TBSYNC] Criando registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres", 
+                    beneficiario.getCodigoMatricula(), tipoOperacao, endpointDestino, payloadJson.length());
 
             return controleSyncRepository.save(controle);
         } catch (Exception e) {
@@ -633,9 +1230,14 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 controle.setDataSucesso(LocalDateTime.now());
                 controle.setResponseApi(responseJson);
                 controleSyncRepository.save(controle);
+                log.info("✅ [TBSYNC] Registro atualizado como SUCESSO - ID: {} | Matrícula: {} | Status: SUCESSO", 
+                        controle.getId(), controle.getCodigoBeneficiario());
             } catch (Exception e) {
-                log.error("Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
+                log.error("❌ Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
+                throw e; // Relançar para não perder o erro
             }
+        } else {
+            log.warn("⚠️ [TBSYNC] Tentativa de registrar sucesso em controle nulo");
         }
     }
 
@@ -643,19 +1245,37 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      * REGISTRA TENTATIVA DE ERRO
      *
      * Atualiza o registro de controle com o resultado de erro.
+     * IMPORTANTE: Garante que dadosJson esteja preenchido com o payload enviado.
      */
     private void registrarTentativaErro(BeneficiarioOdontoprev beneficiario, String tipoOperacao, 
-                                       ControleSyncBeneficiario controle, String mensagemErro, Exception excecao) {
+                                      ControleSyncBeneficiario controle, String mensagemErro, Exception excecao) {
         try {
             if (controle == null) {
                 // Se não existe controle, tenta criar o request para ter o JSON correto
                 String payloadJson = "{}";
+                String endpointDestino = "/cadastroonline-pj/1.0/incluir";
+                
                 try {
-                    // Tenta criar o request mesmo com dados inválidos para ter o JSON
-                    BeneficiarioInclusaoRequestNew request = converterParaInclusaoRequestNew(beneficiario);
-                    payloadJson = objectMapper.writeValueAsString(request);
+                    // Verificar se é dependente para criar o request correto
+                    if ("D".equals(beneficiario.getIdentificacao())) {
+                        endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
+                        
+                        // Buscar código do associado titular para criar o request de dependente
+                        String codigoAssociadoTitular = buscarCodigoAssociadoTitular(beneficiario.getCodigoEmpresa());
+                        if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
+                            BeneficiarioDependenteInclusaoRequest request = converterParaDependenteRequest(beneficiario, codigoAssociadoTitular);
+                            payloadJson = objectMapper.writeValueAsString(request);
+                        } else {
+                            log.warn("⚠️ Não foi possível buscar código do titular para criar request de dependente - Beneficiário: {}", 
+                                    beneficiario.getCodigoMatricula());
+                        }
+                    } else {
+                        // Tenta criar o request de titular mesmo com dados inválidos para ter o JSON
+                        BeneficiarioInclusaoRequestNew request = converterParaInclusaoRequestNew(beneficiario);
+                        payloadJson = objectMapper.writeValueAsString(request);
+                    }
                 } catch (Exception e) {
-                    log.debug("Não foi possível criar request para beneficiário {}: {}", 
+                    log.warn("⚠️ Não foi possível criar request para beneficiário {}: {}", 
                              beneficiario.getCodigoMatricula(), e.getMessage());
                     // Mantém "{}" se não conseguir criar o request
                 }
@@ -663,13 +1283,46 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 controle = ControleSyncBeneficiario.builder()
                         .codigoEmpresa(beneficiario.getCodigoEmpresa())
                         .codigoBeneficiario(beneficiario.getCodigoMatricula())
+                        .tipoLog("I") // I = Inclusão
                         .tipoOperacao(tipoOperacao)
+                        .endpointDestino(endpointDestino)
                         .statusSync("ERRO")
                         .dadosJson(payloadJson)
                         .dataUltimaTentativa(LocalDateTime.now())
                         .erroMensagem(mensagemErro)
                         .build();
+                
+                log.info("📝 [TBSYNC] Criando registro de erro - Matrícula: {} | Endpoint: {} | DadosJson: {} caracteres", 
+                        beneficiario.getCodigoMatricula(), endpointDestino, payloadJson.length());
             } else {
+                // Se o controle já existe, verificar se dadosJson está vazio e tentar atualizar
+                if (controle.getDadosJson() == null || controle.getDadosJson().trim().isEmpty() || "{}".equals(controle.getDadosJson())) {
+                    log.warn("⚠️ [TBSYNC] dadosJson vazio no controle existente - Tentando preencher - Matrícula: {}", 
+                            beneficiario.getCodigoMatricula());
+                    
+                    try {
+                        String payloadJson = "{}";
+                        if ("D".equals(beneficiario.getIdentificacao())) {
+                            String codigoAssociadoTitular = buscarCodigoAssociadoTitular(beneficiario.getCodigoEmpresa());
+                            if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
+                                BeneficiarioDependenteInclusaoRequest request = converterParaDependenteRequest(beneficiario, codigoAssociadoTitular);
+                                payloadJson = objectMapper.writeValueAsString(request);
+                                controle.setEndpointDestino("/cadastroonline-pj/1.0/incluirDependente");
+                            }
+                        } else {
+                            BeneficiarioInclusaoRequestNew request = converterParaInclusaoRequestNew(beneficiario);
+                            payloadJson = objectMapper.writeValueAsString(request);
+                            controle.setEndpointDestino("/cadastroonline-pj/1.0/incluir");
+                        }
+                        controle.setDadosJson(payloadJson);
+                        log.info("✅ [TBSYNC] dadosJson preenchido no controle existente - Matrícula: {} | DadosJson: {} caracteres", 
+                                beneficiario.getCodigoMatricula(), payloadJson.length());
+                    } catch (Exception e) {
+                        log.warn("⚠️ [TBSYNC] Não foi possível preencher dadosJson no controle existente - Matrícula: {} | Erro: {}", 
+                                beneficiario.getCodigoMatricula(), e.getMessage());
+                    }
+                }
+                
                 controle.setStatusSync("ERRO");
                 controle.setDataUltimaTentativa(LocalDateTime.now());
                 controle.setErroMensagem(mensagemErro);

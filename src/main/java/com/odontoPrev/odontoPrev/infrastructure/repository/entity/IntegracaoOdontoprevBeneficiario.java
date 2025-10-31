@@ -141,6 +141,30 @@ public class IntegracaoOdontoprevBeneficiario {
     private String identificacao;
 
     /**
+     * PARENTESCO DO DEPENDENTE COM O TITULAR
+     *
+     * Código numérico que indica o grau de parentesco do dependente com o titular.
+     * Usado na inclusão de dependentes na OdontoPrev.
+     * 
+     * IMPORTANTE: Este campo está temporariamente comentado até que a coluna PARENTESCO
+     * seja adicionada na view VW_INTEGRACAO_ODONTOPREV_BENEFICIARIOS no banco de dados.
+     * 
+     * Quando a coluna for criada na view, descomente este campo e remova esta nota.
+     */
+    // TEMPORARIAMENTE DESABILITADO - Aguardando coluna PARENTESCO na view
+    // @Column(name = "PARENTESCO", nullable = true, insertable = false, updatable = false)
+    // private Long parentesco;
+
+    /**
+     * CÓDIGO DO ASSOCIADO TITULAR
+     *
+     * Código do associado titular (carteirinha) quando o beneficiário é dependente.
+     * Usado para vincular o dependente ao titular.
+     */
+    @Column(name = "CODIGOASSOCIADOTITULAR", length = 20)
+    private String codigoAssociadoTitular;
+
+    /**
      * REGISTRO GERAL (RG) DO BENEFICIÁRIO
      *
      * Documento de identidade civil.

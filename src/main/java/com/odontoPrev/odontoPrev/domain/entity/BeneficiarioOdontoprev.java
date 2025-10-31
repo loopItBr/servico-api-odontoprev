@@ -235,6 +235,40 @@ public class BeneficiarioOdontoprev {
     private String cdCgcEstipulante;
 
     /**
+     * Identificação do tipo de beneficiário
+     * T = Titular, D = Dependente
+     */
+    @Column(name = "identificacao", length = 1)
+    private String identificacao;
+
+    /**
+     * CÓDIGO DO ASSOCIADO TITULAR (TEMPORÁRIO - NÃO PERSISTIDO)
+     * 
+     * Usado apenas durante o processamento para dependentes.
+     * Valor vem da view e não é persistido no banco.
+     */
+    @jakarta.persistence.Transient
+    private String codigoAssociadoTitularTemp;
+
+    /**
+     * USUÁRIO (TEMPORÁRIO - NÃO PERSISTIDO)
+     * 
+     * Usado apenas durante o processamento.
+     * Valor vem da view e não é persistido no banco.
+     */
+    @jakarta.persistence.Transient
+    private Long usuarioTemp;
+
+    /**
+     * PARENTESCO (TEMPORÁRIO - NÃO PERSISTIDO)
+     * 
+     * Usado apenas durante o processamento de dependentes.
+     * Valor vem da view (campo PARENTESCO) e não é persistido no banco.
+     */
+    @jakarta.persistence.Transient
+    private Long parentescoTemp;
+
+    /**
      * Status de sincronização com a OdontoPrev
      * PENDENTE / SINCRONIZADO / ERRO / ALTERADO / EXCLUIDO
      */

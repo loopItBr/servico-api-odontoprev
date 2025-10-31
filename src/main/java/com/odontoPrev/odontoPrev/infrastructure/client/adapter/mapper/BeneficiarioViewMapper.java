@@ -49,6 +49,7 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "nomeMae", source = "nomeDaMae")
     @Mapping(target = "nomeBeneficiario", source = "nomeDoBeneficiario")
     @Mapping(target = "tpEndereco", source = "tpEndereco")
+    @Mapping(target = "identificacao", source = "identificacao") // T = Titular, D = Dependente
     @Mapping(target = "statusSincronizacao", constant = "PENDENTE")
     @Mapping(target = "cdAssociado", ignore = true) // Inclusão não tem código associado ainda
     @Mapping(target = "idMotivoInativacao", ignore = true)
@@ -59,6 +60,10 @@ public interface BeneficiarioViewMapper {
     @Mapping(target = "dataAtualizacao", ignore = true)
     // Mapear nrSequencia que agora existe na entidade de domínio
     @Mapping(target = "nrSequencia", source = "nrSequencia")
+    // Campos temporários para processamento (não persistidos)
+    @Mapping(target = "codigoAssociadoTitularTemp", source = "codigoAssociadoTitular")
+    @Mapping(target = "usuarioTemp", source = "usuario")
+    // @Mapping(target = "parentescoTemp", source = "parentesco") // TEMPORARIAMENTE DESABILITADO - Aguardando coluna PARENTESCO na view
     // Campos que não existem na entidade de domínio - ignorar
     @Mapping(target = "motivoExclusao", ignore = true) // Campo da view, mas talvez não seja relevante para inclusão
     BeneficiarioOdontoprev fromInclusaoView(IntegracaoOdontoprevBeneficiario viewEntity);

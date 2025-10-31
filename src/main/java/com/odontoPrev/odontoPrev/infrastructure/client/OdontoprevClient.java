@@ -145,9 +145,9 @@ public interface OdontoprevClient {
 
     /**
      * Endpoint para inativar uma empresa.
-     * Baseado na documentação: /empresas/inativar (POST)
+     * Baseado na documentação: /empresas/inativar (PUI)
      */
-    @PostMapping(
+    @PutMapping(
         value = "/empresas/inativar",
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE

@@ -292,13 +292,6 @@ public class IntegracaoOdontoprevAlteracao {
     private String dataVigencia;
 
     /**
-     * MÊS ANIVERSÁRIO REAJUSTE
-     * NUMBER
-     */
-    @Column(name = "MESANIVERSARIREAJUSTE", nullable = true)
-    private Long mesAniversarioReajuste;
-
-    /**
      * CÓDIGO USUÁRIO
      * NUMBER
      */

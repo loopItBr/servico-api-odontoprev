@@ -8,6 +8,7 @@ import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.Beneficia
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoRequestNew;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponseNew;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioDependenteInclusaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -127,6 +128,50 @@ public interface BeneficiarioOdontoprevFeignClient {
         @RequestHeader("Authorization") String authorizationOAuth2,
         @RequestHeader("AuthorizationOdonto") String authorizationOdonto,
         @RequestBody BeneficiarioInclusaoRequestNew request
+    );
+
+    /**
+     * INCLUI DEPENDENTE NA ODONTOPREV
+     *
+     * Envia dados de um novo dependente para cadastro no sistema
+     * da OdontoPrev. O titular já deve existir na OdontoPrev.
+     *
+     * ENDPOINT: POST {{baseUrl}}/cadastroonline-pj/1.0/incluirDependente
+     *
+     * AUTENTICAÇÃO DUPLA:
+     * - Authorization: Bearer {BEARER 1} - Token OAuth2
+     * - AuthorizationOdonto: Bearer {BEARER 2} - Token Login Empresa
+     *
+     * REQUISITOS:
+     * - O titular já deve estar cadastrado na OdontoPrev
+     * - codigoAssociadoTitular é obrigatório (9 caracteres)
+     * - A vigência do dependente não precisa ser a mesma do titular
+     *
+     * CAMPOS OBRIGATÓRIOS:
+     * - codigoAssociadoTitular: Código do associado titular (9 caracteres)
+     * - usuario: Usuário de movimentação (até 15 caracteres)
+     * - cdUsuario: Código do usuário (até 15 caracteres)
+     * - beneficiarios: Lista com dados do dependente
+     *
+     * RETORNO:
+     * - Mesmo formato do BeneficiarioInclusaoResponseNew
+     * - cdAssociado do dependente na listaBeneficiarios
+     * - Protocolo e ocorrência no CRM
+     *
+     * @param authorizationOAuth2 Token OAuth2 (Bearer {BEARER 1})
+     * @param authorizationOdonto Token Login Empresa (Bearer {BEARER 2})
+     * @param request dados do dependente a ser incluído
+     * @return response contendo cdAssociado e status da operação
+     */
+    @PostMapping(
+        value = "/cadastroonline-pj/1.0/incluirDependente",
+        consumes = MediaType.APPLICATION_JSON_VALUE,
+        produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    BeneficiarioInclusaoResponseNew incluirDependente(
+        @RequestHeader("Authorization") String authorizationOAuth2,
+        @RequestHeader("AuthorizationOdonto") String authorizationOdonto,
+        @RequestBody BeneficiarioDependenteInclusaoRequest request
     );
 
     /**

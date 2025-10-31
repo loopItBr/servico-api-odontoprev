@@ -57,7 +57,7 @@ public interface EmpresaAlteracaoMapper {
     @Mapping(target = "dataConstituicao", source = "dataConstituicao", qualifiedByName = "stringToLocalDateTime")
     @Mapping(target = "renovacaoAutomatica", source = "renovacaoAutomatica")
     @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "stringToLocalDateTime")
-    @Mapping(target = "mesAniversarioReajuste", source = "mesAniversarioReajuste", qualifiedByName = "longToInteger")
+    @Mapping(target = "mesAniversarioReajuste", ignore = true) // Campo removido da view VW_INTEGRACAO_ODONTOPREV_ALT
     @Mapping(target = "sistema", source = "sistema")
     
     // CAMPOS OPCIONAIS QUE NÃO ESTÃO NA VIEW - IGNORADOS
