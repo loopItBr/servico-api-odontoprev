@@ -16,7 +16,7 @@ import java.util.Optional;
  * e precisam ter dados atualizados na OdontoPrev.
  */
 @Repository
-public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<IntegracaoOdontoprevAlteracao, String> {
+public interface IntegracaoOdontoprevAlteracaoRepository extends JpaRepository<IntegracaoOdontoprevAlteracao, Long> {
 
     /**
      * Busca códigos de empresas que foram alteradas.

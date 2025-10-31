@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odontoPrev.odontoPrev.domain.service.ConsultaEmpresaOdontoprevExpandidaService;
 import com.odontoPrev.odontoPrev.domain.service.GerenciadorControleSyncService;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaAlteracaoService;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper.EmpresaAlteracaoMapper;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAlteracaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevAlteracaoRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
@@ -57,7 +59,10 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
     // Serviço para chamar API da OdontoPrev (expandido para suportar alterações)
     private final ConsultaEmpresaOdontoprevExpandidaService consultaEmpresaService;
     
-    // Conversor JSON para serializar respostas da API
+    // Mapper para converter dados da view para o request da API
+    private final EmpresaAlteracaoMapper empresaAlteracaoMapper;
+    
+    // ObjectMapper para serializar dados para JSON
     private final ObjectMapper objectMapper;
 
     /**
@@ -174,10 +179,13 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
      * e processa a resposta (sucesso ou erro).
      * 
      * FLUXO:
-     * 1. Chama API da OdontoPrev
-     * 2. Mede tempo de resposta
-     * 3. Se sucesso: salva resposta no controle
-     * 4. Se erro: salva mensagem de erro no controle
+     * 1. Busca dados da view de alteração
+     * 2. Cria request completo para a API
+     * 3. Atualiza dadosJson na TBSYNC com o request completo
+     * 4. Chama API da OdontoPrev
+     * 5. Mede tempo de resposta
+     * 6. Se sucesso: salva resposta no controle
+     * 7. Se erro: salva mensagem de erro no controle
      */
     private void buscarEProcessarResposta(ControleSync controleSync, String codigoEmpresa) {
         long inicioTempo = System.currentTimeMillis();
@@ -192,7 +200,19 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
                 throw new RuntimeException("Dados da empresa não encontrados na view de alteração: " + codigoEmpresa);
             }
             
-            // Converte para o tipo base
+            // Converte dados da view para o request completo da API
+            EmpresaAlteracaoRequest requestCompleto = empresaAlteracaoMapper.toAlteracaoRequest(dadosAlteracao.get());
+            
+            // Atualiza dadosJson na TBSYNC com o request completo que será enviado
+            try {
+                String dadosJsonCompleto = objectMapper.writeValueAsString(requestCompleto);
+                controleSync.setDadosJson(dadosJsonCompleto);
+                log.debug("💾 [TBSYNC] Dados JSON atualizados com request completo - tamanho: {} caracteres", dadosJsonCompleto.length());
+            } catch (Exception e) {
+                log.warn("⚠️ [TBSYNC] Erro ao serializar request completo para TBSYNC: {}", e.getMessage());
+            }
+            
+            // Converte para o tipo base (para compatibilidade com o serviço)
             IntegracaoOdontoprev dadosBase = converterParaIntegracaoBase(dadosAlteracao.get());
             
             // Chama API da OdontoPrev para atualizar empresa
@@ -204,6 +224,8 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
             gerenciadorControleSync.atualizarSucesso(controleSync, responseJson, tempoResposta);
             gerenciadorControleSync.salvar(controleSync);
             
+            log.info("✅ [TBSYNC] Registro de alteração salvo na TBSYNC - Empresa: {}, ID: {}, Status: SUCCESS", 
+                    codigoEmpresa, controleSync.getId());
             log.info("Empresa alterada {} processada com sucesso em {}ms", codigoEmpresa, tempoResposta);
             
         } catch (Exception e) {
@@ -213,6 +235,8 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
             gerenciadorControleSync.atualizarErro(controleSync, e.getMessage());
             gerenciadorControleSync.salvar(controleSync);
             
+            log.error("❌ [TBSYNC] Registro de alteração salvo na TBSYNC - Empresa: {}, ID: {}, Status: ERROR", 
+                    codigoEmpresa, controleSync.getId());
             log.error("Erro ao processar empresa alterada {} em {}ms: {}", codigoEmpresa, tempoResposta, e.getMessage());
         }
     }
@@ -220,42 +244,24 @@ public class ProcessamentoEmpresaAlteracaoServiceImpl implements ProcessamentoEm
     /**
      * Converte dados de alteração para o tipo base para compatibilidade.
      * 
+     * NOTA: A view VW_INTEGRACAO_ODONTOPREV_ALT tem estrutura diferente da view base,
+     * então apenas os campos comuns são copiados.
+     * 
      * @param dadosAlteracao dados da empresa alterada
      * @return dados convertidos para o tipo base
      */
     private IntegracaoOdontoprev converterParaIntegracaoBase(IntegracaoOdontoprevAlteracao dadosAlteracao) {
         IntegracaoOdontoprev dadosBase = new IntegracaoOdontoprev();
         
-        // Copia todos os campos comuns
+        // Copia apenas campos que existem em ambas as views
         dadosBase.setCodigoEmpresa(dadosAlteracao.getCodigoEmpresa());
-        dadosBase.setCnpj(dadosAlteracao.getCnpj());
         dadosBase.setNomeFantasia(dadosAlteracao.getNomeFantasia());
-        dadosBase.setDataInicioContrato(dadosAlteracao.getDataInicioContrato() != null ? dadosAlteracao.getDataInicioContrato().toString() : null);
-        dadosBase.setDataVigencia(dadosAlteracao.getDataVigencia() != null ? dadosAlteracao.getDataVigencia().toString() : null);
+        dadosBase.setDataVigencia(dadosAlteracao.getDataVigencia()); // Já é String na view de alteração
         dadosBase.setCodigoGrupoGerencial(dadosAlteracao.getCodigoGrupoGerencial());
-        dadosBase.setCodigoMarca(dadosAlteracao.getCodigoMarca());
-        dadosBase.setCodigoCelula(dadosAlteracao.getCodigoCelula());
-        // Campos de plano agora usam sufixo _1 na entidade base
-        dadosBase.setCodigoPlano1(dadosAlteracao.getCodigoPlano1());
-        dadosBase.setValorTitular1(converterStringParaLong(dadosAlteracao.getValorTitular1()));
-        dadosBase.setValorDependente1(converterStringParaLong(dadosAlteracao.getValorDependente1()));
-        dadosBase.setDataInicioPlano1(dadosAlteracao.getDataInicioPlano1() != null ? dadosAlteracao.getDataInicioPlano1().toString() : null);
+        
+        // Campos específicos da view base que não existem na view de alteração são deixados como null
+        // Isso é esperado, pois as views têm estruturas diferentes
         
         return dadosBase;
-    }
-
-    /**
-     * CONVERTE STRING PARA LONG
-     */
-    private Long converterStringParaLong(String valor) {
-        if (valor == null || valor.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            return Long.parseLong(valor.replace(",", "."));
-        } catch (NumberFormatException e) {
-            log.warn("⚠️ [CONVERSÃO] Erro ao converter valor '{}' para Long: {}", valor, e.getMessage());
-            return null;
-        }
     }
 }

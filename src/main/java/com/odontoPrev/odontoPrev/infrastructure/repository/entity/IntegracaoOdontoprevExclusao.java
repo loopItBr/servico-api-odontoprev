@@ -56,9 +56,9 @@ public class IntegracaoOdontoprevExclusao {
      * IDENTIFICADOR DO SISTEMA
      * 
      * Código que identifica o sistema de origem dos dados.
-     * Campo de 4 caracteres.
+     * Campo de até 10 caracteres conforme view VW_INTEGRACAO_ODONTOPREV_EXC.
      */
-    @Column(name = "SISTEMA", nullable = true, length = 4)
+    @Column(name = "SISTEMA", nullable = true, length = 10)
     private String sistema;
 
     /**

@@ -1,14 +1,18 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.odontoPrev.odontoPrev.domain.service.ConsultaEmpresaOdontoprevExpandidaService;
 import com.odontoPrev.odontoPrev.domain.service.GerenciadorControleSyncService;
 import com.odontoPrev.odontoPrev.domain.service.ProcessamentoEmpresaExclusaoService;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.mapper.EmpresaInativacaoMapper;
+import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaInativacaoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.repository.IntegracaoOdontoprevExclusaoRepository;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevExclusao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -56,6 +60,16 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
     
     // Serviço para chamar API da OdontoPrev (expandido para suportar exclusões)
     private final ConsultaEmpresaOdontoprevExpandidaService consultaEmpresaService;
+    
+    // Mapper para converter dados da view para o request da API
+    private final EmpresaInativacaoMapper empresaInativacaoMapper;
+    
+    // ObjectMapper para serializar dados para JSON
+    private final ObjectMapper objectMapper;
+    
+    // Código da empresa do header (para fallback do sistema)
+    @Value("${odontoprev.api.empresa}")
+    private String empresaHeader;
 
     /**
      * MÉTODO PRINCIPAL - PROCESSA UMA EMPRESA EXCLUÍDA INDIVIDUAL
@@ -204,6 +218,18 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
             log.info("🔧 [INATIVAÇÃO] Dados de exclusão encontrados: sistema={}, motivo={}, data={}", 
                     dadosExclusao.getSistema(), dadosExclusao.getCodigoMotivoFimEmpresa(), dadosExclusao.getDataFimContrato());
             
+            // Converte dados da view para o request completo da API
+            EmpresaInativacaoRequest requestCompleto = empresaInativacaoMapper.toInativacaoRequestExclusao(dadosExclusao, empresaHeader);
+            
+            // Atualiza dadosJson na TBSYNC com o request completo que será enviado
+            try {
+                String dadosJsonCompleto = objectMapper.writeValueAsString(requestCompleto);
+                controleSync.setDadosJson(dadosJsonCompleto);
+                log.info("💾 [TBSYNC] Dados JSON atualizados com request completo de exclusão - tamanho: {} caracteres", dadosJsonCompleto.length());
+            } catch (Exception e) {
+                log.warn("⚠️ [TBSYNC] Erro ao serializar request completo de exclusão para TBSYNC: {}", e.getMessage());
+            }
+            
             // Chama API da OdontoPrev para inativar empresa usando dados da view de exclusão
             String responseJson = consultaEmpresaService.inativarEmpresaExclusao(dadosExclusao);
             
@@ -220,6 +246,8 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
             gerenciadorControleSync.atualizarSucesso(controleSync, responseJson, tempoResposta);
             gerenciadorControleSync.salvar(controleSync);
             
+            log.info("✅ [TBSYNC] Registro de exclusão salvo na TBSYNC - Empresa: {}, ID: {}, Status: SUCCESS", 
+                    codigoEmpresa, controleSync.getId());
             log.info("🎉 [INATIVAÇÃO EMPRESA] Empresa {} processada com sucesso em {}ms", codigoEmpresa, tempoResposta);
             
         } catch (Exception e) {
@@ -237,6 +265,8 @@ public class ProcessamentoEmpresaExclusaoServiceImpl implements ProcessamentoEmp
             gerenciadorControleSync.atualizarErro(controleSync, e.getMessage());
             gerenciadorControleSync.salvar(controleSync);
             
+            log.error("❌ [TBSYNC] Registro de exclusão salvo na TBSYNC - Empresa: {}, ID: {}, Status: ERROR", 
+                    codigoEmpresa, controleSync.getId());
             log.error("💥 [INATIVAÇÃO EMPRESA] Empresa {} falhou em {}ms: {}", codigoEmpresa, tempoResposta, e.getMessage());
         }
     }

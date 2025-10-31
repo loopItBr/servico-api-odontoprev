@@ -1,15 +1,10 @@
 package com.odontoPrev.odontoPrev.infrastructure.repository.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.Immutable;
-
-import java.time.LocalDate;
 
 /**
  * ENTIDADE QUE REPRESENTA OS DADOS DE ALTERAÇÃO DE EMPRESAS PARA INTEGRAÇÃO COM ODONTOPREV
@@ -20,7 +15,7 @@ import java.time.LocalDate;
  * com a OdontoPrev.
  * 
  * IMPORTANTE - É UMA VIEW, NÃO UMA TABELA:
- * - Esta entidade mapeia uma VIEW (vw_integracao_odontoprev_alt)
+ * - Esta entidade mapeia uma VIEW (VW_INTEGRACAO_ODONTOPREV_ALT)
  * - Views são "consultas salvas" que juntam dados de várias tabelas
  * - Por isso usa @Immutable - os dados não podem ser alterados
  * - Apenas consultamos os dados, não inserimos/atualizamos
@@ -28,12 +23,6 @@ import java.time.LocalDate;
  * CRITÉRIO DE SELEÇÃO:
  * - Empresas que tiveram DT_ALTERACAO = SYSDATE (alteradas hoje)
  * - Identifica empresas que precisam ter dados atualizados na OdontoPrev
- * 
- * ESTRUTURA DOS DADOS:
- * A view consolida informações de:
- * 1. EMPRESA: código, CNPJ, nome fantasia, datas de contrato
- * 2. PLANOS: códigos, descrições, valores, datas de vigência
- * 3. COBRANÇA: tipo, banco, parcelas (atualmente NULL)
  * 
  * USO NO SISTEMA:
  * 1. Sistema consulta esta view para obter lista de empresas alteradas
@@ -47,283 +36,293 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class    IntegracaoOdontoprevAlteracao {
+public class IntegracaoOdontoprevAlteracao {
 
     /**
-     * CÓDIGO ÚNICO DA EMPRESA NO SISTEMA TASY
-     * 
-     * Este é o identificador principal de cada empresa em nosso sistema.
-     * É usado como chave primária e para buscar dados da empresa na OdontoPrev.
-     * 
-     * Exemplo: "A001", "EMP123", "XYZ789"
+     * NÚMERO SEQUENCIAL DO CONTRATO
+     * NUMBER(10,0)
      */
     @Id
-    @Column(name = "CODIGO_EMPRESA", nullable = false, length = 6)
-    @NotBlank(message = "Código da empresa é obrigatório")
-    @Size(min = 1, max = 6, message = "Código da empresa deve ter entre 1 e 6 caracteres")
-    @Pattern(regexp = "^[A-Za-z0-9]+$", message = "Código da empresa deve conter apenas letras e números")
+    @Column(name = "NR_SEQ_CONTRATO", nullable = true)
+    private Long nrSeqContrato;
+
+    /**
+     * CÓDIGO DA EMPRESA
+     * VARCHAR2(255)
+     */
+    @Column(name = "CODIGOEMPRESA", nullable = true, length = 255)
     private String codigoEmpresa;
 
     /**
-     * CNPJ DA EMPRESA (CADASTRO NACIONAL DE PESSOA JURÍDICA)
-     * 
-     * Documento oficial que identifica a empresa junto à Receita Federal.
-     * Pode vir formatado (12.345.678/0001-90) ou apenas números (12345678000190).
-     * Campo opcional porque algumas empresas podem não ter CNPJ cadastrado ainda.
+     * NOME FANTASIA
+     * VARCHAR2(20)
      */
-    @Column(name = "CNPJ", nullable = true, length = 14)
-    @Pattern(regexp = "^\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}$|^\\d{14}$", 
-             message = "CNPJ deve estar no formato XX.XXX.XXX/XXXX-XX ou XXXXXXXXXXXXXX")
-    private String cnpj;
-
-    /**
-     * CÓDIGO DA EMPRESA NA OPERADORA ODONTOPREV
-     * 
-     * Quando a empresa já existe na OdontoPrev, ela recebe um código específico
-     * deles. Este campo armazena esse código para futuras sincronizações.
-     * Campo opcional porque empresas novas ainda não têm código na operadora.
-     */
-    @Column(name = "CODIGO_CLIENTE_OPERADORA", nullable = true, length = 6)
-    private String codigoClienteOperadora;
-
-    /**
-     * NOME COMERCIAL DA EMPRESA
-     * 
-     * Nome pelo qual a empresa é conhecida no mercado.
-     * Exemplo: "Sabin Medicina Diagnóstica", "Laboratório ABC Ltda"
-     */
-    @Column(name = "NOME_FANTASIA", nullable = true, length = 80)
+    @Column(name = "NOMEFANTASIA", nullable = true, length = 20)
     private String nomeFantasia;
 
     /**
-     * DATA DE INÍCIO DO CONTRATO COM A EMPRESA
-     * Quando começou a vigência do contrato odontológico
+     * EMITE CARTEIRINHA PLÁSTICA
+     * CHAR(1)
      */
-    @Column(name = "DATA_INICIO_CONTRATO", nullable = true)
-    private LocalDate dataInicioContrato;
+    @Column(name = "EMITECARTEIRINHAPLASTICA", nullable = true, length = 1)
+    private String emiteCarteirinhaPlastica;
 
     /**
-     * DATA DE FIM DO CONTRATO COM A EMPRESA
-     * Quando termina a vigência do contrato odontológico
+     * PERMISSÃO CADASTRO DEP
+     * CHAR(1)
      */
-    @Column(name = "DATA_FIM_CONTRATO", nullable = true)
-    private LocalDate dataFimContrato;
+    @Column(name = "PERMISSAOCADASTRODEP", nullable = true, length = 1)
+    private String permissaoCadastroDep;
 
     /**
-     * DATA DE VIGÊNCIA ATUAL DO CONTRATO
-     * Data de referência para cálculos e cobranças
+     * DESCRIÇÃO RAMO ATIVIDADE
+     * VARCHAR2(40)
      */
-    @Column(name = "DATA_VIGENCIA", nullable = true)
-    private LocalDate dataVigencia;
+    @Column(name = "DESCRICAORAMOATIVIDADE", nullable = true, length = 40)
+    private String descricaoRamoAtividade;
 
     /**
-     * INDICA SE É EMPRESA PESSOA FÍSICA
-     * true = pessoa física, false = pessoa jurídica
+     * NÚMERO DE FUNCIONÁRIOS
+     * NUMBER
      */
-    @Column(name = "EMPRESA_PF", nullable = true, length = 60)
-    private String empresaPf;
+    @Column(name = "NUMEROFUNCIONARIOS", nullable = true)
+    private Long numeroFuncionarios;
 
     /**
-     * CÓDIGO DO GRUPO GERENCIAL
-     * Identifica o grupo administrativo da empresa
+     * VALOR FATOR
+     * NUMBER
      */
-    @Column(name = "CODIGO_GRUPO_GERENCIAL", nullable = true)
-    private Long codigoGrupoGerencial;
+    @Column(name = "VALORFATOR", nullable = true)
+    private Long valorFator;
 
     /**
-     * CÓDIGO DA MARCA
-     * Identifica a marca comercial da empresa
+     * CNAE
+     * VARCHAR2(50)
      */
-    @Column(name = "CODIGO_MARCA", nullable = true)
-    private Long codigoMarca;
+    @Column(name = "CNAE", nullable = true, length = 50)
+    private String cnae;
 
     /**
-     * CÓDIGO DA CÉLULA
-     * Identifica a célula de negócio da empresa
+     * CÓDIGO LAYOUT CARTEIRINHA
+     * CHAR(1)
      */
-    @Column(name = "CODIGO_CELULA", nullable = true)
-    private Long codigoCelula;
+    @Column(name = "CODIGOLAYOUTCARTEIRINHA", nullable = true, length = 1)
+    private String codigoLayoutCarteirinha;
 
     /**
-     * NÚMERO DE VIDAS ATIVAS DA EMPRESA
-     * Quantos funcionários estão ativos no plano odontológico
+     * CÓDIGO ORDEM CARTEIRA
+     * NUMBER
      */
-    @Column(name = "VIDAS_ATIVAS", nullable = true)
-    private Long vidasAtivas;
+    @Column(name = "CODIGOORDEMCARTEIRA", nullable = true)
+    private Long codigoOrdemCarteira;
 
     /**
-     * VALOR DO ÚLTIMO FATURAMENTO DA EMPRESA
-     * Quanto a empresa pagou na última cobrança.
-     * Usado para análises financeiras e de risco.
+     * LIBERA SENHA INTERNET
+     * CHAR(1)
      */
-    @Column(name = "VALOR_ULTIMO_FATURAMENTO", nullable = true)
-    private String valorUltimoFaturamento;
+    @Column(name = "LIBERASENHAINTERNET", nullable = true, length = 1)
+    private String liberaSenhaInternet;
 
     /**
-     * ÍNDICE DE SINISTRALIDADE DA EMPRESA
-     * Relação entre o que a empresa paga e o que gasta em tratamentos.
-     * Sinistralidade alta = empresa gasta mais do que paga.
+     * DEPENDENTE PAGA
+     * CHAR(1)
      */
-    @Column(name = "SINISTRALIDADE", nullable = true)
-    private String sinistralidade;
+    @Column(name = "DEPENDENTEPAGA", nullable = true, length = 1)
+    private String dependentePaga;
 
     /**
-     * CÓDIGO IDENTIFICADOR DO PLANO ODONTOLÓGICO 1
-     * Código único que identifica o plano contratado pela empresa
+     * CUSTO FAMILIAR
+     * CHAR(1)
      */
-    @Column(name = "CODIGO_PLANO_1", nullable = true)
-    private Long codigoPlano1;
+    @Column(name = "CUSTOFAMILIAR", nullable = true, length = 1)
+    private String custoFamiliar;
 
     /**
-     * DESCRIÇÃO DETALHADA DO PLANO 1
-     * Nome completo e características do plano odontológico
+     * PLANO FAMILIAR
+     * CHAR(1)
      */
-    @Column(name = "DESCRICAO_PLANO_1", nullable = true)
-    private String descricaoPlano1;
+    @Column(name = "PLANOFAMILIAR", nullable = true, length = 1)
+    private String planoFamiliar;
 
     /**
-     * NOME COMERCIAL DO PLANO 1
-     * Nome simplificado usado para divulgação
+     * IDADE LIMITE UNIVERSITÁRIA
+     * NUMBER
      */
-    @Column(name = "NOME_FANTASIA_PLANO_1", nullable = true)
-    private String nomeFantasiaPlano1;
+    @Column(name = "IDADELIMITEUNIVERSITARIA", nullable = true)
+    private Long idadeLimiteUniversitaria;
 
     /**
-     * REGISTRO NA ANS (AGÊNCIA NACIONAL DE SAÚDE SUPLEMENTAR) 1
-     * Número oficial do plano junto ao órgão regulador
+     * CÓDIGO REGIÃO
+     * NUMBER
      */
-    @Column(name = "NUMERO_REGISTRO_ANS_1", nullable = true)
-    private String numeroRegistroAns1;
+    @Column(name = "CODIGOREGIAO", nullable = true)
+    private Long codigoRegiao;
 
     /**
-     * SIGLA OU ABREVIAÇÃO DO PLANO 1
-     * Identificação curta do plano (ex: "BAS", "PREM", "EXEC")
+     * RAZÃO SOCIAL
+     * VARCHAR2(45)
      */
-    @Column(name = "SIGLA_PLANO_1", nullable = true)
-    private String siglaPlano1;
+    @Column(name = "RAZAOSOCIAL", nullable = true, length = 45)
+    private String razaoSocial;
 
     /**
-     * VALOR MENSAL POR TITULAR DO PLANO 1
-     * Quanto cada funcionário principal da empresa paga mensalmente
+     * INSCRIÇÃO MUNICIPAL
+     * VARCHAR2(20)
      */
-    @Column(name = "VALOR_TITULAR_1", nullable = true)
-    private String valorTitular1;
+    @Column(name = "INSCRICAOMUNICIPAL", nullable = true, length = 20)
+    private String inscricaoMunicipal;
 
     /**
-     * VALOR MENSAL POR DEPENDENTE 1
-     * Quanto cada dependente (cônjuge, filhos) custa mensalmente
+     * INSCRIÇÃO ESTADUAL
+     * VARCHAR2(20)
      */
-    @Column(name = "VALOR_DEPENDENTE_1", nullable = true)
-    private String valorDependente1;
-
-    // Datas de vigência específicas do plano 1
-    @Column(name = "DATA_INICIO_PLANO_1", nullable = true)
-    private LocalDate dataInicioPlano1;
-
-    @Column(name = "DATA_FIM_PLANO_1", nullable = true)
-    private LocalDate dataFimPlano1;
-
-    // CO-PARTICIPAÇÃO DO PLANO - Campo removido pois não existe na view VW_INTEGRACAO_ODONTOPREV_ALT
-    // @Column(name = "CO_PARTICIPACAO", nullable = true, length = 1)
-    // private String coParticipacao;
+    @Column(name = "INSCRICAOESTADUAL", nullable = true, length = 20)
+    private String inscricaoEstadual;
 
     /**
-     * TIPO DE NEGOCIAÇÃO DO PLANO 1
-     * Como foi negociado o plano (individual, coletivo, etc.)
+     * EMAIL
+     * VARCHAR2(4000)
      */
-    @Column(name = "TIPO_NEGOCIACAO_1", nullable = true, length = 2)
-    private String tipoNegociacao1;
+    @Column(name = "EMAIL", nullable = true, length = 4000)
+    private String email;
 
-    // Campos de cobrança (atualmente NULL na view)
-    @Column(name = "CODIGO_TIPO_COBRANCA", nullable = true)
-    private String codigoTipoCobranca;
-
-    @Column(name = "NOME_TIPO_COBRANCA", nullable = true)
-    private String nomeTipoCobranca;
-
-    @Column(name = "SIGLA_TIPO_COBRANCA", nullable = true)
-    private String siglaTipoCobranca;
-
-    @Column(name = "NUMERO_BANCO", nullable = true)
-    private String numeroBanco;
-
-    @Column(name = "NOME_BANCO", nullable = true)
-    private String nomeBanco;
-
-    @Column(name = "NUMERO_PARCELAS", nullable = true)
-    private String numeroParcelas;
-
-    // === CAMPOS DE ENDEREÇO ===
-    
     /**
-     * TIPO DE LOGRADOURO
-     * Código que identifica o tipo de logradouro (Rua, Avenida, etc.)
+     * TIPO LOGRADOURO
+     * NUMBER
      */
     @Column(name = "TIPOLOGRADOURO", nullable = true)
     private Long tipoLogradouro;
 
     /**
-     * NOME DO LOGRADOURO
-     * Nome da rua, avenida, etc.
+     * LOGRADOURO
+     * VARCHAR2(40)
      */
-    @Column(name = "LOGRADOURO", nullable = true, length = 4000)
+    @Column(name = "LOGRADOURO", nullable = true, length = 40)
     private String logradouro;
 
     /**
-     * NÚMERO DO ENDEREÇO
-     * Número do imóvel
+     * NÚMERO
+     * VARCHAR2(10)
      */
-    @Column(name = "NUMERO", nullable = true, length = 4000)
+    @Column(name = "NUMERO", nullable = true, length = 10)
     private String numero;
 
     /**
      * BAIRRO
-     * Nome do bairro
+     * VARCHAR2(40)
      */
-    @Column(name = "BAIRRO", nullable = true, length = 4000)
+    @Column(name = "BAIRRO", nullable = true, length = 40)
     private String bairro;
 
     /**
-     * CÓDIGO DA CIDADE
-     * Código identificador da cidade
+     * CÓDIGO (CIDADE)
+     * VARCHAR2(10)
      */
-    @Column(name = "CODIGOCIDADE", nullable = true, length = 6)
-    private String codigoCidade;
+    @Column(name = "CODIGO", nullable = true, length = 10)
+    private String codigo;
 
     /**
-     * NOME DA CIDADE
-     * Nome da cidade
+     * NOME CIDADE
+     * VARCHAR2(40)
      */
-    @Column(name = "CIDADE", nullable = true, length = 4000)
-    private String cidade;
+    @Column(name = "NOMECIDADE", nullable = true, length = 40)
+    private String nomeCidade;
 
     /**
-     * SIGLA DO ESTADO (UF)
-     * Sigla do estado (SP, RJ, MG, etc.)
+     * SIGLA UF
+     * VARCHAR2(15)
      */
-    @Column(name = "SIGLAUF", nullable = true, length = 4000)
+    @Column(name = "SIGLAUF", nullable = true, length = 15)
     private String siglaUf;
 
     /**
-     * CÓDIGO DO PAÍS
-     * Código identificador do país
+     * CÓDIGO PAÍS
+     * NUMBER
      */
     @Column(name = "CODIGOPAIS", nullable = true)
     private Long codigoPais;
 
     /**
      * CEP
-     * Código de Endereçamento Postal
+     * VARCHAR2(9)
      */
-    @Column(name = "CEP", nullable = true, length = 4000)
+    @Column(name = "CEP", nullable = true, length = 9)
     private String cep;
 
     /**
-     * CÓDIGO DO USUÁRIO
-     * 
-     * Código do usuário responsável pela alteração da empresa.
-     * Este campo é usado na API de alteração da OdontoPrev.
+     * CÓDIGO NATUREZA JURÍDICA
+     * VARCHAR2(50)
      */
-    @Column(name = "CODUSUARIO", nullable = true, length = 20)
-    private String codUsuario;
+    @Column(name = "CODIGONATUREZAJURIDICA", nullable = true, length = 50)
+    private String codigoNaturezaJuridica;
+
+    /**
+     * NOME NATUREZA JURÍDICA
+     * VARCHAR2(50)
+     */
+    @Column(name = "NOMENATUREZAJURIDICA", nullable = true, length = 50)
+    private String nomeNaturezaJuridica;
+
+    /**
+     * SITUAÇÃO CADASTRAL
+     * CHAR(5)
+     */
+    @Column(name = "SITUACAOCADASTRAL", nullable = true, length = 5)
+    private String situacaoCadastral;
+
+    /**
+     * DATA CONSTITUIÇÃO
+     * VARCHAR2(20)
+     */
+    @Column(name = "DATACONSTITUICAO", nullable = true, length = 20)
+    private String dataConstituicao;
+
+    /**
+     * RENOVAÇÃO AUTOMÁTICA
+     * CHAR(1)
+     */
+    @Column(name = "RENOVACAOAUTOMATICA", nullable = true, length = 1)
+    private String renovacaoAutomatica;
+
+    /**
+     * DATA VIGÊNCIA
+     * VARCHAR2(20)
+     */
+    @Column(name = "DATAVIGENCIA", nullable = true, length = 20)
+    private String dataVigencia;
+
+    /**
+     * MÊS ANIVERSÁRIO REAJUSTE
+     * NUMBER
+     */
+    @Column(name = "MESANIVERSARIREAJUSTE", nullable = true)
+    private Long mesAniversarioReajuste;
+
+    /**
+     * CÓDIGO USUÁRIO
+     * NUMBER
+     */
+    @Column(name = "CODIGOUSUARIO", nullable = true)
+    private Long codigoUsuario;
+
+    /**
+     * SISTEMA
+     * CHAR(10)
+     */
+    @Column(name = "SISTEMA", nullable = true, length = 10)
+    private String sistema;
+
+    /**
+     * CÓDIGO GRUPO GERENCIAL
+     * NUMBER
+     */
+    @Column(name = "CODIGOGRUPOGERENCIAL", nullable = true)
+    private Long codigoGrupoGerencial;
+
+    /**
+     * CÓDIGO GRAU PARENTESCO
+     * CHAR(121)
+     */
+    @Column(name = "CODIGOGRAUPARENTESCO", nullable = true, length = 121)
+    private String codigoGrauParentesco;
 }

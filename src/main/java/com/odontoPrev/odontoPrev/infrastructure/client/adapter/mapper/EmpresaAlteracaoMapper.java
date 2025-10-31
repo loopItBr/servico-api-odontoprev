@@ -23,52 +23,53 @@ public interface EmpresaAlteracaoMapper {
     /**
      * CONVERTE ENTIDADE DE ALTERAÇÃO PARA DTO DE ALTERAÇÃO
      *
-     * Mapeia campos da view de alteração para o DTO da API.
-     * Aplica transformações específicas para campos obrigatórios.
+     * Mapeia APENAS os campos que existem na view VW_INTEGRACAO_ODONTOPREV_ALT
+     * conforme especificado na documentação da API.
      */
-    // MAPEAMENTO COMPLETO DOS CAMPOS DA VIEW
+    // CAMPOS OBRIGATÓRIOS
     @Mapping(target = "codigoEmpresa", source = "codigoEmpresa") // OBRIGATÓRIO
-    @Mapping(target = "nomeFantasia", source = "nomeFantasia") // MODIFICADO
-    @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "localDateToLocalDateTime") // MODIFICADO
-    @Mapping(target = "codigoUsuario", constant = "0") // OBRIGATÓRIO - valor fixo "0" para alteração
-    @Mapping(target = "endereco", source = ".", qualifiedByName = "createEnderecoFromView") // OBRIGATÓRIO - criado a partir da view
-    @Mapping(target = "telefone", source = ".", qualifiedByName = "createTelefoneFromView") // Criado a partir da view
-    @Mapping(target = "grausParentesco", source = ".", qualifiedByName = "createGrausParentescoFromView") // Criado a partir da view
-    // CAMPOS DA VIEW QUE ESTÃO DISPONÍVEIS NO DTO
-    // codigoGrupoGerencial removido - não deve ser enviado junto com codigoEmpresa
-    @Mapping(target = "sinistralidade", ignore = true) // Enviar como null
-    // CAMPOS QUE NÃO ESTÃO NA VIEW - IGNORADOS
-    @Mapping(target = "razaoSocial", ignore = true)
-    @Mapping(target = "emiteCarteirinhaPlastica", ignore = true)
-    @Mapping(target = "permissaoCadastroDep", ignore = true)
-    @Mapping(target = "descricaoRamoAtividade", ignore = true)
-    @Mapping(target = "ramo", ignore = true)
-    @Mapping(target = "numeroFuncionarios", ignore = true)
-    @Mapping(target = "valorFator", ignore = true)
-    @Mapping(target = "cnae", ignore = true)
-    @Mapping(target = "codigoLayoutCarteirinha", ignore = true)
-    @Mapping(target = "codigoOrdemCarteira", ignore = true)
-    @Mapping(target = "liberaSenhaInternet", ignore = true)
-    @Mapping(target = "dependentePaga", ignore = true)
-    @Mapping(target = "custoFamiliar", ignore = true)
-    @Mapping(target = "planoFamiliar", ignore = true)
-    @Mapping(target = "idadeLimiteUniversitaria", ignore = true)
-    @Mapping(target = "codigoRegiao", ignore = true)
-    @Mapping(target = "numeroCei", ignore = true)
-    @Mapping(target = "cic", ignore = true)
-    @Mapping(target = "inscricaoMunicipal", ignore = true)
-    @Mapping(target = "inscricaoEstadual", ignore = true)
-    @Mapping(target = "email", ignore = true)
-    @Mapping(target = "codigoNaturezaJuridica", ignore = true)
-    @Mapping(target = "nomeNaturezaJuridica", ignore = true)
-    @Mapping(target = "situacaoCadastral", ignore = true)
-    @Mapping(target = "dataConstituicao", ignore = true)
-    @Mapping(target = "renovacaoAutomatica", ignore = true)
-    @Mapping(target = "mesAniversarioReajuste", ignore = true)
-    @Mapping(target = "anoProximoAniversarioReajuste", ignore = true)
-    @Mapping(target = "sistema", ignore = true)
-    @Mapping(target = "diaVencimentoPlano", ignore = true)
-    @Mapping(target = "diaMovimentacaoCadastral", ignore = true)
+    @Mapping(target = "codigoUsuario", source = "codigoUsuario", qualifiedByName = "codigoUsuarioToString") // OBRIGATÓRIO - da view
+    @Mapping(target = "endereco", source = ".", qualifiedByName = "createEnderecoFromView") // OBRIGATÓRIO
+    
+    // CAMPOS DA VIEW QUE EXISTEM NA DOCUMENTAÇÃO DA API
+    @Mapping(target = "nomeFantasia", source = "nomeFantasia")
+    @Mapping(target = "emiteCarteirinhaPlastica", source = "emiteCarteirinhaPlastica")
+    @Mapping(target = "permissaoCadastroDep", source = "permissaoCadastroDep")
+    @Mapping(target = "descricaoRamoAtividade", source = "descricaoRamoAtividade")
+    @Mapping(target = "numeroFuncionarios", source = "numeroFuncionarios", qualifiedByName = "longToInteger")
+    @Mapping(target = "valorFator", source = "valorFator", qualifiedByName = "longToDouble")
+    @Mapping(target = "cnae", source = "cnae")
+    @Mapping(target = "codigoLayoutCarteirinha", source = "codigoLayoutCarteirinha")
+    @Mapping(target = "codigoOrdemCarteira", source = "codigoOrdemCarteira", qualifiedByName = "longToInteger")
+    @Mapping(target = "liberaSenhaInternet", source = "liberaSenhaInternet")
+    @Mapping(target = "dependentePaga", source = "dependentePaga")
+    @Mapping(target = "custoFamiliar", source = "custoFamiliar")
+    @Mapping(target = "planoFamiliar", source = "planoFamiliar")
+    @Mapping(target = "idadeLimiteUniversitaria", source = "idadeLimiteUniversitaria", qualifiedByName = "longToInteger")
+    @Mapping(target = "codigoRegiao", source = "codigoRegiao", qualifiedByName = "longToInteger")
+    @Mapping(target = "razaoSocial", source = "razaoSocial")
+    @Mapping(target = "inscricaoMunicipal", source = "inscricaoMunicipal")
+    @Mapping(target = "inscricaoEstadual", source = "inscricaoEstadual")
+    @Mapping(target = "email", source = "email")
+    @Mapping(target = "codigoNaturezaJuridica", source = "codigoNaturezaJuridica")
+    @Mapping(target = "nomeNaturezaJuridica", source = "nomeNaturezaJuridica")
+    @Mapping(target = "situacaoCadastral", source = "situacaoCadastral")
+    @Mapping(target = "dataConstituicao", source = "dataConstituicao", qualifiedByName = "stringToLocalDateTime")
+    @Mapping(target = "renovacaoAutomatica", source = "renovacaoAutomatica")
+    @Mapping(target = "dataVigencia", source = "dataVigencia", qualifiedByName = "stringToLocalDateTime")
+    @Mapping(target = "mesAniversarioReajuste", source = "mesAniversarioReajuste", qualifiedByName = "longToInteger")
+    @Mapping(target = "sistema", source = "sistema")
+    
+    // CAMPOS OPCIONAIS QUE NÃO ESTÃO NA VIEW - IGNORADOS
+    @Mapping(target = "ramo", ignore = true) // Não existe na view
+    @Mapping(target = "numeroCei", ignore = true) // Não existe na view
+    @Mapping(target = "cic", ignore = true) // Não existe na view
+    @Mapping(target = "telefone", source = ".", qualifiedByName = "createTelefoneFromView") // Não existe na view, cria padrão
+    @Mapping(target = "anoProximoAniversarioReajuste", ignore = true) // Não existe na view
+    @Mapping(target = "sinistralidade", ignore = true) // Não existe na view
+    @Mapping(target = "diaVencimentoPlano", ignore = true) // Não existe na view
+    @Mapping(target = "diaMovimentacaoCadastral", ignore = true) // Não existe na view
+    @Mapping(target = "grausParentesco", source = ".", qualifiedByName = "createGrausParentescoFromView") // Não existe na view, usa CODIGOGRAUPARENTESCO se disponível
     EmpresaAlteracaoRequest toAlteracaoRequest(IntegracaoOdontoprevAlteracao empresa);
 
     /**
@@ -122,6 +123,68 @@ public interface EmpresaAlteracaoMapper {
     EmpresaAlteracaoRequest toAlteracaoRequest(IntegracaoOdontoprev empresa);
 
     /**
+     * CONVERTE STRING PARA LOCALDATETIME
+     * 
+     * Converte String (VARCHAR2(20)) da view para LocalDateTime no formato da API.
+     */
+    @Named("stringToLocalDateTime")
+    default LocalDateTime stringToLocalDateTime(String dateString) {
+        if (dateString == null || dateString.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // Tenta parsear no formato esperado (YYYY-MM-DD ou similar)
+            // A view retorna VARCHAR2(20), então pode estar em vários formatos
+            if (dateString.contains("T")) {
+                // Já está no formato ISO
+                return LocalDateTime.parse(dateString);
+            } else if (dateString.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                // Formato YYYY-MM-DD
+                return LocalDate.parse(dateString).atStartOfDay();
+            } else {
+                // Tenta parsear como data simples
+                return LocalDate.parse(dateString).atStartOfDay();
+            }
+        } catch (Exception e) {
+            // Se não conseguir parsear, retorna null
+            return null;
+        }
+    }
+
+    /**
+     * CONVERTE CODIGO USUÁRIO (LONG) PARA STRING
+     */
+    @Named("codigoUsuarioToString")
+    default String codigoUsuarioToString(Long codigoUsuario) {
+        if (codigoUsuario == null) {
+            return "0"; // Valor padrão obrigatório
+        }
+        return codigoUsuario.toString();
+    }
+
+    /**
+     * CONVERTE LONG PARA INTEGER
+     */
+    @Named("longToInteger")
+    default Integer longToInteger(Long value) {
+        if (value == null) {
+            return null;
+        }
+        return value.intValue();
+    }
+
+    /**
+     * CONVERTE LONG PARA DOUBLE
+     */
+    @Named("longToDouble")
+    default Double longToDouble(Long value) {
+        if (value == null) {
+            return null;
+        }
+        return value.doubleValue();
+    }
+
+    /**
      * CONVERTE LOCALDATE PARA LOCALDATETIME
      */
     @Named("localDateToLocalDateTime")
@@ -130,29 +193,6 @@ public interface EmpresaAlteracaoMapper {
             return null;
         }
         return date.atStartOfDay();
-    }
-
-    /**
-     * CONVERTE STRING PARA DOUBLE
-     */
-    @Named("stringToDouble")
-    default Double stringToDouble(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return 0.0;
-        }
-        try {
-            return Double.parseDouble(value);
-        } catch (NumberFormatException e) {
-            return 0.0;
-        }
-    }
-
-    /**
-     * CONVERTE LONG PARA STRING
-     */
-    @Named("longToString")
-    default String longToString(Long value) {
-        return value != null ? value.toString() : null;
     }
 
     /**
@@ -169,8 +209,8 @@ public interface EmpresaAlteracaoMapper {
 
         // Log dos dados da view para debug
         System.out.println("🔍 [MAPPER] Dados da view para endereço:");
-        System.out.println("   CODIGOCIDADE: '" + view.getCodigoCidade() + "'");
-        System.out.println("   CIDADE: '" + view.getCidade() + "'");
+        System.out.println("   CODIGO (cidade): '" + view.getCodigo() + "'");
+        System.out.println("   NOMECIDADE: '" + view.getNomeCidade() + "'");
         System.out.println("   SIGLAUF: '" + view.getSiglaUf() + "'");
         System.out.println("   LOGRADOURO: '" + view.getLogradouro() + "'");
         System.out.println("   NUMERO: '" + view.getNumero() + "'");
@@ -183,16 +223,22 @@ public interface EmpresaAlteracaoMapper {
             return createEnderecoPadrao();
         }
 
+        // Usa tipoLogradouro da view se disponível, senão usa "2" como padrão
+        String tipoLogradouroStr = "2"; // Valor padrão
+        if (view.getTipoLogradouro() != null) {
+            tipoLogradouroStr = view.getTipoLogradouro().toString();
+        }
+        
         EmpresaAlteracaoRequest.Endereco endereco = EmpresaAlteracaoRequest.Endereco.builder()
             .descricao("Endereço da empresa")
             .complemento("")
-            .tipoLogradouro("2") // Sempre 2 (numérico como string)
+            .tipoLogradouro(tipoLogradouroStr) // Usa valor da view TIPOLOGRADOURO
             .logradouro(view.getLogradouro())
             .numero(view.getNumero() != null ? view.getNumero() : "S/N")
             .bairro(view.getBairro() != null ? view.getBairro() : "Centro")
             .cidade(EmpresaAlteracaoRequest.Cidade.builder()
-                .codigo(parsearCodigoCidade(view.getCodigoCidade()))
-                .nome(view.getCidade() != null ? view.getCidade() : "São Paulo")
+                .codigo(parsearCodigoCidade(view.getCodigo()))
+                .nome(view.getNomeCidade() != null ? view.getNomeCidade() : "São Paulo")
                 .siglaUf(view.getSiglaUf() != null ? view.getSiglaUf() : "SP")
                 .codigoPais(view.getCodigoPais() != null ? view.getCodigoPais().intValue() : 1)
                 .build())
@@ -230,16 +276,16 @@ public interface EmpresaAlteracaoMapper {
     /**
      * PARSEIA CÓDIGO DA CIDADE COM TRATAMENTO ROBUSTO
      * 
-     * Converte o CODIGOCIDADE da view para Integer com tratamento de erros.
+     * Converte o CODIGO (código da cidade) da view para Integer com tratamento de erros.
      */
-    default Integer parsearCodigoCidade(String codigoCidade) {
-        if (codigoCidade == null || codigoCidade.trim().isEmpty()) {
+    default Integer parsearCodigoCidade(String codigo) {
+        if (codigo == null || codigo.trim().isEmpty()) {
             return 3670; // Código padrão
         }
         
         try {
             // Remove espaços e converte para número
-            String codigoLimpo = codigoCidade.trim();
+            String codigoLimpo = codigo.trim();
             return Integer.parseInt(codigoLimpo);
         } catch (NumberFormatException e) {
             // Se não conseguir converter, retorna código padrão
@@ -265,15 +311,20 @@ public interface EmpresaAlteracaoMapper {
     /**
      * CRIA GRAUS DE PARENTESCO A PARTIR DOS DADOS DA VIEW
      * 
-     * Cria lista de graus de parentesco padrão (a view não tem campos de grau de parentesco).
+     * Usa o campo CODIGOGRAUPARENTESCO da view (CHAR(121)) para criar lista.
+     * Se o campo não existir ou estiver vazio, retorna lista vazia.
      */
     @Named("createGrausParentescoFromView")
     default java.util.List<EmpresaAlteracaoRequest.GrauParentesco> createGrausParentescoFromView(IntegracaoOdontoprevAlteracao view) {
-        return java.util.Collections.singletonList(
-            EmpresaAlteracaoRequest.GrauParentesco.builder()
-                .codigoGrauParentesco(1) // Cônjuge
-                .build()
-        );
+        if (view == null || view.getCodigoGrauParentesco() == null || view.getCodigoGrauParentesco().trim().isEmpty()) {
+            // Se não há código de grau de parentesco, retorna lista vazia
+            return java.util.Collections.emptyList();
+        }
+        
+        // O campo CODIGOGRAUPARENTESCO é CHAR(121), pode conter múltiplos códigos
+        // Por enquanto, retorna lista vazia (pode ser implementado parsing futuro)
+        // Se precisar, podemos parsear o campo e criar múltiplos graus
+        return java.util.Collections.emptyList();
     }
 
     /**
