@@ -1120,6 +1120,12 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
         }
         
         // Construir objeto Beneficiario (dados do dependente)
+        // IMPORTANTE: Preencher identificacao com "D" para dependentes (requisito da API)
+        String identificacaoStr = "D";
+        if (beneficiario.getIdentificacao() != null && !beneficiario.getIdentificacao().trim().isEmpty()) {
+            identificacaoStr = beneficiario.getIdentificacao().trim().toUpperCase();
+        }
+        
         var beneficiarioData = BeneficiarioDependenteInclusaoRequest.Beneficiario.builder()
                 .beneficiarioTitular(codigoAssociadoTitularStr) // Código do associado titular como String
                 .campanha(null)
@@ -1146,7 +1152,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                                 .build() : null)
                 .estadoCivil(beneficiario.getEstadoCivil())
                 .grauParentesco(grauParentescoStr) // String
-                .identificacao(null) // Opcional conforme exemplo
+                .identificacao(identificacaoStr) // "D" para dependente - preenchido da view
                 .motivoExclusao(null)
                 .nmCargo(beneficiario.getNmCargo())
                 .nomeBeneficiario(beneficiario.getNomeBeneficiario())

@@ -697,16 +697,17 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                 
                 // Verifica se o beneficiário já foi processado com sucesso
                 // IMPORTANTE: Usa CPF para verificação pois dependentes podem ter mesma matrícula do titular
-                // IMPORTANTE: Para dependentes, sempre processar mesmo se já existe na TBSYNC (pode ter falhado antes)
-                boolean jaProcessado = false;
+                // IMPORTANTE: Verificar TAMBÉM para dependentes se já foi processado com SUCESSO
+                boolean jaProcessado = jaFoiProcessadoComSucessoPorCpf(beneficiario.getCodigoEmpresa(), beneficiario.getCpf(), "INCLUSAO");
                 
-                // Para dependentes, SEMPRE processar (não verificar se já foi processado)
                 if (isDependente) {
-                    log.error("👨‍👩‍👧‍👦 DEPENDENTE - PROCESSANDO SEMPRE (ignorando verificação de já processado) - Matrícula: {} | CPF: {}", 
-                            beneficiario.getCodigoMatricula(), beneficiario.getCpf());
-                    jaProcessado = false; // FORÇAR processamento de dependentes
-                } else {
-                    jaProcessado = jaFoiProcessadoComSucessoPorCpf(beneficiario.getCodigoEmpresa(), beneficiario.getCpf(), "INCLUSAO");
+                    if (jaProcessado) {
+                        log.warn("⏭️ DEPENDENTE JÁ PROCESSADO COM SUCESSO - Matrícula: {} | CPF: {} - Pulando para evitar reprocessamento", 
+                                beneficiario.getCodigoMatricula(), beneficiario.getCpf());
+                    } else {
+                        log.info("👨‍👩‍👧‍👦 DEPENDENTE SERÁ PROCESSADO - Matrícula: {} | CPF: {} - Ainda não processado com sucesso", 
+                                beneficiario.getCodigoMatricula(), beneficiario.getCpf());
+                    }
                 }
                 
                 log.info("🔍 [VERIFICAÇÃO] Beneficiário {} ({} - CPF: {}) - jaProcessado: {}", 
@@ -739,13 +740,30 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                 // Converte a view para entidade de domínio e processa
                 BeneficiarioOdontoprev beneficiarioDomínio = null;
                 try {
+                    // Validação prévia dos dados obrigatórios da view antes da conversão
+                    if (beneficiario.getCodigoMatricula() == null || beneficiario.getCodigoMatricula().trim().isEmpty()) {
+                        throw new IllegalArgumentException("Código da matrícula é obrigatório e está vazio na view");
+                    }
+                    if (beneficiario.getCpf() == null || beneficiario.getCpf().trim().isEmpty()) {
+                        throw new IllegalArgumentException("CPF é obrigatório e está vazio na view");
+                    }
+                    if (beneficiario.getCodigoEmpresa() == null || beneficiario.getCodigoEmpresa().trim().isEmpty()) {
+                        throw new IllegalArgumentException("Código da empresa é obrigatório e está vazio na view");
+                    }
+                    
                     // DEBUG: Log dos valores da view antes da conversão
                     log.info("🔍 [DEBUG VIEW] Antes da conversão - Matrícula: {} | codigoAssociadoTitular: '{}' | usuario: {}", 
                             beneficiario.getCodigoMatricula(), 
                             beneficiario.getCodigoAssociadoTitular(),
                             beneficiario.getUsuario());
                     
+                    // Tentar converter a view para entidade de domínio
                     beneficiarioDomínio = beneficiarioViewMapper.fromInclusaoView(beneficiario);
+                    
+                    // Validação pós-conversão para garantir que a conversão foi bem-sucedida
+                    if (beneficiarioDomínio == null) {
+                        throw new IllegalStateException("A conversão da view retornou null - dados podem estar inválidos");
+                    }
                     
                     // DEBUG: Log dos valores após a conversão
                     log.info("🔍 [DEBUG DOMINIO] Após a conversão - Matrícula: {} | codigoAssociadoTitularTemp: '{}' | usuarioTemp: {}", 
@@ -814,9 +832,24 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                         throw processamentoEx;
                     }
                 } catch (Exception mappingException) {
-                    // Se deu erro na conversão, criar beneficiário mínimo para registrar erro na TBSYNC
-                    log.error("❌ ERRO NA CONVERSÃO DA VIEW - Beneficiário {}: {}", 
-                             beneficiario.getCodigoMatricula(), mappingException.getMessage());
+                    // Se deu erro na conversão, extrair a causa real da exceção
+                    Throwable causaReal = mappingException;
+                    String mensagemErroReal = mappingException.getMessage();
+                    
+                    // Se a exceção foi encapsulada (ex: ProcessamentoLoteException), extrair a causa original
+                    if (mappingException.getCause() != null) {
+                        causaReal = mappingException.getCause();
+                        mensagemErroReal = causaReal.getMessage() != null ? causaReal.getMessage() : mensagemErroReal;
+                    }
+                    
+                    // Log detalhado do erro real
+                    log.error("❌ ERRO NA CONVERSÃO DA VIEW - Beneficiário {} | Tipo Exceção: {} | Erro: {} | Causa: {} | StackTrace: ", 
+                             beneficiario.getCodigoMatricula(),
+                             mappingException.getClass().getSimpleName(),
+                             mensagemErroReal,
+                             causaReal.getClass().getSimpleName(),
+                             causaReal);
+                    
                     if (beneficiarioDomínio == null) {
                         // Criar beneficiário mínimo para poder registrar erro na TBSYNC
                         beneficiarioDomínio = BeneficiarioOdontoprev.builder()
@@ -831,10 +864,14 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                     }
                     
                     // Verificar se é erro de dependente já cadastrado ANTES de registrar na TBSYNC
-                    String mensagemMapping = mappingException.getMessage() != null ? mappingException.getMessage() : "";
-                    boolean dependenteJaCadastradoMapping = (mensagemMapping.contains("existe para o titular") || 
-                                                           mensagemMapping.contains("417") ||
-                                                           (mensagemMapping.contains("Dependente") && mensagemMapping.contains("existe")));
+                    String mensagemCompleta = mensagemErroReal;
+                    if (causaReal.getMessage() != null && !causaReal.getMessage().equals(mensagemErroReal)) {
+                        mensagemCompleta = mensagemErroReal + " | Causa: " + causaReal.getMessage();
+                    }
+                    
+                    boolean dependenteJaCadastradoMapping = (mensagemCompleta.contains("existe para o titular") || 
+                                                           mensagemCompleta.contains("417") ||
+                                                           (mensagemCompleta.contains("Dependente") && mensagemCompleta.contains("existe")));
                     
                     if (isDependente && dependenteJaCadastradoMapping) {
                         log.warn("⚠️ DEPENDENTE JÁ CADASTRADO (erro na conversão) - {}: Não será registrado na TBSYNC", 
@@ -843,10 +880,11 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                     }
                     
                     // Registrar erro na TBSYNC passando também a view para ter dados completos
+                    // Usar a causa real da exceção para preservar informações originais
                     try {
                         registrarErroNaTBSync(beneficiarioDomínio, beneficiario,
-                                "Erro ao converter view para entidade: " + mappingException.getMessage(), 
-                                mappingException);
+                                "Erro ao converter view para entidade: " + mensagemCompleta, 
+                                causaReal instanceof Exception ? (Exception) causaReal : mappingException);
                     } catch (Exception erroTBSync) {
                         log.error("❌ ERRO ao registrar na TBSYNC durante conversão: {}", erroTBSync.getMessage());
                     }
@@ -965,20 +1003,26 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                 if ("D".equals(beneficiario.getIdentificacao())) {
                     endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
                     
-                    // Tentar buscar código do associado titular usando reflexão do método privado
-                    // Se não conseguir, usar método alternativo ou deixar vazio
+                    // PRIORIDADE 1: Usar codigoAssociadoTitular diretamente da view (se disponível)
                     String codigoAssociadoTitular = null;
-                    try {
-                        // Tentar buscar código do titular usando o serviço de processamento
-                        if (processamentoBeneficiarioService != null) {
-                            // Usar reflexão para chamar método privado buscarCodigoAssociadoTitular
-                            java.lang.reflect.Method metodoBuscar = ProcessamentoBeneficiarioServiceImpl.class
-                                    .getDeclaredMethod("buscarCodigoAssociadoTitular", String.class);
-                            metodoBuscar.setAccessible(true);
-                            codigoAssociadoTitular = (String) metodoBuscar.invoke(
-                                    processamentoBeneficiarioService, beneficiario.getCodigoEmpresa());
-                            
-                            if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
+                    if (beneficiarioView != null && beneficiarioView.getCodigoAssociadoTitular() != null 
+                            && !beneficiarioView.getCodigoAssociadoTitular().trim().isEmpty()) {
+                        codigoAssociadoTitular = beneficiarioView.getCodigoAssociadoTitular().replaceAll("[^0-9]", "");
+                        log.info("✅ [TBSYNC] Usando codigoAssociadoTitular da view: {}", codigoAssociadoTitular);
+                    }
+                    
+                    // PRIORIDADE 2: Tentar usar codigoAssociadoTitularTemp do beneficiário de domínio
+                    if ((codigoAssociadoTitular == null || codigoAssociadoTitular.trim().isEmpty()) 
+                            && beneficiario.getCodigoAssociadoTitularTemp() != null 
+                            && !beneficiario.getCodigoAssociadoTitularTemp().trim().isEmpty()) {
+                        codigoAssociadoTitular = beneficiario.getCodigoAssociadoTitularTemp().replaceAll("[^0-9]", "");
+                        log.info("✅ [TBSYNC] Usando codigoAssociadoTitularTemp do beneficiário: {}", codigoAssociadoTitular);
+                    }
+                    
+                    // Se temos codigoAssociadoTitular, tentar criar payload completo via reflexão
+                    if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
+                        try {
+                            if (processamentoBeneficiarioService != null) {
                                 // Criar request de dependente usando reflexão
                                 java.lang.reflect.Method metodoConverter = ProcessamentoBeneficiarioServiceImpl.class
                                         .getDeclaredMethod("converterParaDependenteRequest", 
@@ -994,10 +1038,12 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                                 log.info("✅ [TBSYNC] Payload de dependente criado com sucesso - {} caracteres", 
                                         payloadJson.length());
                             }
+                        } catch (Exception refletException) {
+                            log.warn("⚠️ [TBSYNC] Não foi possível criar payload de dependente via reflexão: {} - Usando fallback", 
+                                    refletException.getMessage());
                         }
-                    } catch (Exception refletException) {
-                        log.warn("⚠️ [TBSYNC] Não foi possível criar payload de dependente via reflexão: {}", 
-                                refletException.getMessage());
+                    } else {
+                        log.warn("⚠️ [TBSYNC] codigoAssociadoTitular não encontrado na view nem no beneficiário - Usando fallback");
                     }
                 } else {
                     // Criar request de titular usando reflexão
@@ -1055,6 +1101,8 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                         
                         com.fasterxml.jackson.databind.node.ObjectNode beneficiarioNode = mapper.createObjectNode();
                         com.fasterxml.jackson.databind.node.ObjectNode beneficiarioData = mapper.createObjectNode();
+                        
+                        // Campos básicos do beneficiário
                         beneficiarioData.put("codigoMatricula", beneficiarioView.getCodigoMatricula() != null ? beneficiarioView.getCodigoMatricula() : "");
                         if (beneficiarioView.getCodigoPlano() != null) {
                             beneficiarioData.put("codigoPlano", String.valueOf(beneficiarioView.getCodigoPlano()));
@@ -1062,32 +1110,141 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                         beneficiarioData.put("cpf", beneficiarioView.getCpf() != null ? beneficiarioView.getCpf() : "");
                         beneficiarioData.put("nomeBeneficiario", beneficiarioView.getNomeDoBeneficiario() != null ? beneficiarioView.getNomeDoBeneficiario() : "");
                         beneficiarioData.put("identificacao", beneficiarioView.getIdentificacao() != null ? beneficiarioView.getIdentificacao() : "");
+                        
                         // Adicionar beneficiarioTitular se disponível (como String)
                         if (codigoAssociadoTitularStr != null && !codigoAssociadoTitularStr.isEmpty()) {
                             beneficiarioData.put("beneficiarioTitular", codigoAssociadoTitularStr);
                         }
+                        
+                        // Adicionar dataDeNascimento da view (formato DD/MM/YYYY)
+                        if (beneficiarioView.getDataDeNascimento() != null && !beneficiarioView.getDataDeNascimento().trim().isEmpty()) {
+                            beneficiarioData.put("dataDeNascimento", beneficiarioView.getDataDeNascimento());
+                        }
+                        
+                        // Adicionar dtVigenciaRetroativa da view (formato DD/MM/YYYY)
+                        if (beneficiarioView.getDtVigenciaRetroativa() != null && !beneficiarioView.getDtVigenciaRetroativa().trim().isEmpty()) {
+                            beneficiarioData.put("dtVigenciaRetroativa", beneficiarioView.getDtVigenciaRetroativa());
+                        }
+                        
+                        // Adicionar nomeDaMae da view
+                        if (beneficiarioView.getNomeDaMae() != null && !beneficiarioView.getNomeDaMae().trim().isEmpty()) {
+                            beneficiarioData.put("nomeDaMae", beneficiarioView.getNomeDaMae());
+                        }
+                        
+                        // Adicionar sexo da view
+                        if (beneficiarioView.getSexo() != null && !beneficiarioView.getSexo().trim().isEmpty()) {
+                            beneficiarioData.put("sexo", beneficiarioView.getSexo());
+                        }
+                        
+                        // Adicionar telefoneCelular da view
+                        if (beneficiarioView.getTelefoneCelular() != null && !beneficiarioView.getTelefoneCelular().trim().isEmpty()) {
+                            beneficiarioData.put("telefoneCelular", beneficiarioView.getTelefoneCelular());
+                        } else {
+                            beneficiarioData.put("telefoneCelular", (String) null);
+                        }
+                        
+                        // Adicionar telefoneResidencial da view
+                        if (beneficiarioView.getTelefoneResidencial() != null && !beneficiarioView.getTelefoneResidencial().trim().isEmpty()) {
+                            beneficiarioData.put("telefoneResidencial", beneficiarioView.getTelefoneResidencial());
+                        } else {
+                            beneficiarioData.put("telefoneResidencial", (String) null);
+                        }
+                        
+                        // Adicionar estadoCivil da view
+                        if (beneficiarioView.getEstadoCivil() != null && !beneficiarioView.getEstadoCivil().trim().isEmpty()) {
+                            beneficiarioData.put("estadoCivil", beneficiarioView.getEstadoCivil());
+                        }
+                        
+                        // Adicionar nmCargo da view
+                        if (beneficiarioView.getNmCargo() != null && !beneficiarioView.getNmCargo().trim().isEmpty()) {
+                            beneficiarioData.put("nmCargo", beneficiarioView.getNmCargo());
+                        }
+                        
+                        // Adicionar rg da view
+                        if (beneficiarioView.getRg() != null && !beneficiarioView.getRg().trim().isEmpty()) {
+                            beneficiarioData.put("rg", beneficiarioView.getRg());
+                        } else {
+                            beneficiarioData.put("rg", (String) null);
+                        }
+                        
+                        // Adicionar rgEmissor da view
+                        if (beneficiarioView.getRgEmissor() != null && !beneficiarioView.getRgEmissor().trim().isEmpty()) {
+                            beneficiarioData.put("rgEmissor", beneficiarioView.getRgEmissor());
+                        } else {
+                            beneficiarioData.put("rgEmissor", (String) null);
+                        }
+                        
+                        // Campos opcionais que devem ser null (igual ao payload de sucesso)
+                        beneficiarioData.put("campanha", (String) null);
+                        beneficiarioData.put("email", (String) null);
+                        beneficiarioData.put("empresaNova", (String) null);
+                        beneficiarioData.put("grauParentesco", (String) null);
+                        beneficiarioData.put("motivoExclusao", (String) null);
+                        beneficiarioData.put("pisPasep", (String) null);
+                        beneficiarioData.put("telefoneComercial", (String) null);
+                        
+                        // Adicionar endereco completo da view
+                        if (beneficiarioView.getLogradouro() != null || beneficiarioView.getCep() != null || 
+                            beneficiarioView.getBairro() != null || beneficiarioView.getCidade() != null || 
+                            beneficiarioView.getUf() != null || beneficiarioView.getNumero() != null) {
+                            
+                            com.fasterxml.jackson.databind.node.ObjectNode enderecoNode = mapper.createObjectNode();
+                            
+                            if (beneficiarioView.getBairro() != null) {
+                                enderecoNode.put("bairro", beneficiarioView.getBairro());
+                            }
+                            if (beneficiarioView.getCep() != null) {
+                                enderecoNode.put("cep", beneficiarioView.getCep());
+                            }
+                            if (beneficiarioView.getCidade() != null) {
+                                enderecoNode.put("cidade", beneficiarioView.getCidade());
+                            }
+                            if (beneficiarioView.getLogradouro() != null) {
+                                enderecoNode.put("logradouro", beneficiarioView.getLogradouro());
+                            }
+                            if (beneficiarioView.getNumero() != null) {
+                                enderecoNode.put("numero", beneficiarioView.getNumero());
+                            }
+                            if (beneficiarioView.getUf() != null) {
+                                enderecoNode.put("uf", beneficiarioView.getUf());
+                            }
+                            if (beneficiarioView.getComplemento() != null) {
+                                enderecoNode.put("complemento", beneficiarioView.getComplemento());
+                            }
+                            if (beneficiarioView.getTpEndereco() != null) {
+                                enderecoNode.put("tpEndereco", beneficiarioView.getTpEndereco());
+                            }
+                            enderecoNode.put("cidadeBeneficiario", (String) null);
+                            
+                            beneficiarioData.set("endereco", enderecoNode);
+                        }
+                        
                         beneficiarioNode.set("beneficiario", beneficiarioData);
                         if (beneficiarioView.getCodigoEmpresa() != null) {
                             String codigoEmpresaStr = beneficiarioView.getCodigoEmpresa().replaceAll("[^0-9]", "");
                             beneficiarioNode.put("codigoEmpresa", codigoEmpresaStr);
                         }
+                        // Adicionar departamento da view (igual ao payload de sucesso)
+                        if (beneficiarioView.getDepartamento() != null) {
+                            beneficiarioNode.put("departamento", String.valueOf(beneficiarioView.getDepartamento()));
+                        }
                         // Adicionar parentesco se disponível (como número Integer)
-                        // TEMPORARIAMENTE DESABILITADO - Aguardando coluna PARENTESCO na view
-                        // if (beneficiarioView.getParentesco() != null) {
-                        //     beneficiarioNode.put("parentesco", beneficiarioView.getParentesco().intValue());
-                        // } else {
-                        //     beneficiarioNode.put("parentesco", 0); // Valor padrão como número
-                        // }
-                        beneficiarioNode.put("parentesco", 0); // Valor padrão temporário
+                        if (beneficiarioView.getParentesco() != null) {
+                            beneficiarioNode.put("parentesco", beneficiarioView.getParentesco().intValue());
+                        } else {
+                            beneficiarioNode.put("parentesco", 0); // Valor padrão como número
+                        }
                         
                         com.fasterxml.jackson.databind.node.ArrayNode beneficiariosArray = mapper.createArrayNode();
                         beneficiariosArray.add(beneficiarioNode);
                         payloadBasico.set("beneficiarios", beneficiariosArray);
                     } else {
-                        // Payload básico para titular
+                        // Payload completo para titular - incluir TODOS os campos da view
                         endpointDestino = "/cadastroonline-pj/1.0/incluir";
                         com.fasterxml.jackson.databind.node.ObjectNode beneficiarioTitular = mapper.createObjectNode();
                         com.fasterxml.jackson.databind.node.ObjectNode beneficiarioData = mapper.createObjectNode();
+                        
+                        // Campos básicos do beneficiário
                         beneficiarioData.put("codigoMatricula", beneficiarioView.getCodigoMatricula() != null ? beneficiarioView.getCodigoMatricula() : "");
                         if (beneficiarioView.getCodigoPlano() != null) {
                             beneficiarioData.put("codigoPlano", String.valueOf(beneficiarioView.getCodigoPlano()));
@@ -1095,6 +1252,113 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                         beneficiarioData.put("cpf", beneficiarioView.getCpf() != null ? beneficiarioView.getCpf() : "");
                         beneficiarioData.put("nomeBeneficiario", beneficiarioView.getNomeDoBeneficiario() != null ? beneficiarioView.getNomeDoBeneficiario() : "");
                         beneficiarioData.put("identificacao", beneficiarioView.getIdentificacao() != null ? beneficiarioView.getIdentificacao() : "T");
+                        
+                        // Adicionar dataDeNascimento da view (formato DD/MM/YYYY)
+                        if (beneficiarioView.getDataDeNascimento() != null && !beneficiarioView.getDataDeNascimento().trim().isEmpty()) {
+                            beneficiarioData.put("dataDeNascimento", beneficiarioView.getDataDeNascimento());
+                        }
+                        
+                        // Adicionar dtVigenciaRetroativa da view (formato DD/MM/YYYY)
+                        if (beneficiarioView.getDtVigenciaRetroativa() != null && !beneficiarioView.getDtVigenciaRetroativa().trim().isEmpty()) {
+                            beneficiarioData.put("dtVigenciaRetroativa", beneficiarioView.getDtVigenciaRetroativa());
+                        }
+                        
+                        // Adicionar nomeDaMae da view
+                        if (beneficiarioView.getNomeDaMae() != null && !beneficiarioView.getNomeDaMae().trim().isEmpty()) {
+                            beneficiarioData.put("nomeDaMae", beneficiarioView.getNomeDaMae());
+                        }
+                        
+                        // Adicionar sexo da view
+                        if (beneficiarioView.getSexo() != null && !beneficiarioView.getSexo().trim().isEmpty()) {
+                            beneficiarioData.put("sexo", beneficiarioView.getSexo());
+                        }
+                        
+                        // Adicionar telefoneCelular da view
+                        if (beneficiarioView.getTelefoneCelular() != null && !beneficiarioView.getTelefoneCelular().trim().isEmpty()) {
+                            beneficiarioData.put("telefoneCelular", beneficiarioView.getTelefoneCelular());
+                        }
+                        
+                        // Adicionar telefoneResidencial da view
+                        if (beneficiarioView.getTelefoneResidencial() != null && !beneficiarioView.getTelefoneResidencial().trim().isEmpty()) {
+                            beneficiarioData.put("telefoneResidencial", beneficiarioView.getTelefoneResidencial());
+                        }
+                        
+                        // Adicionar estadoCivil da view
+                        if (beneficiarioView.getEstadoCivil() != null && !beneficiarioView.getEstadoCivil().trim().isEmpty()) {
+                            beneficiarioData.put("estadoCivil", beneficiarioView.getEstadoCivil());
+                        }
+                        
+                        // Adicionar nmCargo da view
+                        if (beneficiarioView.getNmCargo() != null && !beneficiarioView.getNmCargo().trim().isEmpty()) {
+                            beneficiarioData.put("nmCargo", beneficiarioView.getNmCargo());
+                        }
+                        
+                        // Adicionar cns da view
+                        if (beneficiarioView.getCns() != null && !beneficiarioView.getCns().trim().isEmpty()) {
+                            beneficiarioData.put("cns", beneficiarioView.getCns());
+                        }
+                        
+                        // Adicionar rg da view
+                        if (beneficiarioView.getRg() != null && !beneficiarioView.getRg().trim().isEmpty()) {
+                            beneficiarioData.put("rg", beneficiarioView.getRg());
+                        }
+                        
+                        // Adicionar rgEmissor da view
+                        if (beneficiarioView.getRgEmissor() != null && !beneficiarioView.getRgEmissor().trim().isEmpty()) {
+                            beneficiarioData.put("rgEmissor", beneficiarioView.getRgEmissor());
+                        }
+                        
+                        // Adicionar endereco completo da view
+                        if (beneficiarioView.getLogradouro() != null || beneficiarioView.getCep() != null || 
+                            beneficiarioView.getBairro() != null || beneficiarioView.getCidade() != null || 
+                            beneficiarioView.getUf() != null || beneficiarioView.getNumero() != null) {
+                            
+                            com.fasterxml.jackson.databind.node.ObjectNode enderecoNode = mapper.createObjectNode();
+                            
+                            if (beneficiarioView.getCep() != null) {
+                                enderecoNode.put("cep", beneficiarioView.getCep());
+                            }
+                            if (beneficiarioView.getCidade() != null) {
+                                enderecoNode.put("cidade", beneficiarioView.getCidade());
+                            }
+                            if (beneficiarioView.getLogradouro() != null) {
+                                enderecoNode.put("logradouro", beneficiarioView.getLogradouro());
+                            }
+                            if (beneficiarioView.getNumero() != null) {
+                                enderecoNode.put("numero", beneficiarioView.getNumero());
+                            }
+                            if (beneficiarioView.getUf() != null) {
+                                enderecoNode.put("uf", beneficiarioView.getUf());
+                            }
+                            if (beneficiarioView.getBairro() != null) {
+                                enderecoNode.put("bairro", beneficiarioView.getBairro());
+                            }
+                            if (beneficiarioView.getComplemento() != null) {
+                                enderecoNode.put("complemento", beneficiarioView.getComplemento());
+                            }
+                            if (beneficiarioView.getTpEndereco() != null) {
+                                enderecoNode.put("tpEndereco", beneficiarioView.getTpEndereco());
+                            }
+                            enderecoNode.put("cidadeBeneficiario", (String) null);
+                            
+                            beneficiarioData.set("endereco", enderecoNode);
+                        }
+                        
+                        // Campos opcionais que devem ser null no payload
+                        beneficiarioData.put("beneficiarioTitular", (String) null);
+                        beneficiarioData.put("campanha", (String) null);
+                        beneficiarioData.put("email", (String) null);
+                        beneficiarioData.put("empresaNova", (String) null);
+                        beneficiarioData.put("grauParentesco", (String) null);
+                        beneficiarioData.put("motivoExclusao", (String) null);
+                        beneficiarioData.put("pisPasep", (String) null);
+                        beneficiarioData.put("telefoneComercial", (String) null);
+                        
+                        // Adicionar departamento na raiz do beneficiarioData se disponível
+                        if (beneficiarioView.getDepartamento() != null) {
+                            beneficiarioData.put("departamento", String.valueOf(beneficiarioView.getDepartamento()));
+                        }
+                        
                         beneficiarioTitular.set("beneficiario", beneficiarioData);
                         payloadBasico.set("beneficiarioTitular", beneficiarioTitular);
                         
@@ -1104,15 +1368,33 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                             usuarioStrTitular = String.valueOf(beneficiarioView.getUsuario());
                         }
                         payloadBasico.put("usuario", usuarioStrTitular);
+                        
+                        // Criar venda completa com todos os campos da view
                         com.fasterxml.jackson.databind.node.ObjectNode venda = mapper.createObjectNode();
                         if (beneficiarioView.getCodigoEmpresa() != null) {
                             String codigoEmpresaStrTitular = beneficiarioView.getCodigoEmpresa().replaceAll("[^0-9]", "");
                             venda.put("codigoEmpresa", codigoEmpresaStrTitular);
                         }
+                        if (beneficiarioView.getCodigoPlano() != null) {
+                            venda.put("codigoPlano", String.valueOf(beneficiarioView.getCodigoPlano()));
+                        }
+                        if (beneficiarioView.getDepartamento() != null) {
+                            venda.put("departamento", String.valueOf(beneficiarioView.getDepartamento()));
+                        }
+                        venda.put("enviarKit", (String) null);
+                        venda.put("segmentacao", (String) null);
+                        venda.put("subsegmentacao", (String) null);
+                        
                         payloadBasico.set("venda", venda);
+                        
+                        // Campos opcionais do request
+                        payloadBasico.put("dadosBancarios", (String) null);
+                        payloadBasico.put("protocolo", (String) null);
                     }
                     
-                    payloadJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(payloadBasico);
+                    // IMPORTANTE: Usar writeValueAsString sem pretty print para manter consistência
+                    // com o formato gerado via reflexão (sem quebras de linha)
+                    payloadJson = mapper.writeValueAsString(payloadBasico);
                     log.info("✅ [TBSYNC] Payload básico criado a partir da view - {} caracteres", payloadJson.length());
                 } catch (Exception payloadException) {
                     log.warn("⚠️ [TBSYNC] Não foi possível criar payload básico da view: {}", payloadException.getMessage());
@@ -1205,25 +1487,60 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                     cpfLimpo, codigoMatricula, beneficiarioView.getCodigoEmpresa());
             
             // PASSO 2: Verificar na TBSYNC se já foi processado com sucesso
+            // IMPORTANTE: Buscar TODOS os registros para esta matrícula (pode haver múltiplos)
             // Usar códigoEmpresa da view para garantir consistência
             String codigoEmpresaView = beneficiarioView.getCodigoEmpresa();
-            var controleOptional = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiarioAndTipoOperacao(
-                    codigoEmpresaView != null ? codigoEmpresaView : codigoEmpresa, codigoMatricula, tipoOperacao);
+            String empresaParaBusca = codigoEmpresaView != null ? codigoEmpresaView : codigoEmpresa;
             
-            if (controleOptional.isPresent()) {
-                ControleSyncBeneficiario controle = controleOptional.get();
-                String status = controle.getStatusSync();
-                boolean jaProcessado = "SUCESSO".equals(status) || "SUCCESS".equals(status);
+            // Buscar TODOS os registros para esta empresa e matrícula
+            var todosControles = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
+                    empresaParaBusca, codigoMatricula);
+            
+            // Se encontrou algum registro, verificar se algum tem sucesso
+            if (todosControles != null && !todosControles.isEmpty()) {
+                log.debug("🔍 ENCONTRADOS {} REGISTROS NA TBSYNC - CPF: {} | Matrícula: {} | Empresa: {}", 
+                        todosControles.size(), cpfLimpo, codigoMatricula, empresaParaBusca);
                 
-                if (jaProcessado) {
-                    log.info("✅ BENEFICIÁRIO JÁ PROCESSADO COM SUCESSO - CPF: {} | Matrícula: {} | Status: {} | Data Sucesso: {}", 
-                            cpfLimpo, codigoMatricula, status, controle.getDataSucesso());
-                } else {
-                    log.info("🔄 BENEFICIÁRIO ENCONTRADO NA TBSYNC MAS NÃO COM SUCESSO - CPF: {} | Matrícula: {} | Status: {} - Será processado", 
-                            cpfLimpo, codigoMatricula, status);
+                // Verificar se ALGUM dos registros tem status de sucesso
+                for (ControleSyncBeneficiario controle : todosControles) {
+                    String statusSync = controle.getStatusSync();
+                    String erroMensagem = controle.getErroMensagem();
+                    String responseApi = controle.getResponseApi();
+                    String tipoOp = controle.getTipoOperacao();
+                    
+                    // Só considerar se for do mesmo tipo de operação
+                    if (!tipoOperacao.equals(tipoOp)) {
+                        continue; // Pula registros de outras operações
+                    }
+                    
+                    boolean isSucesso = "SUCESSO".equals(statusSync) || 
+                                       "SUCCESS".equalsIgnoreCase(statusSync);
+                    
+                    // Verificar se é erro de "já cadastrado" (também é considerado sucesso)
+                    boolean jaCadastrado = false;
+                    if (erroMensagem != null) {
+                        jaCadastrado = (erroMensagem.contains("já cadastrado") || 
+                                       erroMensagem.contains("existe para o titular") ||
+                                       erroMensagem.contains("417") ||
+                                       erroMensagem.contains("Beneficiário já cadastrado") ||
+                                       (erroMensagem.contains("Dependente") && erroMensagem.contains("existe")));
+                    }
+                    if (!jaCadastrado && responseApi != null) {
+                        jaCadastrado = ((responseApi.contains("\"mensagem\":\"Dependente") && responseApi.contains("existe")) ||
+                                       responseApi.contains("\"status\":417") ||
+                                       responseApi.contains("já cadastrado"));
+                    }
+                    
+                    if (isSucesso || jaCadastrado) {
+                        log.info("✅ BENEFICIÁRIO JÁ PROCESSADO COM SUCESSO - CPF: {} | Matrícula: {} | Status: {} | Data Sucesso: {} | JaCadastrado: {} | ID: {}", 
+                                cpfLimpo, codigoMatricula, statusSync, controle.getDataSucesso(), jaCadastrado, controle.getId());
+                        return true; // Já foi processado com sucesso
+                    }
                 }
                 
-                return jaProcessado;
+                // Se chegou aqui, nenhum registro tinha sucesso
+                log.info("🔄 BENEFICIÁRIO ENCONTRADO NA TBSYNC MAS SEM SUCESSO - CPF: {} | Matrícula: {} | Total registros: {} - Será processado", 
+                        cpfLimpo, codigoMatricula, todosControles.size());
             }
             
             // Se não encontrou na TBSYNC, o beneficiário ainda não foi processado

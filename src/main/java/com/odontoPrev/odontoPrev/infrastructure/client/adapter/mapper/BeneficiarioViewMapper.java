@@ -63,7 +63,7 @@ public interface BeneficiarioViewMapper {
     // Campos temporários para processamento (não persistidos)
     @Mapping(target = "codigoAssociadoTitularTemp", source = "codigoAssociadoTitular")
     @Mapping(target = "usuarioTemp", source = "usuario")
-    // @Mapping(target = "parentescoTemp", source = "parentesco") // TEMPORARIAMENTE DESABILITADO - Aguardando coluna PARENTESCO na view
+    @Mapping(target = "parentescoTemp", source = "parentesco")
     // Campos que não existem na entidade de domínio - ignorar
     @Mapping(target = "motivoExclusao", ignore = true) // Campo da view, mas talvez não seja relevante para inclusão
     BeneficiarioOdontoprev fromInclusaoView(IntegracaoOdontoprevBeneficiario viewEntity);
