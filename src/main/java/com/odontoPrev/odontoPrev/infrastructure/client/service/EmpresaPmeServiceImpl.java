@@ -73,6 +73,8 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
                 .nomeFantasia(nomeFantasia)
                 .dataInicioContrato(dataInicioContrato)
                 .dataVigencia(dataVigencia)
+                .codigoBancoFatura(dadosEmpresa.getCodigoBancoFatura() != null ? dadosEmpresa.getCodigoBancoFatura().toString().trim() + " " : "085 ")
+                .codigoManual(dadosEmpresa.getCodigoManual() != null ? dadosEmpresa.getCodigoManual().toString().trim() + " " : "1 ")
                 .planos(planos)
                 .contatos(contatos)
                 .contatosDaFatura(contatosDaFatura)

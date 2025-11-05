@@ -6,7 +6,7 @@ spring:
   
   # Banco de Dados - Produção
   datasource:
-    url: ${DB_URL}
+    url: ${DB_URL:jdbc:oracle:thin:@10.10.0.14:1521:TASY}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: oracle.jdbc.OracleDriver
@@ -34,22 +34,36 @@ spring:
 # Configurações da API OdontoPrev - Produção
 odontoprev:
   api:
-    base-url: ${ODONTOPREV_BASE_URL}
-    base-url-auth: ${ODONTOPREV_AUTH_URL}
-    base-url-login: ${ODONTOPREV_LOGIN_URL}
-    path: ${ODONTOPREV_API_PATH}
-    app-token: ${ODONTOPREV_APP_TOKEN}
+    # URLs da API de produção
+    base-url: ${ODONTOPREV_BASE_URL:https://apim.odontoprev.com.br}
+    base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim.odontoprev.com.br}
+    base-url-login: ${ODONTOPREV_LOGIN_URL:https://apim.odontoprev.com.br}
+    path: ${ODONTOPREV_API_PATH:/empresa/2.0}
+    
+    # Token OAuth2 para produção (Basic auth para client credentials)
+    # Endpoint: https://apim.odontoprev.com.br/oauth2/token
+    app-token: ${ODONTOPREV_APP_TOKEN:Zk5wMWNaaElLaEVSdkdfTHd1RDRhOVdoRW5jYTpqdWZVSFpBRF80bEdtM0FvRmxrSGxIQmZCNGth}
+    
+    # Credenciais para Login Empresa (segundo passo da autenticação)
+    # Endpoint: https://apim.odontoprev.com.br/empresa-login/1.0/api/auth/token
+    login:
+      app-id: ${ODONTOPREV_LOGIN_APPID:ODPV}
+      usuario: ${ODONTOPREV_LOGIN_USUARIO:14351525}
+      senha: ${ODONTOPREV_LOGIN_SENHA:SabinSin@i2025}
+    
+    # Configurações de usuário (manter compatibilidade)
     user:
-      login: ${ODONTOPREV_USER_LOGIN}
-      senha: ${ODONTOPREV_USER_SENHA}
-      appid: ${ODONTOPREV_USER_APPID}
+      login: ${ODONTOPREV_USER_LOGIN:14351525}
+      senha: ${ODONTOPREV_USER_SENHA:SabinSin@i2025}
+      appid: ${ODONTOPREV_USER_APPID:ODPV}
   
+  # Configurações de credenciais (manter compatibilidade)
   credentials:
-    token: ${ODONTOPREV_CREDENTIALS_TOKEN}
+    token: ${ODONTOPREV_CREDENTIALS_TOKEN:Zk5wMWNaaElLaEVSdkdfTHd1RDRhOVdoRW5jYTpqdWZVSFpBRF80bEdtM0FvRmxrSGxIQmZCNGth}
     empresa: ${ODONTOPREV_CREDENTIALS_EMPRESA}
-    usuario: ${ODONTOPREV_CREDENTIALS_USUARIO}
-    senha: ${ODONTOPREV_CREDENTIALS_SENHA}
-    app-id: ${ODONTOPREV_CREDENTIALS_APPID}
+    usuario: ${ODONTOPREV_CREDENTIALS_USUARIO:14351525}
+    senha: ${ODONTOPREV_CREDENTIALS_SENHA:SabinSin@i2025}
+    app-id: ${ODONTOPREV_CREDENTIALS_APPID:ODPV}
 
 # Logging específico para produção
 logging:
@@ -83,16 +97,3 @@ server:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain
     min-response-size: 1024
-
-# Configurações de performance
-spring:
-  task:
-    scheduling:
-      pool:
-        size: ${SCHEDULER_POOL_SIZE:20}
-    
-  # Cache de recursos
-  resources:
-    cache:
-      cachecontrol:
-        max-age: 3600
