@@ -29,6 +29,7 @@ odontoprev:
     base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim-hml.odontoprev.com.br}
     base-url-login: ${ODONTOPREV_LOGIN_URL:https://apim-hml.odontoprev.com.br}
     path: ${ODONTOPREV_API_PATH:/empresa/2.0}
+    codigo-grupo-gerencial: ${ODONTOPREV_CODIGO_GRUPO_GERENCIAL:787392}
     app-token: ${ODONTOPREV_APP_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h}
     user:
       login: ${ODONTOPREV_USER_LOGIN:13433638}

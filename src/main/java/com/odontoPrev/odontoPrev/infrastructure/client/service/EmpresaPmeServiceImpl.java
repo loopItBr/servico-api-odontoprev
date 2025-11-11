@@ -66,7 +66,7 @@ public class EmpresaPmeServiceImpl implements EmpresaPmeService {
         // COMISSIONAMENTOS
         List<EmpresaPmeRequest.Comissionamento> comissionamentos = criarComissionamentos();
         
-        // CONSTRUIR REQUEST - XXX
+        // CONSTRUIR REQUEST
         EmpresaPmeRequest request = EmpresaPmeRequest.builder()
                 .cgc(cgc)
                 .razaoSocial(razaoSocial)

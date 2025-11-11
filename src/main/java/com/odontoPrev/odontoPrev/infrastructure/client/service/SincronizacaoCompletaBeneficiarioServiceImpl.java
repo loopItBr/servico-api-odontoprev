@@ -457,72 +457,37 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
     }
 
     /**
-     * MÉTODO DE DEBUG - VERIFICA REGISTROS ESPECÍFICOS NA VIEW
+     * MÉTODO DE DEBUG - VERIFICA ESTATÍSTICAS GERAIS DA VIEW
+     * 
+     * Este método é apenas para debug e não filtra ou limita o processamento.
+     * O sistema processa TODOS os registros da view automaticamente.
      */
     private void verificarRegistrosEspecificosNaView() {
-        String[] matriculasParaVerificar = {"0069037", "0069032", "0069043", "0069029", "0069034", "0069114"};
-        
-        log.info("🔍 VERIFICAÇÃO DE REGISTROS ESPECÍFICOS:");
-        for (String matricula : matriculasParaVerificar) {
-            try {
-                var beneficiario = inclusaoRepository.findByCodigoMatricula(matricula);
-                if (beneficiario != null) {
-                    String tipo = "T".equals(beneficiario.getIdentificacao()) ? "TITULAR" : 
-                                 "D".equals(beneficiario.getIdentificacao()) ? "DEPENDENTE" : 
-                                 "DESCONHECIDO(" + (beneficiario.getIdentificacao() != null ? beneficiario.getIdentificacao() : "NULL") + ")";
-                    log.info("✅ ENCONTRADO - Matrícula: {} | Nome: {} | CPF: {} | Tipo: {} | IDENTIFICACAO: {}", 
-                            beneficiario.getCodigoMatricula(), 
-                            beneficiario.getNomeDoBeneficiario(),
-                            beneficiario.getCpf(),
-                            tipo,
-                            beneficiario.getIdentificacao());
-                } else {
-                    log.warn("❌ NÃO ENCONTRADO - Matrícula: {}", matricula);
-                }
-            } catch (Exception e) {
-                log.error("⚠️ ERRO ao verificar matrícula {}: {}", matricula, e.getMessage());
-                // Continua com as outras matrículas mesmo se uma falhar
-            }
-        }
-        
-        // VERIFICAÇÃO ESPECÍFICA DE DEPENDENTES
         try {
-            log.info("🔍 VERIFICAÇÃO ESPECÍFICA DE DEPENDENTES NA VIEW:");
-            var dependentes = inclusaoRepository.findByIdentificacao("D");
-            log.info("📊 TOTAL DE DEPENDENTES ENCONTRADOS: {}", dependentes.size());
-            for (var dependente : dependentes) {
-                log.info("👨‍👩‍👧‍👦 DEPENDENTE - Matrícula: {} | Nome: {} | CPF: {} | IDENTIFICACAO: '{}' | codigoAssociadoTitular: '{}'", 
-                        dependente.getCodigoMatricula(),
-                        dependente.getNomeDoBeneficiario(),
-                        dependente.getCpf(),
-                        dependente.getIdentificacao(),
-                        dependente.getCodigoAssociadoTitular());
-            }
+            // Estatísticas gerais da view
+            long totalRegistros = inclusaoRepository.count();
+            long totalTitulares = inclusaoRepository.countByIdentificacao("T");
+            long totalDependentes = inclusaoRepository.countByIdentificacao("D");
             
-            // Verificar por empresa específica
-            var dependentesEmpresa794472 = inclusaoRepository.findByCodigoEmpresaAndIdentificacao("794472", "D");
-            log.info("📊 DEPENDENTES DA EMPRESA 794472: {}", dependentesEmpresa794472.size());
-            for (var dep : dependentesEmpresa794472) {
-                log.info("👨‍👩‍👧‍👦 DEPENDENTE EMPRESA 794472 - Matrícula: {} | CPF: {} | IDENTIFICACAO: '{}'", 
-                        dep.getCodigoMatricula(), dep.getCpf(), dep.getIdentificacao());
-            }
-        } catch (Exception e) {
-            log.error("❌ ERRO ao verificar dependentes na view: {}", e.getMessage(), e);
-        }
-        
-        // DEBUG: Lista TODOS os registros da view para verificar (com paginação para evitar problemas)
-        try {
-            log.info("🔍 LISTANDO TODOS OS REGISTROS DA VIEW:");
-            var todosRegistros = inclusaoRepository.findAll(PageRequest.of(0, 100, Sort.by("codigoMatricula").ascending()));
-            log.info("📊 TOTAL DE REGISTROS ENCONTRADOS: {}", todosRegistros.getTotalElements());
-            for (var beneficiario : todosRegistros.getContent()) {
-                log.info("   - Matrícula: {} | Nome: {} | CPF: {}", 
+            log.info("📊 ESTATÍSTICAS DA VIEW - Total: {} | Titulares: {} | Dependentes: {}", 
+                    totalRegistros, totalTitulares, totalDependentes);
+            
+            // Lista amostra dos primeiros registros (apenas para debug, não limita processamento)
+            var amostra = inclusaoRepository.findAll(PageRequest.of(0, 10, Sort.by("codigoMatricula").ascending()));
+            log.info("📋 AMOSTRA DOS PRIMEIROS 10 REGISTROS DA VIEW:");
+            for (var beneficiario : amostra.getContent()) {
+                String tipo = "T".equals(beneficiario.getIdentificacao()) ? "TITULAR" : 
+                             "D".equals(beneficiario.getIdentificacao()) ? "DEPENDENTE" : 
+                             "DESCONHECIDO(" + (beneficiario.getIdentificacao() != null ? beneficiario.getIdentificacao() : "NULL") + ")";
+                log.info("   - Matrícula: {} | Nome: {} | CPF: {} | Tipo: {} | Empresa: {}", 
                         beneficiario.getCodigoMatricula(), 
                         beneficiario.getNomeDoBeneficiario(),
-                        beneficiario.getCpf());
+                        beneficiario.getCpf(),
+                        tipo,
+                        beneficiario.getCodigoEmpresa());
             }
         } catch (Exception e) {
-            log.error("⚠️ ERRO ao listar todos os registros: {}", e.getMessage());
+            log.error("⚠️ ERRO ao verificar estatísticas da view: {}", e.getMessage());
         }
     }
 
@@ -541,23 +506,59 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
         // IMPORTANTE: Processa TODAS as páginas até não haver mais registros
         // Não para baseado no totalInclusoes para garantir que novos registros sejam capturados
         while (true) {
-            // Cria configuração de paginação - ordena por codigoMatricula para garantir ordem consistente
-            Pageable pageable = PageRequest.of(paginaAtual, tamanhoBatch, Sort.by("codigoMatricula").ascending());
+            // ORDENAÇÃO CRÍTICA: Processar titulares ANTES de dependentes
+            // IMPORTANTE: Titulares podem ter identificacao = NULL, vazio, ou "T"
+            // Dependentes têm identificacao = "D"
+            // Estratégia: Buscar em duas etapas - primeiro titulares, depois dependentes
             
-            // Busca página de beneficiários para inclusão
-            Page<com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario> pagina = inclusaoRepository.findAll(pageable);
+            // ETAPA 1: Buscar titulares (identificacao != "D" ou NULL)
+            // Usar query customizada ou filtrar após buscar
+            Sort sortTitulares = Sort.by(Sort.Order.asc("codigoMatricula"));
+            Pageable pageableTitulares = PageRequest.of(paginaAtual, tamanhoBatch, sortTitulares);
             
-            if (pagina.isEmpty() || pagina.getContent().isEmpty()) {
+            // Buscar todos e filtrar manualmente para garantir ordem correta
+            // Alternativa: buscar titulares primeiro (identificacao IS NULL OR identificacao != 'D')
+            Page<com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario> pagina = inclusaoRepository.findAll(pageableTitulares);
+            
+            // FILTRAR E ORDENAR MANUALMENTE: Separar titulares de dependentes
+            java.util.List<com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario> titulares = new java.util.ArrayList<>();
+            java.util.List<com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario> dependentes = new java.util.ArrayList<>();
+            
+            for (var beneficiario : pagina.getContent()) {
+                String identificacao = beneficiario.getIdentificacao();
+                boolean isDependente = identificacao != null && "D".equals(identificacao.trim().toUpperCase());
+                
+                if (isDependente) {
+                    dependentes.add(beneficiario);
+                } else {
+                    // NULL, vazio, "T", ou qualquer outro valor = Titular
+                    titulares.add(beneficiario);
+                }
+            }
+            
+            // Ordenar cada lista por matrícula
+            titulares.sort(java.util.Comparator.comparing(com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario::getCodigoMatricula));
+            dependentes.sort(java.util.Comparator.comparing(com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario::getCodigoMatricula));
+            
+            // Criar lista ordenada: titulares primeiro, depois dependentes
+            java.util.List<com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprevBeneficiario> beneficiariosOrdenados = new java.util.ArrayList<>();
+            beneficiariosOrdenados.addAll(titulares);
+            beneficiariosOrdenados.addAll(dependentes);
+            
+            log.info("📊 PÁGINA {} - Titulares: {} | Dependentes: {} | Total: {}", 
+                    paginaAtual, titulares.size(), dependentes.size(), beneficiariosOrdenados.size());
+            
+            if (beneficiariosOrdenados.isEmpty()) {
                 log.info("📭 Nenhum beneficiário encontrado na página {}, finalizando processamento", paginaAtual);
                 break;
             }
             
             log.info("📄 PROCESSANDO PÁGINA {} - {} beneficiários encontrados (total na view: {})", 
-                    paginaAtual, pagina.getContent().size(), pagina.getTotalElements());
+                    paginaAtual, beneficiariosOrdenados.size(), pagina.getTotalElements());
             
             // Log detalhado dos beneficiários da página para debug
-            log.info("🔍 BENEFICIÁRIOS DA PÁGINA {}: {}", paginaAtual, 
-                    pagina.getContent().stream()
+            log.info("🔍 BENEFICIÁRIOS DA PÁGINA {} (ORDENADOS): {}", paginaAtual, 
+                    beneficiariosOrdenados.stream()
                             .map(b -> {
                                 String tipo = "T".equals(b.getIdentificacao()) ? "T" : 
                                              "D".equals(b.getIdentificacao()) ? "D" : 
@@ -567,7 +568,7 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                             .toList());
             
             // Log EXTREMAMENTE DETALHADO de cada beneficiário da página
-            for (var b : pagina.getContent()) {
+            for (var b : beneficiariosOrdenados) {
                 String identRaw = b.getIdentificacao();
                 String identNorm = identRaw != null ? identRaw.trim().toUpperCase() : null;
                 boolean isD = "D".equals(identNorm);
@@ -594,33 +595,33 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
             }
             
             // Contar dependentes na página (usando comparação normalizada)
-            long countDependentes = pagina.getContent().stream()
+            long countDependentes = beneficiariosOrdenados.stream()
                     .filter(b -> {
                         String id = b.getIdentificacao();
                         return id != null && "D".equals(id.trim().toUpperCase());
                     })
                     .count();
-            long countTitulares = pagina.getContent().stream()
+            long countTitulares = beneficiariosOrdenados.stream()
                     .filter(b -> {
                         String id = b.getIdentificacao();
                         return id != null && "T".equals(id.trim().toUpperCase());
                     })
                     .count();
-            long countOutros = pagina.getContent().size() - countDependentes - countTitulares;
+            long countOutros = beneficiariosOrdenados.size() - countDependentes - countTitulares;
             
             log.warn("📊 CONTAGEM DA PÁGINA {} - Titulares: {} | Dependentes: {} | Outros/NULL: {} | Total: {}", 
-                    paginaAtual, countTitulares, countDependentes, countOutros, pagina.getContent().size());
+                    paginaAtual, countTitulares, countDependentes, countOutros, beneficiariosOrdenados.size());
             
             // ALERTA CRÍTICO se houver dependentes mas não foram contados
-            if (countDependentes == 0 && pagina.getContent().stream().anyMatch(b -> {
+            if (countDependentes == 0 && beneficiariosOrdenados.stream().anyMatch(b -> {
                 String id = b.getIdentificacao();
                 return id != null && id.trim().equalsIgnoreCase("d");
             })) {
                 log.error("🚨🚨🚨 ERRO CRÍTICO - Dependentes detectados mas não contados corretamente!");
             }
             
-            // Processa cada beneficiário da página
-            int processadosNaPagina = processarLoteInclusoes(pagina.getContent());
+            // Processa cada beneficiário da página (ordenados: titulares primeiro, depois dependentes)
+            int processadosNaPagina = processarLoteInclusoes(beneficiariosOrdenados);
             totalProcessados += processadosNaPagina;
             
             log.info("✅ PÁGINA {} PROCESSADA - {} beneficiários incluídos (total processados: {})", 
@@ -695,10 +696,73 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                             beneficiario.getCodigoMatricula(), beneficiario.getCpf());
                 }
                 
+                // VERIFICAÇÃO CRÍTICA PARA DEPENDENTES: Verificar se o titular já foi processado com sucesso
+                if (isDependente) {
+                    // Verificar se existe titular processado com sucesso para esta empresa
+                    boolean titularProcessado = verificarTitularProcessadoComSucesso(beneficiario.getCodigoEmpresa());
+                    
+                    if (!titularProcessado) {
+                        log.warn("⏭️ DEPENDENTE PULADO - Titular ainda não foi processado com sucesso - Matrícula: {} | CPF: {} | Empresa: {} - Aguardando processamento do titular", 
+                                beneficiario.getCodigoMatricula(), beneficiario.getCpf(), beneficiario.getCodigoEmpresa());
+                        continue; // Pular dependente se titular não foi processado
+                    }
+                }
+                
                 // Verifica se o beneficiário já foi processado com sucesso
                 // IMPORTANTE: Usa CPF para verificação pois dependentes podem ter mesma matrícula do titular
                 // IMPORTANTE: Verificar TAMBÉM para dependentes se já foi processado com SUCESSO
+                log.info("🔍 [VERIFICAÇÃO] Verificando se beneficiário já foi processado - Matrícula: {} | CPF: {} | Empresa: {} | Tipo: {}", 
+                        beneficiario.getCodigoMatricula(), beneficiario.getCpf(), beneficiario.getCodigoEmpresa(), tipo);
+                
+                // VERIFICAÇÃO ADICIONAL: Verificar diretamente na TBSYNC por matrícula também (mais rápido)
+                var controlesDiretos = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
+                        beneficiario.getCodigoEmpresa(), beneficiario.getCodigoMatricula());
+                
+                boolean jaProcessadoRapido = false;
+                if (controlesDiretos != null && !controlesDiretos.isEmpty()) {
+                    log.info("🔍 [VERIFICAÇÃO RÁPIDA] Encontrados {} registro(s) na TBSYNC para matrícula {} - Verificando se algum é sucesso...", 
+                            controlesDiretos.size(), beneficiario.getCodigoMatricula());
+                    
+                    for (var controle : controlesDiretos) {
+                        String statusSync = controle.getStatusSync();
+                        String responseApi = controle.getResponseApi();
+                        String tipoOp = controle.getTipoOperacao();
+                        
+                        if ("INCLUSAO".equals(tipoOp) && "SUCESSO".equals(statusSync)) {
+                            // Verificar se responseApi tem status 417 ou 201
+                            boolean temSucesso = false;
+                            if (responseApi != null) {
+                                temSucesso = (responseApi.contains("\"status\":417") || 
+                                            responseApi.contains("\"status\":201") ||
+                                            responseApi.contains("\"status\": 417") ||
+                                            responseApi.contains("\"status\": 201") ||
+                                            responseApi.contains("Beneficiário já cadastrado"));
+                            }
+                            
+                            if (temSucesso || "SUCESSO".equals(statusSync)) {
+                                log.warn("⏭️ [VERIFICAÇÃO RÁPIDA] BENEFICIÁRIO JÁ PROCESSADO COM SUCESSO - Matrícula: {} | CPF: {} | StatusSync: {} | ID: {} - PULANDO", 
+                                        beneficiario.getCodigoMatricula(), beneficiario.getCpf(), statusSync, controle.getId());
+                                jaProcessadoRapido = true;
+                                break; // Encontrou sucesso, não precisa verificar mais
+                            }
+                        }
+                    }
+                }
+                
+                // Se a verificação rápida encontrou sucesso, pular beneficiário
+                if (jaProcessadoRapido) {
+                    log.info("⏭️ BENEFICIÁRIO JÁ PROCESSADO (VERIFICAÇÃO RÁPIDA) - {} ({}) [{}] CPF: {} já foi processado com sucesso, pulando", 
+                            beneficiario.getCodigoMatricula(), 
+                            beneficiario.getNomeDoBeneficiario(),
+                            tipo,
+                            beneficiario.getCpf());
+                    jaProcessados++;
+                    continue; // Pular este beneficiário
+                }
+                
                 boolean jaProcessado = jaFoiProcessadoComSucessoPorCpf(beneficiario.getCodigoEmpresa(), beneficiario.getCpf(), "INCLUSAO");
+                log.info("🔍 [VERIFICAÇÃO] Resultado da verificação completa - Matrícula: {} | CPF: {} | jaProcessado: {}", 
+                        beneficiario.getCodigoMatricula(), beneficiario.getCpf(), jaProcessado);
                 
                 if (isDependente) {
                     if (jaProcessado) {
@@ -1501,42 +1565,81 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                 log.debug("🔍 ENCONTRADOS {} REGISTROS NA TBSYNC - CPF: {} | Matrícula: {} | Empresa: {}", 
                         todosControles.size(), cpfLimpo, codigoMatricula, empresaParaBusca);
                 
-                // Verificar se ALGUM dos registros tem status de sucesso
-                for (ControleSyncBeneficiario controle : todosControles) {
-                    String statusSync = controle.getStatusSync();
-                    String erroMensagem = controle.getErroMensagem();
-                    String responseApi = controle.getResponseApi();
-                    String tipoOp = controle.getTipoOperacao();
-                    
-                    // Só considerar se for do mesmo tipo de operação
-                    if (!tipoOperacao.equals(tipoOp)) {
-                        continue; // Pula registros de outras operações
+                    // Verificar se ALGUM dos registros tem status de sucesso
+                    for (ControleSyncBeneficiario controle : todosControles) {
+                        String statusSync = controle.getStatusSync();
+                        String erroMensagem = controle.getErroMensagem();
+                        String responseApi = controle.getResponseApi();
+                        String tipoOp = controle.getTipoOperacao();
+                        
+                        // Log detalhado para debug
+                        log.debug("🔍 [VERIFICAÇÃO DETALHADA] Analisando registro - ID: {} | TipoOp: {} | StatusSync: {} | ResponseApi: {} caracteres | ErroMensagem: {}", 
+                                controle.getId(), tipoOp, statusSync, 
+                                responseApi != null ? responseApi.length() : 0,
+                                erroMensagem != null ? erroMensagem.substring(0, Math.min(100, erroMensagem.length())) : "null");
+                        
+                        // Só considerar se for do mesmo tipo de operação
+                        if (!tipoOperacao.equals(tipoOp)) {
+                            log.debug("⏭️ [VERIFICAÇÃO] Pulando registro - Tipo de operação diferente: {} != {}", tipoOp, tipoOperacao);
+                            continue; // Pula registros de outras operações
+                        }
+                        
+                        boolean isSucesso = "SUCESSO".equals(statusSync) || 
+                                           "SUCCESS".equalsIgnoreCase(statusSync);
+                        
+                        // Verificar se responseApi indica sucesso (status 201 = criação bem-sucedida)
+                        boolean sucessoNaResponse = false;
+                        if (responseApi != null && !responseApi.trim().isEmpty()) {
+                            // Status 201 = criação bem-sucedida
+                            // Status 200 = sucesso genérico
+                            // Status 417 = já cadastrado (também é sucesso)
+                            // IMPORTANTE: Verificar múltiplas formas de status 417
+                            sucessoNaResponse = (responseApi.contains("\"status\":201") ||
+                                               responseApi.contains("\"status\":200") ||
+                                               responseApi.contains("\"status\":417") ||
+                                               responseApi.contains("\"status\": 417") ||
+                                               responseApi.contains("\"status\":0") ||
+                                               responseApi.contains("\"status\": 0") ||
+                                               (responseApi.contains("\"status\":") && responseApi.contains("\"mensagem\":\"inserção gerada com sucesso\"")) ||
+                                               (responseApi.contains("\"status\":") && responseApi.contains("\"mensagem\":\"Beneficiário já cadastrado\"")) ||
+                                               (responseApi.contains("\"status\":") && responseApi.contains("Beneficiário já cadastrado")) ||
+                                               (responseApi.contains("\"status\":") && responseApi.contains("já cadastrado")));
+                            
+                            log.debug("🔍 [VERIFICAÇÃO] SucessoNaResponse: {} | ResponseApi contém status 417: {}", 
+                                    sucessoNaResponse, responseApi.contains("\"status\":417") || responseApi.contains("\"status\": 417"));
+                        }
+                        
+                        // Verificar se é erro de "já cadastrado" (também é considerado sucesso)
+                        boolean jaCadastrado = false;
+                        if (erroMensagem != null && !erroMensagem.trim().isEmpty()) {
+                            jaCadastrado = (erroMensagem.contains("já cadastrado") || 
+                                           erroMensagem.contains("existe para o titular") ||
+                                           erroMensagem.contains("417") ||
+                                           erroMensagem.contains("Beneficiário já cadastrado") ||
+                                           erroMensagem.contains("Beneficiário já cadastrado - Cadastro ativo") ||
+                                           (erroMensagem.contains("Dependente") && erroMensagem.contains("existe")));
+                        }
+                        if (!jaCadastrado && responseApi != null && !responseApi.trim().isEmpty()) {
+                            jaCadastrado = ((responseApi.contains("\"mensagem\":\"Dependente") && responseApi.contains("existe")) ||
+                                           responseApi.contains("\"status\":417") ||
+                                           responseApi.contains("\"status\": 417") ||
+                                           responseApi.contains("\"mensagem\":\"Beneficiário já cadastrado") ||
+                                           responseApi.contains("\"mensagem\":\"Beneficiário já cadastrado - Cadastro ativo") ||
+                                           responseApi.contains("já cadastrado") ||
+                                           responseApi.contains("Beneficiário já cadastrado"));
+                        }
+                        
+                        // Considerar sucesso se: statusSync = SUCESSO, ou responseApi tem status 201/200/417, ou já cadastrado
+                        if (isSucesso || sucessoNaResponse || jaCadastrado) {
+                            log.info("✅ BENEFICIÁRIO JÁ PROCESSADO COM SUCESSO - CPF: {} | Matrícula: {} | StatusSync: {} | SucessoNaResponse: {} | JaCadastrado: {} | Data Sucesso: {} | ID: {} | ResponseApi preview: {}", 
+                                    cpfLimpo, codigoMatricula, statusSync, sucessoNaResponse, jaCadastrado, controle.getDataSucesso(), controle.getId(),
+                                    responseApi != null ? responseApi.substring(0, Math.min(200, responseApi.length())) : "null");
+                            return true; // Já foi processado com sucesso
+                        } else {
+                            log.debug("⏭️ [VERIFICAÇÃO] Registro não é sucesso - StatusSync: {} | SucessoNaResponse: {} | JaCadastrado: {}", 
+                                    statusSync, sucessoNaResponse, jaCadastrado);
+                        }
                     }
-                    
-                    boolean isSucesso = "SUCESSO".equals(statusSync) || 
-                                       "SUCCESS".equalsIgnoreCase(statusSync);
-                    
-                    // Verificar se é erro de "já cadastrado" (também é considerado sucesso)
-                    boolean jaCadastrado = false;
-                    if (erroMensagem != null) {
-                        jaCadastrado = (erroMensagem.contains("já cadastrado") || 
-                                       erroMensagem.contains("existe para o titular") ||
-                                       erroMensagem.contains("417") ||
-                                       erroMensagem.contains("Beneficiário já cadastrado") ||
-                                       (erroMensagem.contains("Dependente") && erroMensagem.contains("existe")));
-                    }
-                    if (!jaCadastrado && responseApi != null) {
-                        jaCadastrado = ((responseApi.contains("\"mensagem\":\"Dependente") && responseApi.contains("existe")) ||
-                                       responseApi.contains("\"status\":417") ||
-                                       responseApi.contains("já cadastrado"));
-                    }
-                    
-                    if (isSucesso || jaCadastrado) {
-                        log.info("✅ BENEFICIÁRIO JÁ PROCESSADO COM SUCESSO - CPF: {} | Matrícula: {} | Status: {} | Data Sucesso: {} | JaCadastrado: {} | ID: {}", 
-                                cpfLimpo, codigoMatricula, statusSync, controle.getDataSucesso(), jaCadastrado, controle.getId());
-                        return true; // Já foi processado com sucesso
-                    }
-                }
                 
                 // Se chegou aqui, nenhum registro tinha sucesso
                 log.info("🔄 BENEFICIÁRIO ENCONTRADO NA TBSYNC MAS SEM SUCESSO - CPF: {} | Matrícula: {} | Total registros: {} - Será processado", 
@@ -1550,6 +1653,109 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
             log.warn("⚠️ ERRO ao verificar se beneficiário (CPF: {}) já foi processado: {}", 
                     cpf, e.getMessage());
             return false; // Em caso de erro, processa para não perder dados
+        }
+    }
+    
+    /**
+     * VERIFICA SE EXISTE TITULAR PROCESSADO COM SUCESSO PARA A EMPRESA
+     * 
+     * Verifica se existe pelo menos um titular processado com sucesso na TBSYNC
+     * para a empresa informada. Isso é necessário para processar dependentes.
+     * 
+     * @param codigoEmpresa código da empresa
+     * @return true se existe titular processado com sucesso, false caso contrário
+     */
+    private boolean verificarTitularProcessadoComSucesso(String codigoEmpresa) {
+        try {
+            log.debug("🔍 VERIFICANDO SE TITULAR FOI PROCESSADO - Empresa: {}", codigoEmpresa);
+            
+            // PASSO 1: Buscar titulares na view
+            var titularesView = inclusaoRepository.findByCodigoEmpresa(codigoEmpresa)
+                    .stream()
+                    .filter(b -> {
+                        String identificacao = b.getIdentificacao();
+                        // Titular = NULL, vazio, ou "T" (não é "D")
+                        return identificacao == null || 
+                               identificacao.trim().isEmpty() || 
+                               "T".equals(identificacao.trim().toUpperCase());
+                    })
+                    .toList();
+            
+            if (titularesView.isEmpty()) {
+                log.warn("⚠️ NENHUM TITULAR ENCONTRADO NA VIEW - Empresa: {}", codigoEmpresa);
+                return false;
+            }
+            
+            log.debug("✅ {} TITULAR(ES) ENCONTRADO(S) NA VIEW - Empresa: {}", titularesView.size(), codigoEmpresa);
+            
+            // PASSO 2: Para cada titular, verificar se já foi processado com sucesso na TBSYNC
+            for (var titularView : titularesView) {
+                String codigoMatriculaTitular = titularView.getCodigoMatricula();
+                
+                // Buscar controles de sincronização do titular na TBSYNC
+                var controles = controleSyncRepository
+                        .findByCodigoEmpresaAndCodigoBeneficiario(codigoEmpresa, codigoMatriculaTitular);
+                
+                if (controles != null && !controles.isEmpty()) {
+                    // Verificar se algum registro tem status SUCESSO
+                    for (var controle : controles) {
+                        String statusSync = controle.getStatusSync();
+                        String tipoOp = controle.getTipoOperacao();
+                        String erroMensagem = controle.getErroMensagem();
+                        String responseApi = controle.getResponseApi();
+                        
+                        // Verificar se é do tipo INCLUSAO
+                        if (!"INCLUSAO".equals(tipoOp)) {
+                            continue;
+                        }
+                        
+                        // Verificar se já foi processado com sucesso
+                        boolean isSucesso = "SUCESSO".equals(statusSync) || "SUCCESS".equalsIgnoreCase(statusSync);
+                        
+                        // Verificar se responseApi indica sucesso (status 201 = criação bem-sucedida)
+                        boolean sucessoNaResponse = false;
+                        if (responseApi != null) {
+                            // Status 201 = criação bem-sucedida
+                            // Status 200 = sucesso genérico
+                            // Status 417 = já cadastrado (também é sucesso)
+                            sucessoNaResponse = (responseApi.contains("\"status\":201") ||
+                                               responseApi.contains("\"status\":200") ||
+                                               responseApi.contains("\"status\":417") ||
+                                               responseApi.contains("\"status\":0") ||
+                                               (responseApi.contains("\"status\":") && responseApi.contains("\"mensagem\":\"inserção gerada com sucesso\"")) ||
+                                               (responseApi.contains("\"status\":") && responseApi.contains("\"mensagem\":\"Beneficiário já cadastrado\"")));
+                        }
+                        
+                        // Verificar se é erro de "já cadastrado" (também é considerado sucesso)
+                        boolean jaCadastrado = false;
+                        if (erroMensagem != null) {
+                            jaCadastrado = (erroMensagem.contains("já cadastrado") || 
+                                           erroMensagem.contains("417") ||
+                                           erroMensagem.contains("Beneficiário já cadastrado"));
+                        }
+                        if (!jaCadastrado && responseApi != null) {
+                            jaCadastrado = (responseApi.contains("\"status\":417") ||
+                                           responseApi.contains("\"mensagem\":\"Beneficiário já cadastrado") ||
+                                           responseApi.contains("já cadastrado"));
+                        }
+                        
+                        // Considerar sucesso se: statusSync = SUCESSO, ou responseApi tem status 201/200/417, ou já cadastrado
+                        if (isSucesso || sucessoNaResponse || jaCadastrado) {
+                            log.info("✅ TITULAR PROCESSADO COM SUCESSO ENCONTRADO - Matrícula: {} | Empresa: {} | StatusSync: {} | SucessoNaResponse: {} | JaCadastrado: {} | Data: {}", 
+                                    codigoMatriculaTitular, codigoEmpresa, statusSync, sucessoNaResponse, jaCadastrado, controle.getDataSucesso());
+                            return true; // Encontrou titular processado com sucesso
+                        }
+                    }
+                }
+            }
+            
+            log.warn("⚠️ NENHUM TITULAR PROCESSADO COM SUCESSO ENCONTRADO - Empresa: {}", codigoEmpresa);
+            return false;
+            
+        } catch (Exception e) {
+            log.error("❌ ERRO ao verificar se titular foi processado para empresa {}: {}", 
+                     codigoEmpresa, e.getMessage(), e);
+            return false; // Em caso de erro, retorna false para não bloquear processamento
         }
     }
     

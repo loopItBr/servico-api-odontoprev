@@ -11,10 +11,12 @@ import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.entity.IntegracaoOdontoprev;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.CallableStatementCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +33,14 @@ public class EmpresaInclusaoServiceImpl {
     private final ObjectMapper objectMapper;
     private final ControleSyncRepository controleSyncRepository;
     private final JdbcTemplate jdbcTemplate;
+
+    @Value("${odontoprev.api.codigo-grupo-gerencial:787392}")
+    private String codigoGrupoGerencialPadrao;
+
+    @PostConstruct
+    public void init() {
+        log.info("✅ [INICIALIZAÇÃO] EmpresaInclusaoServiceImpl - codigoGrupoGerencialPadrao configurado: {}", codigoGrupoGerencialPadrao);
+    }
 
     /**
      * Fluxo de inclusão de empresa:
@@ -295,13 +305,21 @@ public class EmpresaInclusaoServiceImpl {
 
     // Conversão baseada no fluxo já existente de ativação
     private EmpresaAtivacaoPlanoRequest converterParaRequestEmpresarial(IntegracaoOdontoprev dadosEmpresa) {
+        // Determinar codigoGrupoGerencial: usar da view se disponível, senão usar o padrão configurado
+        String codigoGrupoGerencial = dadosEmpresa.getCodigoGrupoGerencial() != null 
+                ? dadosEmpresa.getCodigoGrupoGerencial().toString() 
+                : codigoGrupoGerencialPadrao;
+        
+        log.debug("📋 [INCLUSAO EMPRESA] codigoGrupoGerencial - View: {}, Usando: {}, Padrão configurado: {}", 
+                dadosEmpresa.getCodigoGrupoGerencial(), codigoGrupoGerencial, codigoGrupoGerencialPadrao);
+        
         EmpresaAtivacaoPlanoRequest request = EmpresaAtivacaoPlanoRequest.builder()
                 .sistema(dadosEmpresa.getSistema() != null ? dadosEmpresa.getSistema() : "SabinSinai")
                 .tipoPessoa(dadosEmpresa.getTipoPessoa() != null ? dadosEmpresa.getTipoPessoa() : "J")
                 .emiteCarteirinhaPlastica(dadosEmpresa.getEmiteCarteirinhaPlastica() != null ? dadosEmpresa.getEmiteCarteirinhaPlastica() : "N")
                 .codigoEmpresaGestora(dadosEmpresa.getCodigoEmpresaGestora() != null ? dadosEmpresa.getCodigoEmpresaGestora().intValue() : 1)
                 .codigoFilialEmpresaGestora(dadosEmpresa.getCodigoFilialEmpresaGestora() != null ? dadosEmpresa.getCodigoFilialEmpresaGestora().intValue() : 1)
-                .codigoGrupoGerencial(dadosEmpresa.getCodigoGrupoGerencial() != null ? dadosEmpresa.getCodigoGrupoGerencial().toString() : "787392")
+                .codigoGrupoGerencial(codigoGrupoGerencial)
                 .codigoNaturezaJuridica(dadosEmpresa.getCodigoNaturezaJuridica() != null ? dadosEmpresa.getCodigoNaturezaJuridica() : "6550-2")
                 .nomeNaturezaJuridica(dadosEmpresa.getNomeNaturezaJuridica() != null ? dadosEmpresa.getNomeNaturezaJuridica() : "Planos de saúde")
                 .situacaoCadastral(dadosEmpresa.getSituacaoCadastral() != null ? dadosEmpresa.getSituacaoCadastral() : "ATIVO")

@@ -32,6 +32,7 @@ odontoprev:
     base-url-auth: https://apim-hml.odontoprev.com.br
     base-url-login: https://apim-hml.odontoprev.com.br
     path: /empresa/2.0
+    codigo-grupo-gerencial: 787392
     app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h
     user:
       login: 13433638

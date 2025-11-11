@@ -1,5 +1,5 @@
 # =============================================================================
-# VARIÁVEIS DE AMBIENTE - DESENVOLVIMENTO
+# VARIÁVEIS DE AMBIENTE - PRODUÇÃO
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -11,40 +11,39 @@ SERVER_CONTEXT_PATH=/
 # -----------------------------------------------------------------------------
 # PERFIL DO SPRING
 # -----------------------------------------------------------------------------
-SPRING_PROFILES_ACTIVE=dev
+SPRING_PROFILES_ACTIVE=prd
 ODONTOPREV_LOGIN_APPID=ODPV
 ODONTOPREV_LOGIN_USUARIO=14351525
 ODONTOPREV_LOGIN_SENHA=SabinSin@i2025
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÕES DO BANCO DE DADOS - DESENVOLVIMENTO
+# CONFIGURAÇÕES DO BANCO DE DADOS - PRODUÇÃO
 # -----------------------------------------------------------------------------
 DB_URL=jdbc:oracle:thin:@10.10.0.14:1521:TASY
-DB_USERNAME=pontetech
-DB_PASSWORD=Qvcp889z
-DB_POOL_SIZE=10
-DB_MIN_IDLE=5
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+DB_POOL_SIZE=20
+DB_MIN_IDLE=10
 DB_CONNECTION_TIMEOUT=30000
 DB_IDLE_TIMEOUT=600000
 DB_MAX_LIFETIME=1800000
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÕES DA API ODONTOPREV - DESENVOLVIMENTO/HOMOLOGAÇÃO
+# CONFIGURAÇÕES DA API ODONTOPREV - PRODUÇÃO
 # -----------------------------------------------------------------------------
-ODONTOPREV_BASE_URL=https://apim-hml.odontoprev.com.br
-ODONTOPREV_AUTH_URL=https://apim-hml.odontoprev.com.br
+ODONTOPREV_BASE_URL=https://apim.odontoprev.com.br
+ODONTOPREV_AUTH_URL=https://apim.odontoprev.com.br
 ODONTOPREV_LOGIN_URL=https://apim.odontoprev.com.br
 ODONTOPREV_API_PATH=/empresa/2.0
+ODONTOPREV_CODIGO_GRUPO_GERENCIAL=925397
 
-ODONTOPREV_CODIGO_GRUPO_GERENCIAL=787392
-
-# Credenciais da API - Desenvolvimento
+# Credenciais da API - Produção
 ODONTOPREV_APP_TOKEN=Zk5wMWNaaElLaEVSdkdfTHd1RDRhOVdoRW5jYTpqdWZVSFpBRF80bEdtM0FvRmxrSGxIQmZCNGth
 ODONTOPREV_USER_LOGIN=14351525
 ODONTOPREV_USER_SENHA=SabinSin@i2025
 ODONTOPREV_USER_APPID=ODPV
 ODONTOPREV_CREDENTIALS_TOKEN=Zk5wMWNaaElLaEVSdkdfTHd1RDRhOVdoRW5jYTpqdWZVSFpBRF80bEdtM0FvRmxrSGxIQmZCNGth
-ODONTOPREV_CREDENTIALS_EMPRESA=787392
+ODONTOPREV_CREDENTIALS_EMPRESA=${ODONTOPREV_CREDENTIALS_EMPRESA}
 ODONTOPREV_CREDENTIALS_USUARIO=14351525
 ODONTOPREV_CREDENTIALS_SENHA=SabinSin@i2025
 ODONTOPREV_CREDENTIALS_APPID=ODPV
@@ -54,18 +53,19 @@ ODONTOPREV_CREDENTIALS_APPID=ODPV
 # -----------------------------------------------------------------------------
 FEIGN_CONNECT_TIMEOUT=10000
 FEIGN_READ_TIMEOUT=60000
-FEIGN_LOG_LEVEL=FULL
+FEIGN_LOG_LEVEL=BASIC
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÕES DE LOGGING - DESENVOLVIMENTO
+# CONFIGURAÇÕES DE LOGGING - PRODUÇÃO
 # -----------------------------------------------------------------------------
-LOG_LEVEL=DEBUG
-LOG_LEVEL_APP=DEBUG
-LOG_LEVEL_WEB=DEBUG
-LOG_LEVEL_SQL=DEBUG
-LOG_LEVEL_SQL_PARAMS=TRACE
+LOG_LEVEL=INFO
+LOG_LEVEL_APP=INFO
+LOG_LEVEL_WEB=WARN
+LOG_LEVEL_SQL=WARN
+LOG_LEVEL_SQL_PARAMS=WARN
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÕES DO SCHEDULER
 # -----------------------------------------------------------------------------
 SCHEDULER_POOL_SIZE=10
+

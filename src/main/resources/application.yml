@@ -58,6 +58,7 @@ odontoprev:
     base-url: ${ODONTOPREV_BASE_URL:https://apim-hml.odontoprev.com.br}
     base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim-hml.odontoprev.com.br}
     path: ${ODONTOPREV_API_PATH:/cadastroonline-pj/1.0}
+    codigo-grupo-gerencial: ${ODONTOPREV_CODIGO_GRUPO_GERENCIAL:787392}
 
     # Token OAuth2 (Basic auth para client credentials)
     app-token: ${ODONTOPREV_APP_TOKEN:X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h}

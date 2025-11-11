@@ -195,6 +195,19 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             log.info("   📊 Protocolo: {}", response.getProtocolo());
             log.info("   📊 GuidProtocolo: {}", response.getGuidProtocolo());
             
+            // VERIFICAÇÃO CRÍTICA: Verificar se status é 417 (já cadastrado) ANTES de processar
+            Integer statusResponse = response.getStatus();
+            if (statusResponse != null && statusResponse == 417) {
+                log.warn("⚠️ BENEFICIÁRIO JÁ CADASTRADO (STATUS 417) - {}: {}", codigoMatricula, response.getMensagem());
+                
+                // Quando status 417, NÃO executar procedure (beneficiário já existe)
+                // Apenas marcar como sucesso na TBSYNC
+                String responseJson = objectMapper.writeValueAsString(response);
+                registrarTentativaSucesso(controleSync, responseJson);
+                log.info("✅ BENEFICIÁRIO JÁ CADASTRADO - Marcado como SUCESSO na TBSYNC (sem executar procedure) | Matrícula: {}", codigoMatricula);
+                return; // Não processar mais, apenas retornar
+            }
+            
             if (response.getBeneficiarios() != null) {
                 log.info("   👤 Beneficiarios (objeto principal):");
                 log.info("      📋 CodigoMatricula: {}", response.getBeneficiarios().getCodigoMatricula());
@@ -276,6 +289,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             log.info("🎯 CD_ASSOCIADO FINAL EXTRAÍDO - Beneficiário {}: '{}'", codigoMatricula, cdAssociado);
 
             // Etapa 7: Execução da procedure no Tasy
+            // IMPORTANTE: Executar procedure APENAS UMA VEZ com o cdAssociado correto
             log.info("🔄 EXECUTANDO PROCEDURE - Chamando SS_PLS_CAD_CARTEIRINHA_ODONTOPREV para beneficiário {} com cdAssociado {}", 
                     codigoMatricula, cdAssociado);
             executarProcedureTasy(beneficiario, cdAssociado);
@@ -291,47 +305,20 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             log.error("Erro durante processamento de inclusão: {}", e.getMessage(), e);
             
             // Verificar se é erro de beneficiário já cadastrado
-            if (e.getMessage() != null && e.getMessage().contains("Beneficiário já cadastrado")) {
+            boolean jaCadastrado = (e.getMessage() != null && e.getMessage().contains("Beneficiário já cadastrado")) ||
+                                  (e.getCause() != null && e.getCause().getMessage() != null && e.getCause().getMessage().contains("Beneficiário já cadastrado"));
+            
+            if (jaCadastrado) {
                 log.warn("⚠️ BENEFICIÁRIO JÁ CADASTRADO - {}: {}", codigoMatricula, e.getMessage());
                 
-                // Mesmo quando o beneficiário já está cadastrado, precisamos executar a procedure
-                // para atualizar o sistema Tasy com o cdAssociado
-                try {
-                    log.info("🔄 EXECUTANDO PROCEDURE PARA BENEFICIÁRIO JÁ CADASTRADO - Chamando SS_PLS_CAD_CARTEIRINHA_ODONTOPREV para beneficiário {}", codigoMatricula);
-                    
-                    // Para beneficiários já cadastrados, vamos tentar extrair o cdAssociado da resposta de erro
-                    // ou usar o código da matrícula como fallback
-                    String cdAssociadoParaProcedure = null;
-                    
-                    log.info("🔍 TENTANDO EXTRAIR CD_ASSOCIADO DA RESPOSTA DE ERRO - Beneficiário {}", codigoMatricula);
-                    
-                    // Tentar extrair cdAssociado da mensagem de erro (pode conter informações úteis)
-                    if (e.getMessage().contains("cdAssociado")) {
-                        // Se a mensagem contém cdAssociado, tentar extrair
-                        log.info("📋 MENSAGEM DE ERRO CONTÉM CD_ASSOCIADO - Tentando extrair para beneficiário {}", codigoMatricula);
-                        // TODO: Implementar extração do cdAssociado da mensagem de erro
-                    }
-                    
-                    // Para beneficiários já cadastrados, a API não retorna o cdAssociado na resposta de erro
-                    // Vamos usar o código da matrícula como identificador único
-                    if (cdAssociadoParaProcedure == null || cdAssociadoParaProcedure.trim().isEmpty()) {
-                        cdAssociadoParaProcedure = codigoMatricula; // Usar código da matrícula como identificador
-                        log.info("🔄 USANDO CÓDIGO DA MATRÍCULA COMO IDENTIFICADOR - cdAssociado: {} para beneficiário já cadastrado {}", cdAssociadoParaProcedure, codigoMatricula);
-                    }
-                    
-                    executarProcedureTasy(beneficiario, cdAssociadoParaProcedure);
-                    log.info("✅ PROCEDURE EXECUTADA PARA BENEFICIÁRIO JÁ CADASTRADO - SS_PLS_CAD_CARTEIRINHA_ODONTOPREV concluída para beneficiário {} com cdAssociado {}", codigoMatricula, cdAssociadoParaProcedure);
-                    
-                } catch (Exception procedureException) {
-                    log.error("❌ ERRO AO EXECUTAR PROCEDURE PARA BENEFICIÁRIO JÁ CADASTRADO - Beneficiário {}: {}", 
-                             codigoMatricula, procedureException.getMessage(), procedureException);
-                    // Não falhar o processamento por causa da procedure
-                }
+                // IMPORTANTE: Quando beneficiário já está cadastrado, NÃO executar procedure
+                // O beneficiário já existe na OdontoPrev e não precisa ser cadastrado novamente
+                // Apenas marcar como sucesso na TBSYNC
                 
                 // MARCAR COMO SUCESSO na TBSYNC quando o beneficiário já está cadastrado (é considerado sucesso)
-                log.info("✅ BENEFICIÁRIO JÁ CADASTRADO - Marcando como SUCESSO na TBSYNC | Matrícula: {}", codigoMatricula);
+                log.info("✅ BENEFICIÁRIO JÁ CADASTRADO - Marcando como SUCESSO na TBSYNC (SEM executar procedure) | Matrícula: {}", codigoMatricula);
                 if (controleSync != null) {
-                    // Atualizar o registro como SUCESSO ao invés de deletar
+                    // Atualizar o registro como SUCESSO
                     try {
                         // Extrair mensagem da resposta de erro para usar como responseApi
                         String responseApi = "Beneficiário já cadastrado na OdontoPrev";
@@ -657,10 +644,11 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      * PROCESSA INCLUSÃO DE DEPENDENTE
      *
      * Fluxo específico para inclusão de dependente:
-     * 1. Busca código do associado titular
-     * 2. Converte beneficiário para request de dependente
-     * 3. Chama endpoint /incluirDependente
-     * 4. Processa resposta e salva na TBSYNC
+     * 1. Verifica se já foi processado com sucesso (evita duplicação)
+     * 2. Busca código do associado titular
+     * 3. Converte beneficiário para request de dependente
+     * 4. Chama endpoint /incluirDependente
+     * 5. Processa resposta e salva na TBSYNC
      */
     private void processarInclusaoDependente(BeneficiarioOdontoprev beneficiario) {
         String codigoMatricula = beneficiario.getCodigoMatricula();
@@ -668,7 +656,127 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
         String codigoAssociadoTitularParaSucesso = null; // Variável para usar no catch de "já cadastrado"
 
         try {
-            log.info("🔍 INICIANDO PROCESSAMENTO DE DEPENDENTE - Matrícula: {}", codigoMatricula);
+            log.info("🔍 INICIANDO PROCESSAMENTO DE DEPENDENTE - Matrícula: {} | CPF: {}", 
+                    codigoMatricula, beneficiario.getCpf());
+
+            // VERIFICAÇÃO CRÍTICA: Verificar se dependente já foi processado com sucesso ANTES de processar
+            // Isso evita duplicação mesmo se o método for chamado diretamente (retry, outro fluxo, etc)
+            // IMPORTANTE: Esta verificação é feita ANTES de qualquer processamento para evitar duplicação
+            // CRÍTICO: Verificar se é o MESMO dependente (mesmo CPF), não apenas mesma matrícula/empresa
+            log.info("🔍 [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Verificando se dependente já foi processado - Matrícula: {} | CPF: {} | Empresa: {}", 
+                    codigoMatricula, beneficiario.getCpf(), beneficiario.getCodigoEmpresa());
+            
+            // Limpar CPF para comparação
+            String cpfLimpo = beneficiario.getCpf() != null ? beneficiario.getCpf().replaceAll("[^0-9]", "") : null;
+            
+            if (cpfLimpo == null || cpfLimpo.trim().isEmpty()) {
+                log.warn("⚠️ [VERIFICAÇÃO ANTI-DUPLICAÇÃO] CPF vazio ou nulo - Não é possível verificar duplicação por CPF - Matrícula: {}", codigoMatricula);
+            } else {
+                var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
+                        beneficiario.getCodigoEmpresa(), codigoMatricula);
+                
+                if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
+                    log.info("🔍 [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Encontrados {} registro(s) na TBSYNC para matrícula - Matrícula: {}", 
+                            controlesExistentes.size(), codigoMatricula);
+                    
+                    for (ControleSyncBeneficiario controleExistente : controlesExistentes) {
+                        String statusSync = controleExistente.getStatusSync();
+                        String tipoOp = controleExistente.getTipoOperacao();
+                        String erroMensagem = controleExistente.getErroMensagem();
+                        String responseApi = controleExistente.getResponseApi();
+                        String dadosJson = controleExistente.getDadosJson();
+                        
+                        log.debug("🔍 [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Analisando registro - ID: {} | Tipo: {} | Status: {} | Data Sucesso: {}", 
+                                controleExistente.getId(), tipoOp, statusSync, controleExistente.getDataSucesso());
+                        
+                        // Verificar se é do tipo INCLUSAO
+                        if (!"INCLUSAO".equals(tipoOp)) {
+                            log.debug("🔍 [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Registro não é INCLUSAO, pulando - Tipo: {}", tipoOp);
+                            continue;
+                        }
+                        
+                        // VERIFICAÇÃO CRÍTICA: Extrair CPF do registro na TBSYNC e comparar com CPF do dependente sendo processado
+                        // Só considerar como "já processado" se for o MESMO dependente (mesmo CPF)
+                        String cpfDoRegistro = null;
+                        try {
+                            // Tentar extrair CPF do dadosJson
+                            if (dadosJson != null && dadosJson.contains("\"cpf\"")) {
+                                // Extrair CPF do JSON usando regex simples
+                                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"cpf\"\\s*:\\s*\"([^\"]+)\"");
+                                java.util.regex.Matcher matcher = pattern.matcher(dadosJson);
+                                if (matcher.find()) {
+                                    cpfDoRegistro = matcher.group(1).replaceAll("[^0-9]", "");
+                                }
+                            }
+                            
+                            // Se não encontrou no dadosJson, tentar na responseApi
+                            if ((cpfDoRegistro == null || cpfDoRegistro.trim().isEmpty()) && responseApi != null && responseApi.contains("\"cpf\"")) {
+                                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"cpf\"\\s*:\\s*\"([^\"]+)\"");
+                                java.util.regex.Matcher matcher = pattern.matcher(responseApi);
+                                if (matcher.find()) {
+                                    cpfDoRegistro = matcher.group(1).replaceAll("[^0-9]", "");
+                                }
+                            }
+                        } catch (Exception e) {
+                            log.warn("⚠️ [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Erro ao extrair CPF do registro TBSYNC - ID: {} | Erro: {}", 
+                                    controleExistente.getId(), e.getMessage());
+                        }
+                        
+                        // Se não conseguiu extrair CPF, não pode confirmar que é o mesmo dependente
+                        // Neste caso, usar matrícula como fallback (menos seguro, mas melhor que nada)
+                        boolean mesmoDependente = false;
+                        if (cpfDoRegistro != null && !cpfDoRegistro.trim().isEmpty()) {
+                            mesmoDependente = cpfLimpo.equals(cpfDoRegistro);
+                            log.debug("🔍 [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Comparação de CPF - Registro TBSYNC: {} | Dependente atual: {} | Mesmo: {}", 
+                                    cpfDoRegistro, cpfLimpo, mesmoDependente);
+                        } else {
+                            // Fallback: Se não conseguiu extrair CPF, considerar como mesmo dependente se mesma matrícula
+                            // (menos seguro, mas necessário para casos onde CPF não está no JSON)
+                            log.warn("⚠️ [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Não foi possível extrair CPF do registro TBSYNC - ID: {} | Usando matrícula como fallback", 
+                                    controleExistente.getId());
+                            mesmoDependente = true; // Assumir que é o mesmo se mesma matrícula (fallback)
+                        }
+                        
+                        // Só verificar sucesso se for o MESMO dependente
+                        if (!mesmoDependente) {
+                            log.debug("🔍 [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Registro não é do mesmo dependente (CPF diferente) - Pulando - ID: {}", 
+                                    controleExistente.getId());
+                            continue; // Não é o mesmo dependente, continuar verificando outros registros
+                        }
+                        
+                        // Verificar se já foi processado com sucesso (só se for o mesmo dependente)
+                        boolean isSucesso = "SUCESSO".equals(statusSync) || "SUCCESS".equalsIgnoreCase(statusSync);
+                        
+                        // Verificar se é erro de "já cadastrado" (também é considerado sucesso)
+                        boolean jaCadastrado = false;
+                        if (erroMensagem != null) {
+                            jaCadastrado = (erroMensagem.contains("já cadastrado") || 
+                                           erroMensagem.contains("existe para o titular") ||
+                                           erroMensagem.contains("417") ||
+                                           erroMensagem.contains("Beneficiário já cadastrado") ||
+                                           (erroMensagem.contains("Dependente") && erroMensagem.contains("existe")));
+                        }
+                        if (!jaCadastrado && responseApi != null) {
+                            jaCadastrado = ((responseApi.contains("\"mensagem\":\"Dependente") && responseApi.contains("existe")) ||
+                                           responseApi.contains("\"status\":417") ||
+                                           responseApi.contains("já cadastrado"));
+                        }
+                        
+                        if (isSucesso || jaCadastrado) {
+                            log.warn("⏭️ [ANTI-DUPLICAÇÃO] MESMO DEPENDENTE JÁ PROCESSADO COM SUCESSO - Matrícula: {} | CPF: {} | Status: {} | Data Sucesso: {} | ID: {} | JaCadastrado: {} - PULANDO PROCESSAMENTO PARA EVITAR DUPLICAÇÃO", 
+                                    codigoMatricula, cpfLimpo, statusSync, controleExistente.getDataSucesso(), 
+                                    controleExistente.getId(), jaCadastrado);
+                            return; // Já foi processado, não processar novamente
+                        }
+                    }
+                    
+                    log.info("✅ [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Nenhum registro de SUCESSO encontrado para este dependente (mesmo CPF) - Dependente será processado - Matrícula: {} | CPF: {}", 
+                            codigoMatricula, cpfLimpo);
+                } else {
+                    log.info("✅ [VERIFICAÇÃO ANTI-DUPLICAÇÃO] Nenhum registro encontrado na TBSYNC - Dependente será processado - Matrícula: {} | CPF: {}", 
+                            codigoMatricula, cpfLimpo);
+                }
+            }
 
             // Etapa 1: Buscar código do associado titular
             // PRIORIDADE: Usar valor da view se disponível, senão buscar na TBSYNC
@@ -1188,9 +1296,49 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      *
      * Cria um registro na tabela TB_CONTROLE_SYNC_ODONTOPREV_BENEF
      * para rastrear o processamento do beneficiário.
+     * 
+     * IMPORTANTE: Verifica se já existe um registro PENDING ou PROCESSANDO antes de criar novo,
+     * evitando múltiplos registros para o mesmo beneficiário.
      */
     private ControleSyncBeneficiario criarRegistroControle(BeneficiarioOdontoprev beneficiario, String tipoOperacao, Object request) {
         try {
+            // VERIFICAÇÃO: Verificar se já existe registro PENDING, PROCESSANDO ou ERRO para evitar duplicação
+            var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
+                    beneficiario.getCodigoEmpresa(), beneficiario.getCodigoMatricula());
+            
+            if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
+                for (ControleSyncBeneficiario controleExistente : controlesExistentes) {
+                    String statusSync = controleExistente.getStatusSync();
+                    String tipoOp = controleExistente.getTipoOperacao();
+                    
+                    // Se já existe registro PENDING, PROCESSANDO ou ERRO do mesmo tipo, reutilizar
+                    if (tipoOperacao.equals(tipoOp) && 
+                        ("PENDING".equals(statusSync) || "PROCESSANDO".equals(statusSync) || "ERRO".equals(statusSync))) {
+                        log.info("🔄 [TBSYNC] Reutilizando registro existente {} - ID: {} | Matrícula: {} | Status: {} | Tentativas: {}", 
+                                statusSync, controleExistente.getId(), beneficiario.getCodigoMatricula(), statusSync, controleExistente.getTentativas());
+                        
+                        // Atualizar dados do registro existente
+                        try {
+                            String payloadJson = objectMapper.writeValueAsString(request);
+                            controleExistente.setDadosJson(payloadJson);
+                            controleExistente.setDataUltimaTentativa(LocalDateTime.now());
+                            controleExistente.setStatusSync("PROCESSANDO");
+                            // Incrementar tentativas apenas se for ERRO (PENDING/PROCESSANDO já foram incrementados antes)
+                            if ("ERRO".equals(statusSync)) {
+                                int tentativasAtuais = controleExistente.getTentativas() != null ? controleExistente.getTentativas() : 0;
+                                controleExistente.setTentativas(tentativasAtuais + 1);
+                                log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {}", 
+                                        tentativasAtuais, controleExistente.getTentativas(), beneficiario.getCodigoMatricula());
+                            }
+                            return controleSyncRepository.saveAndFlush(controleExistente);
+                        } catch (Exception e) {
+                            log.warn("⚠️ [TBSYNC] Erro ao atualizar registro existente, criando novo: {}", e.getMessage());
+                            // Continuar para criar novo registro
+                        }
+                    }
+                }
+            }
+            
             String payloadJson = objectMapper.writeValueAsString(request);
             
             // Determinar tipoLog e endpoint baseado no tipo de operação e se é dependente
@@ -1213,10 +1361,10 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     .dataUltimaTentativa(LocalDateTime.now())
                     .build();
 
-            log.debug("📝 [TBSYNC] Criando registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres", 
+            log.info("📝 [TBSYNC] Criando novo registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres", 
                     beneficiario.getCodigoMatricula(), tipoOperacao, endpointDestino, payloadJson.length());
 
-            return controleSyncRepository.save(controle);
+            return controleSyncRepository.saveAndFlush(controle);
         } catch (Exception e) {
             log.error("Erro ao criar registro de controle para beneficiário {}: {}", 
                      beneficiario.getCodigoMatricula(), e.getMessage(), e);
@@ -1228,6 +1376,8 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      * REGISTRA TENTATIVA DE SUCESSO
      *
      * Atualiza o registro de controle com o resultado de sucesso.
+     * IMPORTANTE: Usa saveAndFlush para garantir que o commit seja imediato
+     * e visível para outras threads/processos, evitando duplicação.
      */
     private void registrarTentativaSucesso(ControleSyncBeneficiario controle, String responseJson) {
         if (controle != null) {
@@ -1235,9 +1385,10 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 controle.setStatusSync("SUCESSO");
                 controle.setDataSucesso(LocalDateTime.now());
                 controle.setResponseApi(responseJson);
-                controleSyncRepository.save(controle);
-                log.info("✅ [TBSYNC] Registro atualizado como SUCESSO - ID: {} | Matrícula: {} | Status: SUCESSO", 
-                        controle.getId(), controle.getCodigoBeneficiario());
+                // IMPORTANTE: Usar saveAndFlush para garantir commit imediato e visibilidade
+                controleSyncRepository.saveAndFlush(controle);
+                log.info("✅ [TBSYNC] Registro atualizado como SUCESSO - ID: {} | Matrícula: {} | Status: SUCESSO | Data: {}", 
+                        controle.getId(), controle.getCodigoBeneficiario(), controle.getDataSucesso());
             } catch (Exception e) {
                 log.error("❌ Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
                 throw e; // Relançar para não perder o erro
@@ -1256,6 +1407,33 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
     private void registrarTentativaErro(BeneficiarioOdontoprev beneficiario, String tipoOperacao, 
                                       ControleSyncBeneficiario controle, String mensagemErro, Exception excecao) {
         try {
+            // VERIFICAÇÃO CRÍTICA: SEMPRE verificar se já existe registro de ERRO do mesmo tipo
+            // Mesmo se controle != null, pode ser um controle novo que não foi salvo ainda
+            // Se existir registro de ERRO já salvo, reutilizar e incrementar tentativas
+            var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
+                    beneficiario.getCodigoEmpresa(), beneficiario.getCodigoMatricula());
+            
+            ControleSyncBeneficiario controleErroExistente = null;
+            if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
+                for (ControleSyncBeneficiario controleExistente : controlesExistentes) {
+                    String statusSync = controleExistente.getStatusSync();
+                    String tipoOp = controleExistente.getTipoOperacao();
+                    
+                    // Se já existe registro ERRO do mesmo tipo, reutilizar
+                    if (tipoOperacao.equals(tipoOp) && "ERRO".equals(statusSync)) {
+                        controleErroExistente = controleExistente;
+                        log.info("🔄 [TBSYNC] Encontrado registro de ERRO existente - ID: {} | Matrícula: {} | Tentativas atuais: {}", 
+                                controleExistente.getId(), beneficiario.getCodigoMatricula(), controleExistente.getTentativas());
+                        break; // Usar o primeiro registro de ERRO encontrado
+                    }
+                }
+            }
+            
+            // Se encontrou registro de ERRO existente, usar ele em vez do controle passado
+            if (controleErroExistente != null) {
+                controle = controleErroExistente;
+            }
+            
             if (controle == null) {
                 // Se não existe controle, tenta criar o request para ter o JSON correto
                 String payloadJson = "{}";
@@ -1296,9 +1474,10 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                         .dadosJson(payloadJson)
                         .dataUltimaTentativa(LocalDateTime.now())
                         .erroMensagem(mensagemErro)
+                        .tentativas(1) // Primeira tentativa
                         .build();
                 
-                log.info("📝 [TBSYNC] Criando registro de erro - Matrícula: {} | Endpoint: {} | DadosJson: {} caracteres", 
+                log.info("📝 [TBSYNC] Criando novo registro de erro - Matrícula: {} | Endpoint: {} | DadosJson: {} caracteres", 
                         beneficiario.getCodigoMatricula(), endpointDestino, payloadJson.length());
             } else {
                 // Se o controle já existe, verificar se dadosJson está vazio e tentar atualizar
@@ -1332,9 +1511,15 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 controle.setStatusSync("ERRO");
                 controle.setDataUltimaTentativa(LocalDateTime.now());
                 controle.setErroMensagem(mensagemErro);
+                
+                // INCREMENTAR TENTATIVAS: Se o controle já existe, incrementar número de tentativas
+                int tentativasAtuais = controle.getTentativas() != null ? controle.getTentativas() : 0;
+                controle.setTentativas(tentativasAtuais + 1);
+                log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {} | Status: ERRO", 
+                        tentativasAtuais, controle.getTentativas(), beneficiario.getCodigoMatricula());
             }
 
-            controleSyncRepository.save(controle);
+            controleSyncRepository.saveAndFlush(controle);
         } catch (Exception e) {
             log.error("Erro ao registrar erro no controle: {}", e.getMessage(), e);
         }

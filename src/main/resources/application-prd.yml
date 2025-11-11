@@ -39,6 +39,7 @@ odontoprev:
     base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim.odontoprev.com.br}
     base-url-login: ${ODONTOPREV_LOGIN_URL:https://apim.odontoprev.com.br}
     path: ${ODONTOPREV_API_PATH:/empresa/2.0}
+    codigo-grupo-gerencial: ${ODONTOPREV_CODIGO_GRUPO_GERENCIAL:925397}
     
     # Token OAuth2 para produção (Basic auth para client credentials)
     # Endpoint: https://apim.odontoprev.com.br/oauth2/token

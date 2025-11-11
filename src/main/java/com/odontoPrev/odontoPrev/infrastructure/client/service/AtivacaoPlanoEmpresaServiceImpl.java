@@ -10,9 +10,11 @@ import com.odontoPrev.odontoPrev.infrastructure.repository.entity.ControleSync;
 import com.odontoPrev.odontoPrev.infrastructure.repository.ControleSyncRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +46,14 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
     private final ControleSyncRepository controleSyncRepository;
     private final ObjectMapper objectMapper;
     private final TokenService tokenService;
+
+    @Value("${odontoprev.api.codigo-grupo-gerencial:787392}")
+    private String codigoGrupoGerencialPadrao;
+
+    @PostConstruct
+    public void init() {
+        log.info("✅ [INICIALIZAÇÃO] AtivacaoPlanoEmpresaServiceImpl - codigoGrupoGerencialPadrao configurado: {}", codigoGrupoGerencialPadrao);
+    }
 
     @Override
     @Transactional
@@ -111,6 +121,14 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
         log.debug("🔄 [CONVERSÃO] Convertendo dados da empresa {} para request de ativação", 
                 dadosEmpresa.getCodigoEmpresa());
 
+        // Determinar codigoGrupoGerencial: usar da view se disponível, senão usar o padrão configurado
+        String codigoGrupoGerencial = dadosEmpresa.getCodigoGrupoGerencial() != null 
+                ? dadosEmpresa.getCodigoGrupoGerencial().toString() 
+                : codigoGrupoGerencialPadrao;
+        
+        log.debug("📋 [ATIVAÇÃO PLANO] codigoGrupoGerencial - View: {}, Usando: {}, Padrão configurado: {}", 
+                dadosEmpresa.getCodigoGrupoGerencial(), codigoGrupoGerencial, codigoGrupoGerencialPadrao);
+
         // Valores padrão baseados no cURL fornecido
         EmpresaAtivacaoPlanoRequest request = EmpresaAtivacaoPlanoRequest.builder()
                 .sistema(dadosEmpresa.getSistema() != null ? dadosEmpresa.getSistema() : "SabinSinai")
@@ -118,7 +136,7 @@ public class AtivacaoPlanoEmpresaServiceImpl implements AtivacaoPlanoEmpresaServ
                 .emiteCarteirinhaPlastica(dadosEmpresa.getEmiteCarteirinhaPlastica() != null ? dadosEmpresa.getEmiteCarteirinhaPlastica() : "N")
                 .codigoEmpresaGestora(dadosEmpresa.getCodigoEmpresaGestora() != null ? dadosEmpresa.getCodigoEmpresaGestora().intValue() : 1)
                 .codigoFilialEmpresaGestora(dadosEmpresa.getCodigoFilialEmpresaGestora() != null ? dadosEmpresa.getCodigoFilialEmpresaGestora().intValue() : 1)
-                .codigoGrupoGerencial(dadosEmpresa.getCodigoGrupoGerencial() != null ? dadosEmpresa.getCodigoGrupoGerencial().toString() : "787392")
+                .codigoGrupoGerencial(codigoGrupoGerencial)
                 .codigoNaturezaJuridica(dadosEmpresa.getCodigoNaturezaJuridica() != null ? dadosEmpresa.getCodigoNaturezaJuridica() : "6550-2")
                 .nomeNaturezaJuridica(dadosEmpresa.getNomeNaturezaJuridica() != null ? dadosEmpresa.getNomeNaturezaJuridica() : "Planos de saúde")
                 .situacaoCadastral(dadosEmpresa.getSituacaoCadastral() != null ? dadosEmpresa.getSituacaoCadastral() : "ATIVO")
