@@ -1331,9 +1331,10 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     String statusSync = controleExistente.getStatusSync();
                     String tipoOp = controleExistente.getTipoOperacao();
                     
-                    // Se já existe registro PENDING, PROCESSING ou ERRO do mesmo tipo, reutilizar
+                    // Se já existe registro PENDING ou ERROR do mesmo tipo, reutilizar
+                    // IMPORTANTE: Não usar "PROCESSING" pois pode violar constraint CHECK do banco
                     if (tipoOperacao.equals(tipoOp) && 
-                        ("PENDING".equals(statusSync) || "PROCESSING".equals(statusSync) || "ERRO".equals(statusSync))) {
+                        ("PENDING".equals(statusSync) || "ERROR".equals(statusSync))) {
                         log.info("🔄 [TBSYNC] Reutilizando registro existente {} - ID: {} | Matrícula: {} | Status: {} | Tentativas: {}", 
                                 statusSync, controleExistente.getId(), codigoBeneficiario, statusSync, controleExistente.getTentativas());
                         
@@ -1342,15 +1343,18 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                             String payloadJson = objectMapper.writeValueAsString(request);
                             controleExistente.setDadosJson(payloadJson);
                             controleExistente.setDataUltimaTentativa(LocalDateTime.now());
-                            controleExistente.setStatusSync("PROCESSING"); // PROCESSING = 10 caracteres (máximo permitido)
+                            // Manter status como PENDING (não usar PROCESSING para evitar violação de constraint)
+                            if (!"PENDING".equals(controleExistente.getStatusSync())) {
+                                controleExistente.setStatusSync("PENDING");
+                            }
                             
                             // CRÍTICO: Garantir que maxTentativas não seja nulo
                             if (controleExistente.getMaxTentativas() == null) {
                                 controleExistente.setMaxTentativas(3);
                             }
                             
-                            // Incrementar tentativas apenas se for ERRO (PENDING/PROCESSING já foram incrementados antes)
-                            if ("ERRO".equals(statusSync)) {
+                            // Incrementar tentativas apenas se for ERROR (PENDING/PROCESSING já foram incrementados antes)
+                            if ("ERROR".equals(statusSync)) {
                                 int tentativasAtuais = controleExistente.getTentativas() != null ? controleExistente.getTentativas() : 0;
                                 controleExistente.setTentativas(Math.max(0, tentativasAtuais + 1)); // Garantir que não seja negativo
                                 log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {}", 
@@ -1368,11 +1372,32 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                             if (controleExistente.getCodigoBeneficiario() != null && controleExistente.getCodigoBeneficiario().length() > 15) {
                                 controleExistente.setCodigoBeneficiario(controleExistente.getCodigoBeneficiario().substring(0, 15));
                             }
-                            if (controleExistente.getTipoLog() != null && controleExistente.getTipoLog().length() > 1) {
+                            
+                            // CRÍTICO: Validar e corrigir tipoLog se necessário
+                            if (controleExistente.getTipoLog() == null || controleExistente.getTipoLog().trim().isEmpty() || 
+                                !controleExistente.getTipoLog().trim().matches("[IAE]")) {
+                                log.warn("⚠️ [TBSYNC] tipoLog inválido no registro existente: '{}' - Corrigindo baseado em tipoOperacao: '{}'", 
+                                        controleExistente.getTipoLog(), tipoOperacao);
+                                if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                                    controleExistente.setTipoLog("I");
+                                } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                                    controleExistente.setTipoLog("A");
+                                } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                                    controleExistente.setTipoLog("E");
+                                } else {
+                                    controleExistente.setTipoLog("I"); // Fallback
+                                }
+                            } else if (controleExistente.getTipoLog().length() > 1) {
                                 controleExistente.setTipoLog(controleExistente.getTipoLog().substring(0, 1));
                             }
+                            
                             if (controleExistente.getTipoOperacao() != null && controleExistente.getTipoOperacao().length() > 10) {
                                 controleExistente.setTipoOperacao(controleExistente.getTipoOperacao().substring(0, 10));
+                            }
+                            
+                            // Validação final do tipoLog
+                            if (controleExistente.getTipoLog() == null || !controleExistente.getTipoLog().matches("[IAE]")) {
+                                throw new IllegalStateException("tipoLog inválido após correção no registro existente: " + controleExistente.getTipoLog());
                             }
                             
                             log.info("📝 [TBSYNC] Atualizando registro existente - ID: {} | Matrícula: {} | Tentativas: {} | MaxTentativas: {} | Status: PROCESSING", 
@@ -1395,15 +1420,40 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 payloadJson = "{}";
             }
             
-            // Determinar tipoLog e endpoint baseado no tipo de operação e se é dependente
-            String tipoLog = "I"; // I = Inclusão
-            String endpointDestino = "/cadastroonline-pj/1.0/incluir"; // Endpoint padrão para titular
-            
-            // Se é dependente, usar endpoint específico
-            if ("D".equals(beneficiario.getIdentificacao())) {
-                tipoLog = "I"; // Dependente também é inclusão
-                endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
+            // Determinar tipoLog baseado no tipoOperacao recebido como parâmetro
+            // tipoLog: I = Inclusão, A = Alteração, E = Exclusão
+            String tipoLog;
+            if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                tipoLog = "I"; // I = Inclusão
+            } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                tipoLog = "A"; // A = Alteração
+            } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                tipoLog = "E"; // E = Exclusão
+            } else {
+                // Fallback: se tipoOperacao não for reconhecido, usar "I" como padrão
+                log.warn("⚠️ [TBSYNC] Tipo de operação não reconhecido: '{}' - Usando 'I' (Inclusão) como padrão", tipoOperacao);
+                tipoLog = "I";
             }
+            
+            // Determinar endpoint baseado no tipo de operação e se é dependente
+            String endpointDestino;
+            if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                if ("D".equals(beneficiario.getIdentificacao())) {
+                    endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
+                } else {
+                    endpointDestino = "/cadastroonline-pj/1.0/incluir";
+                }
+            } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                endpointDestino = "/cadastroonline-pj/1.0/alterar";
+            } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                endpointDestino = "/cadastroonline-pj/1.0/excluir";
+            } else {
+                // Fallback
+                endpointDestino = "/cadastroonline-pj/1.0/incluir";
+            }
+            
+            log.info("📝 [TBSYNC] Tipo de operação: '{}' → tipoLog: '{}' | Endpoint: '{}'", 
+                    tipoOperacao, tipoLog, endpointDestino);
             
             // CRÍTICO: Validar e truncar campos para garantir que estejam dentro dos limites
             // codigoEmpresa: máximo 6 caracteres
@@ -1421,20 +1471,22 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             // endpointDestino: máximo 200 caracteres (mas vamos garantir)
             String endpointDestinoTruncado = endpointDestino != null ? (endpointDestino.length() > 200 ? endpointDestino.substring(0, 200) : endpointDestino) : endpointDestino;
             
-            log.info("📝 [TBSYNC] VALIDAÇÃO DE CAMPOS - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'PROCESSING' (10 chars)", 
+            log.info("📝 [TBSYNC] VALIDAÇÃO DE CAMPOS - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'PENDING' (7 chars)", 
                     codigoEmpresaTruncado, codigoEmpresaTruncado != null ? codigoEmpresaTruncado.length() : 0,
                     codigoBeneficiarioTruncado, codigoBeneficiarioTruncado != null ? codigoBeneficiarioTruncado.length() : 0,
                     tipoLogTruncado, tipoLogTruncado != null ? tipoLogTruncado.length() : 0,
                     tipoOperacaoTruncado, tipoOperacaoTruncado != null ? tipoOperacaoTruncado.length() : 0);
             
             // Garantir que todos os campos obrigatórios estejam preenchidos
+            // IMPORTANTE: Usar "PENDING" ao invés de "PROCESSING" para evitar violação de constraint
+            // O banco pode ter uma constraint CHECK que só aceita valores específicos
             ControleSyncBeneficiario controle = ControleSyncBeneficiario.builder()
                     .codigoEmpresa(codigoEmpresaTruncado)
                     .codigoBeneficiario(codigoBeneficiarioTruncado)
                     .tipoLog(tipoLogTruncado)
                     .tipoOperacao(tipoOperacaoTruncado)
                     .endpointDestino(endpointDestinoTruncado)
-                    .statusSync("PROCESSING") // PROCESSING = 10 caracteres (máximo permitido pela coluna)
+                    .statusSync("PENDING") // PENDING = 7 caracteres (valor padrão aceito pela constraint)
                     .dadosJson(payloadJson)
                     .tentativas(0) // Garantir que tentativas não seja nulo
                     .maxTentativas(3) // Garantir que maxTentativas não seja nulo
@@ -1444,13 +1496,74 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             log.info("📝 [TBSYNC] Criando novo registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres | Empresa: {}", 
                     codigoBeneficiarioTruncado, tipoOperacaoTruncado, endpointDestinoTruncado, payloadJson.length(), codigoEmpresaTruncado);
             
-            // Log final antes de salvar para diagnóstico
-            log.info("📝 [TBSYNC] VALIDAÇÃO FINAL ANTES DE SALVAR (CRIAR) - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'PROCESSING' (10 chars) | Tentativas: {} | MaxTentativas: {}", 
-                    controle.getCodigoEmpresa(), controle.getCodigoEmpresa() != null ? controle.getCodigoEmpresa().length() : 0,
-                    controle.getCodigoBeneficiario(), controle.getCodigoBeneficiario() != null ? controle.getCodigoBeneficiario().length() : 0,
-                    controle.getTipoLog(), controle.getTipoLog() != null ? controle.getTipoLog().length() : 0,
-                    controle.getTipoOperacao(), controle.getTipoOperacao() != null ? controle.getTipoOperacao().length() : 0,
-                    controle.getTentativas(), controle.getMaxTentativas());
+            // Log final antes de salvar para diagnóstico - TODOS OS CAMPOS
+            log.error("🔍 [TBSYNC] DEBUG COMPLETO ANTES DE SALVAR - TODOS OS CAMPOS:");
+            log.error("   ID: {}", controle.getId());
+            log.error("   codigoEmpresa: '{}' (length: {})", controle.getCodigoEmpresa(), controle.getCodigoEmpresa() != null ? controle.getCodigoEmpresa().length() : 0);
+            log.error("   codigoBeneficiario: '{}' (length: {})", controle.getCodigoBeneficiario(), controle.getCodigoBeneficiario() != null ? controle.getCodigoBeneficiario().length() : 0);
+            log.error("   tipoLog: '{}' (length: {})", controle.getTipoLog(), controle.getTipoLog() != null ? controle.getTipoLog().length() : 0);
+            log.error("   tipoOperacao: '{}' (length: {})", controle.getTipoOperacao(), controle.getTipoOperacao() != null ? controle.getTipoOperacao().length() : 0);
+            log.error("   endpointDestino: '{}' (length: {})", controle.getEndpointDestino(), controle.getEndpointDestino() != null ? controle.getEndpointDestino().length() : 0);
+            log.error("   statusSync: '{}' (length: {})", controle.getStatusSync(), controle.getStatusSync() != null ? controle.getStatusSync().length() : 0);
+            log.error("   tentativas: {} (type: {})", controle.getTentativas(), controle.getTentativas() != null ? controle.getTentativas().getClass().getSimpleName() : "null");
+            log.error("   maxTentativas: {} (type: {})", controle.getMaxTentativas(), controle.getMaxTentativas() != null ? controle.getMaxTentativas().getClass().getSimpleName() : "null");
+            log.error("   dataCriacao: {}", controle.getDataCriacao());
+            log.error("   dataUltimaTentativa: {}", controle.getDataUltimaTentativa());
+            log.error("   dataSucesso: {}", controle.getDataSucesso());
+            log.error("   dadosJson: {} chars", controle.getDadosJson() != null ? controle.getDadosJson().length() : 0);
+            log.error("   erroMensagem: {} chars", controle.getErroMensagem() != null ? controle.getErroMensagem().length() : 0);
+            log.error("   responseApi: {} chars", controle.getResponseApi() != null ? controle.getResponseApi().length() : 0);
+            
+            // Validação CRÍTICA: garantir que tipoLog seja exatamente "I", "A" ou "E" e nunca null
+            if (controle.getTipoLog() == null || controle.getTipoLog().trim().isEmpty()) {
+                log.error("❌ [TBSYNC] tipoLog é NULL ou vazio! - Corrigindo baseado em tipoOperacao: '{}'", tipoOperacao);
+                // Corrigir baseado no tipoOperacao
+                if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                    controle.setTipoLog("I");
+                } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                    controle.setTipoLog("A");
+                } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                    controle.setTipoLog("E");
+                } else {
+                    log.error("❌ [TBSYNC] tipoOperacao inválido: '{}' - Usando 'I' como fallback", tipoOperacao);
+                    controle.setTipoLog("I");
+                }
+                tipoLogTruncado = controle.getTipoLog();
+            }
+            
+            // Garantir que tipoLog seja exatamente 1 caractere e seja "I", "A" ou "E"
+            if (controle.getTipoLog() == null || controle.getTipoLog().trim().isEmpty()) {
+                throw new IllegalStateException("tipoLog não pode ser null ou vazio após correção");
+            }
+            
+            // Truncar novamente para garantir que seja exatamente 1 caractere
+            String tipoLogFinal = controle.getTipoLog().trim().substring(0, Math.min(1, controle.getTipoLog().trim().length()));
+            if (!tipoLogFinal.matches("[IAE]")) {
+                log.error("❌ [TBSYNC] tipoLog inválido após validação: '{}' - Deve ser 'I', 'A' ou 'E'", tipoLogFinal);
+                throw new IllegalArgumentException("tipoLog deve ser 'I', 'A' ou 'E', mas foi: " + tipoLogFinal);
+            }
+            
+            // Atualizar o controle com o tipoLog validado
+            controle.setTipoLog(tipoLogFinal);
+            log.info("✅ [TBSYNC] tipoLog validado e corrigido: '{}'", tipoLogFinal);
+            
+            // Validação adicional: garantir que statusSync seja válido
+            // IMPORTANTE: O banco pode ter constraint CHECK que só aceita valores específicos
+            // Valores aceitos: PENDING, SUCCESS, ERROR (ou SUCESSO, ERRO em português)
+            if (controle.getStatusSync() != null && !controle.getStatusSync().matches("PENDING|SUCCESS|SUCESSO|ERROR|ERRO")) {
+                log.error("❌ [TBSYNC] statusSync inválido: '{}' - Deve ser PENDING, SUCCESS, SUCESSO, ERROR ou ERRO", controle.getStatusSync());
+                throw new IllegalArgumentException("statusSync inválido: " + controle.getStatusSync());
+            }
+            
+            // Validação adicional: garantir que tentativas e maxTentativas sejam não-negativos
+            if (controle.getTentativas() != null && controle.getTentativas() < 0) {
+                log.error("❌ [TBSYNC] tentativas não pode ser negativo: {}", controle.getTentativas());
+                throw new IllegalArgumentException("tentativas não pode ser negativo: " + controle.getTentativas());
+            }
+            if (controle.getMaxTentativas() != null && controle.getMaxTentativas() < 0) {
+                log.error("❌ [TBSYNC] maxTentativas não pode ser negativo: {}", controle.getMaxTentativas());
+                throw new IllegalArgumentException("maxTentativas não pode ser negativo: " + controle.getMaxTentativas());
+            }
 
             ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
             
@@ -1590,8 +1703,8 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                             String statusSync = controleExistente.getStatusSync();
                             String tipoOp = controleExistente.getTipoOperacao();
                             
-                            // Se já existe registro ERRO do mesmo tipo, reutilizar
-                            if (tipoOperacao.equals(tipoOp) && "ERRO".equals(statusSync)) {
+                            // Se já existe registro ERROR do mesmo tipo, reutilizar
+                            if (tipoOperacao.equals(tipoOp) && "ERROR".equals(statusSync)) {
                                 controleErroExistente = controleExistente;
                                 log.info("🔄 [TBSYNC] Encontrado registro de ERRO existente - ID: {} | Matrícula: {} | Tentativas atuais: {}", 
                                         controleExistente.getId(), codigoBeneficiario, controleExistente.getTentativas());
@@ -1614,14 +1727,42 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             if (controle == null) {
                 // Se não existe controle, tenta criar o request para ter o JSON correto
                 String payloadJson = "{}";
-                String tipoLog = "I"; // I = Inclusão
-                String endpointDestino = "/cadastroonline-pj/1.0/incluir";
                 
-                try {
-                    // Verificar se é dependente para criar o request correto
+                // Determinar tipoLog baseado no tipoOperacao recebido como parâmetro
+                // tipoLog: I = Inclusão, A = Alteração, E = Exclusão
+                String tipoLog;
+                if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                    tipoLog = "I"; // I = Inclusão
+                } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                    tipoLog = "A"; // A = Alteração
+                } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                    tipoLog = "E"; // E = Exclusão
+                } else {
+                    // Fallback: se tipoOperacao não for reconhecido, usar "I" como padrão
+                    log.warn("⚠️ [TBSYNC] Tipo de operação não reconhecido: '{}' - Usando 'I' (Inclusão) como padrão", tipoOperacao);
+                    tipoLog = "I";
+                }
+                
+                // Determinar endpoint baseado no tipo de operação e se é dependente
+                String endpointDestino;
+                if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
                     if ("D".equals(beneficiario.getIdentificacao())) {
                         endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
-                        
+                    } else {
+                        endpointDestino = "/cadastroonline-pj/1.0/incluir";
+                    }
+                } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                    endpointDestino = "/cadastroonline-pj/1.0/alterar";
+                } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                    endpointDestino = "/cadastroonline-pj/1.0/excluir";
+                } else {
+                    // Fallback
+                    endpointDestino = "/cadastroonline-pj/1.0/incluir";
+                }
+                
+                try {
+                    // Verificar se é dependente para criar o request correto (apenas para INCLUSAO)
+                    if ("INCLUSAO".equalsIgnoreCase(tipoOperacao) && "D".equals(beneficiario.getIdentificacao())) {
                         // Buscar código do associado titular para criar o request de dependente
                         String codigoAssociadoTitular = buscarCodigoAssociadoTitular(codigoEmpresa);
                         if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
@@ -1631,16 +1772,20 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                             log.warn("⚠️ Não foi possível buscar código do titular para criar request de dependente - Beneficiário: {}", 
                                     codigoBeneficiario);
                         }
-                    } else {
+                    } else if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
                         // Tenta criar o request de titular mesmo com dados inválidos para ter o JSON
                         BeneficiarioInclusaoRequestNew request = converterParaInclusaoRequestNew(beneficiario);
                         payloadJson = objectMapper.writeValueAsString(request);
                     }
+                    // Para ALTERACAO e EXCLUSAO, manter payloadJson como "{}" por enquanto
                 } catch (Exception e) {
                     log.warn("⚠️ Não foi possível criar request para beneficiário {}: {}", 
                              codigoBeneficiario, e.getMessage());
                     // Mantém "{}" se não conseguir criar o request
                 }
+                
+                log.info("📝 [TBSYNC] Criando registro de erro - Tipo de operação: '{}' → tipoLog: '{}' | Endpoint: '{}'", 
+                        tipoOperacao, tipoLog, endpointDestino);
                 
                 // CRÍTICO: Validar e truncar campos para garantir que estejam dentro dos limites
                 // codigoEmpresa: máximo 6 caracteres
@@ -1664,6 +1809,24 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                         tipoLogTruncado, tipoLogTruncado != null ? tipoLogTruncado.length() : 0,
                         tipoOperacaoTruncado, tipoOperacaoTruncado != null ? tipoOperacaoTruncado.length() : 0);
                 
+                // CRÍTICO: Validar tipoLog antes de criar o builder
+                if (tipoLogTruncado == null || tipoLogTruncado.trim().isEmpty() || !tipoLogTruncado.matches("[IAE]")) {
+                    log.error("❌ [TBSYNC-ERRO] tipoLog inválido antes de criar registro: '{}' - Corrigindo...", tipoLogTruncado);
+                    if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                        tipoLogTruncado = "I";
+                    } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                        tipoLogTruncado = "A";
+                    } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                        tipoLogTruncado = "E";
+                    } else {
+                        tipoLogTruncado = "I"; // Fallback
+                    }
+                    log.info("✅ [TBSYNC-ERRO] tipoLog corrigido para: '{}'", tipoLogTruncado);
+                }
+                
+                // Garantir que seja exatamente 1 caractere
+                tipoLogTruncado = tipoLogTruncado.trim().substring(0, Math.min(1, tipoLogTruncado.trim().length()));
+                
                 // CRÍTICO: Garantir que todos os campos obrigatórios estejam preenchidos
                 controle = ControleSyncBeneficiario.builder()
                         .codigoEmpresa(codigoEmpresaTruncado)
@@ -1671,13 +1834,18 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                         .tipoLog(tipoLogTruncado)
                         .tipoOperacao(tipoOperacaoTruncado)
                         .endpointDestino(endpointDestinoTruncado)
-                        .statusSync("ERRO") // ERRO = 4 caracteres
+                        .statusSync("ERROR") // ERROR = 5 caracteres (padrão em inglês)
                         .dadosJson(payloadJson)
                         .dataUltimaTentativa(LocalDateTime.now())
                         .erroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido")
                         .tentativas(1) // Primeira tentativa
                         .maxTentativas(3) // CRÍTICO: Garantir que maxTentativas não seja nulo
                         .build();
+                
+                // Validação final antes de salvar
+                if (controle.getTipoLog() == null || !controle.getTipoLog().matches("[IAE]")) {
+                    throw new IllegalStateException("tipoLog inválido após criação do builder: " + controle.getTipoLog());
+                }
                 
                 log.info("📝 [TBSYNC] Criando novo registro de erro - Matrícula: {} | Endpoint: {} | DadosJson: {} caracteres | Empresa: {}", 
                         codigoBeneficiario, endpointDestino, payloadJson.length(), codigoEmpresa);
@@ -1710,7 +1878,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     }
                 }
                 
-                controle.setStatusSync("ERRO");
+                controle.setStatusSync("ERROR");
                 controle.setDataUltimaTentativa(LocalDateTime.now());
                 controle.setErroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido");
                 
@@ -1735,14 +1903,34 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 if (controle.getCodigoBeneficiario() != null && controle.getCodigoBeneficiario().length() > 15) {
                     controle.setCodigoBeneficiario(controle.getCodigoBeneficiario().substring(0, 15));
                 }
-                if (controle.getTipoLog() != null && controle.getTipoLog().length() > 1) {
+                // CRÍTICO: Validar e corrigir tipoLog se necessário
+                if (controle.getTipoLog() == null || controle.getTipoLog().trim().isEmpty() || 
+                    !controle.getTipoLog().trim().matches("[IAE]")) {
+                    log.warn("⚠️ [TBSYNC] tipoLog inválido no controle existente: '{}' - Corrigindo baseado em tipoOperacao: '{}'", 
+                            controle.getTipoLog(), tipoOperacao);
+                    if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                        controle.setTipoLog("I");
+                    } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                        controle.setTipoLog("A");
+                    } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                        controle.setTipoLog("E");
+                    } else {
+                        controle.setTipoLog("I"); // Fallback
+                    }
+                } else if (controle.getTipoLog().length() > 1) {
                     controle.setTipoLog(controle.getTipoLog().substring(0, 1));
                 }
+                
                 if (controle.getTipoOperacao() != null && controle.getTipoOperacao().length() > 10) {
                     controle.setTipoOperacao(controle.getTipoOperacao().substring(0, 10));
                 }
                 if (controle.getStatusSync() != null && controle.getStatusSync().length() > 10) {
                     controle.setStatusSync(controle.getStatusSync().substring(0, 10));
+                }
+                
+                // Validação final do tipoLog
+                if (controle.getTipoLog() == null || !controle.getTipoLog().matches("[IAE]")) {
+                    throw new IllegalStateException("tipoLog inválido após correção no controle existente: " + controle.getTipoLog());
                 }
                 
                 log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {} | Status: ERRO | MaxTentativas: {}", 
@@ -1817,13 +2005,37 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                         var controleRecuperado = controleSyncRepository.findById(controle.getId());
                         if (controleRecuperado.isPresent()) {
                             ControleSyncBeneficiario controleAtualizado = controleRecuperado.get();
-                            controleAtualizado.setStatusSync("ERRO");
+                            
+                            // CRÍTICO: Validar e corrigir tipoLog se necessário
+                            if (controleAtualizado.getTipoLog() == null || controleAtualizado.getTipoLog().trim().isEmpty() || 
+                                !controleAtualizado.getTipoLog().trim().matches("[IAE]")) {
+                                log.warn("⚠️ [TBSYNC] tipoLog inválido no controle recuperado: '{}' - Corrigindo baseado em tipoOperacao: '{}'", 
+                                        controleAtualizado.getTipoLog(), tipoOperacao);
+                                if ("INCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                                    controleAtualizado.setTipoLog("I");
+                                } else if ("ALTERACAO".equalsIgnoreCase(tipoOperacao)) {
+                                    controleAtualizado.setTipoLog("A");
+                                } else if ("EXCLUSAO".equalsIgnoreCase(tipoOperacao)) {
+                                    controleAtualizado.setTipoLog("E");
+                                } else {
+                                    controleAtualizado.setTipoLog("I"); // Fallback
+                                }
+                            } else if (controleAtualizado.getTipoLog().length() > 1) {
+                                controleAtualizado.setTipoLog(controleAtualizado.getTipoLog().substring(0, 1));
+                            }
+                            
+                            controleAtualizado.setStatusSync("ERROR");
                             controleAtualizado.setDataUltimaTentativa(LocalDateTime.now());
                             controleAtualizado.setErroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido");
                             if (controleAtualizado.getTentativas() == null || controleAtualizado.getTentativas() < 0) {
                                 controleAtualizado.setTentativas(1);
                             } else {
                                 controleAtualizado.setTentativas(controleAtualizado.getTentativas() + 1);
+                            }
+                            
+                            // Validação final do tipoLog
+                            if (controleAtualizado.getTipoLog() == null || !controleAtualizado.getTipoLog().matches("[IAE]")) {
+                                throw new IllegalStateException("tipoLog inválido após correção no controle recuperado: " + controleAtualizado.getTipoLog());
                             }
                             if (controleAtualizado.getMaxTentativas() == null || controleAtualizado.getMaxTentativas() < 0) {
                                 controleAtualizado.setMaxTentativas(3);
