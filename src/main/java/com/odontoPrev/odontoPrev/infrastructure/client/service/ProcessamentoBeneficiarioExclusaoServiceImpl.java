@@ -248,7 +248,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                 // Atualizar registro existente
                 controle = controleExistente.get();
                 controle.setDadosJson(payloadJson);
-                controle.setStatusSync("PROCESSANDO");
+                controle.setStatusSync("PROCESSING"); // PROCESSING = 10 caracteres (máximo permitido)
                 controle.setTentativas(controle.getTentativas() + 1);
                 controle.setDataUltimaTentativa(LocalDateTime.now());
                 controle.setResponseApi(null); // Limpar resposta anterior
@@ -265,7 +265,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                         .tipoOperacao("EXCLUSAO")
                         .endpointDestino("/cadastroonline-pj/1.0/inativar")
                         .dadosJson(payloadJson)
-                        .statusSync("PROCESSANDO")
+                        .statusSync("PROCESSING") // PROCESSING = 10 caracteres (máximo permitido)
                         .tentativas(1)
                         .maxTentativas(3)
                         .dataUltimaTentativa(LocalDateTime.now())

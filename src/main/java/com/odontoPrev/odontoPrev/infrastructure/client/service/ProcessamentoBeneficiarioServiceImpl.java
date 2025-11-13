@@ -1297,7 +1297,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      * Cria um registro na tabela TB_CONTROLE_SYNC_ODONTOPREV_BENEF
      * para rastrear o processamento do beneficiário.
      * 
-     * IMPORTANTE: Verifica se já existe um registro PENDING ou PROCESSANDO antes de criar novo,
+     * IMPORTANTE: Verifica se já existe um registro PENDING ou PROCESSING antes de criar novo,
      * evitando múltiplos registros para o mesmo beneficiário.
      */
     private ControleSyncBeneficiario criarRegistroControle(BeneficiarioOdontoprev beneficiario, String tipoOperacao, Object request) {
@@ -1322,7 +1322,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
         }
         
         try {
-            // VERIFICAÇÃO: Verificar se já existe registro PENDING, PROCESSANDO ou ERRO para evitar duplicação
+            // VERIFICAÇÃO: Verificar se já existe registro PENDING, PROCESSING ou ERRO para evitar duplicação
             var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
                     codigoEmpresa, codigoBeneficiario);
             
@@ -1331,9 +1331,9 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     String statusSync = controleExistente.getStatusSync();
                     String tipoOp = controleExistente.getTipoOperacao();
                     
-                    // Se já existe registro PENDING, PROCESSANDO ou ERRO do mesmo tipo, reutilizar
+                    // Se já existe registro PENDING, PROCESSING ou ERRO do mesmo tipo, reutilizar
                     if (tipoOperacao.equals(tipoOp) && 
-                        ("PENDING".equals(statusSync) || "PROCESSANDO".equals(statusSync) || "ERRO".equals(statusSync))) {
+                        ("PENDING".equals(statusSync) || "PROCESSING".equals(statusSync) || "ERRO".equals(statusSync))) {
                         log.info("🔄 [TBSYNC] Reutilizando registro existente {} - ID: {} | Matrícula: {} | Status: {} | Tentativas: {}", 
                                 statusSync, controleExistente.getId(), codigoBeneficiario, statusSync, controleExistente.getTentativas());
                         
@@ -1342,8 +1342,8 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                             String payloadJson = objectMapper.writeValueAsString(request);
                             controleExistente.setDadosJson(payloadJson);
                             controleExistente.setDataUltimaTentativa(LocalDateTime.now());
-                            controleExistente.setStatusSync("PROCESSANDO");
-                            // Incrementar tentativas apenas se for ERRO (PENDING/PROCESSANDO já foram incrementados antes)
+                            controleExistente.setStatusSync("PROCESSING"); // PROCESSING = 10 caracteres (máximo permitido)
+                            // Incrementar tentativas apenas se for ERRO (PENDING/PROCESSING já foram incrementados antes)
                             if ("ERRO".equals(statusSync)) {
                                 int tentativasAtuais = controleExistente.getTentativas() != null ? controleExistente.getTentativas() : 0;
                                 controleExistente.setTentativas(tentativasAtuais + 1);
@@ -1388,7 +1388,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     .tipoLog(tipoLog)
                     .tipoOperacao(tipoOperacao)
                     .endpointDestino(endpointDestino)
-                    .statusSync("PROCESSANDO")
+                    .statusSync("PROCESSING") // PROCESSING = 10 caracteres (máximo permitido pela coluna)
                     .dadosJson(payloadJson)
                     .tentativas(0) // Garantir que tentativas não seja nulo
                     .maxTentativas(3) // Garantir que maxTentativas não seja nulo
