@@ -38,6 +38,8 @@ odontoprev:
     base-url: ${ODONTOPREV_BASE_URL:https://apim.odontoprev.com.br}
     base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim.odontoprev.com.br}
     base-url-login: ${ODONTOPREV_LOGIN_URL:https://apim.odontoprev.com.br}
+    # URL base específica para fluxo de beneficiários em PRODUÇÃO
+    base-url-beneficiario: ${ODONTOPREV_BASE_URL_BENEFICIARIO:https://apim.odontoprev.com.br/cadastroonline-pj/1.0}
     path: ${ODONTOPREV_API_PATH:/empresa/2.0}
     codigo-grupo-gerencial: ${ODONTOPREV_CODIGO_GRUPO_GERENCIAL:925397}
     

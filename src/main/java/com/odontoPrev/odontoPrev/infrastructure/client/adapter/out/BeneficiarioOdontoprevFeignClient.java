@@ -34,7 +34,7 @@ import java.util.List;
  *
  * CONFIGURAÇÃO:
  * - Nome do cliente: beneficiario-odontoprev-client
- * - URL base: ${odontoprev.api.base-url}/beneficiario
+ * - URL base: ${odontoprev.api.base-url-beneficiario} (em PRD: https://apim.odontoprev.com.br/cadastroonline-pj/1.0)
  * - Timeout e retry configurados no application.yml
  *
  * TRATAMENTO DE ERROS:
@@ -43,7 +43,7 @@ import java.util.List;
  */
 @FeignClient(
     name = "beneficiario-odontoprev-client",
-    url = "${odontoprev.api.base-url}",
+    url = "${odontoprev.api.base-url-beneficiario:${odontoprev.api.base-url}}",
     configuration = {BeneficiarioOdontoprevFeignConfig.class}
 )
 public interface BeneficiarioOdontoprevFeignClient {
@@ -55,6 +55,7 @@ public interface BeneficiarioOdontoprevFeignClient {
      * da OdontoPrev. Retorna o código do associado (carteirinha).
      *
      * ENDPOINT: POST {{baseUrl}}/incluir
+     * URL completa em PRD: https://apim.odontoprev.com.br/cadastroonline-pj/1.0/incluir
      *
      * @param request dados do beneficiário a ser incluído
      * @return response contendo cdAssociado e status da operação
@@ -81,6 +82,7 @@ public interface BeneficiarioOdontoprevFeignClient {
      * Retorna o código do associado (carteirinha).
      *
      * ENDPOINT: POST {{baseUrl}}/incluir
+     * URL completa em PRD: https://apim.odontoprev.com.br/cadastroonline-pj/1.0/incluir
      *
      * AUTENTICAÇÃO DUPLA:
      * - Authorization: Bearer {BEARER 1} - Token OAuth2
@@ -120,7 +122,7 @@ public interface BeneficiarioOdontoprevFeignClient {
      * @return response contendo cdAssociado e status da operação
      */
     @PostMapping(
-        value = "/cadastroonline-pj/1.0/incluir",
+        value = "/incluir",
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -136,7 +138,8 @@ public interface BeneficiarioOdontoprevFeignClient {
      * Envia dados de um novo dependente para cadastro no sistema
      * da OdontoPrev. O titular já deve existir na OdontoPrev.
      *
-     * ENDPOINT: POST {{baseUrl}}/cadastroonline-pj/1.0/incluirDependente
+     * ENDPOINT: POST {{baseUrl}}/incluirDependente
+     * URL completa em PRD: https://apim.odontoprev.com.br/cadastroonline-pj/1.0/incluirDependente
      *
      * AUTENTICAÇÃO DUPLA:
      * - Authorization: Bearer {BEARER 1} - Token OAuth2
@@ -164,7 +167,7 @@ public interface BeneficiarioOdontoprevFeignClient {
      * @return response contendo cdAssociado e status da operação
      */
     @PostMapping(
-        value = "/cadastroonline-pj/1.0/incluirDependente",
+        value = "/incluirDependente",
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -244,7 +247,7 @@ public interface BeneficiarioOdontoprevFeignClient {
      * @return Resposta da alteração
      */
     @PutMapping(
-        value = "/cadastroonline-pj/1.0/alterar",
+        value = "/alterar",
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -260,7 +263,8 @@ public interface BeneficiarioOdontoprevFeignClient {
      * Remove acesso do beneficiário ao plano odontológico.
      * Usado quando beneficiário tem status Rescindido/Suspenso no Tasy.
      *
-     * ENDPOINT: POST {{baseUrl}}/cadastroonline-pj/1.0/inativarAssociadoEmpresarial
+     * ENDPOINT: POST {{baseUrl}}/inativarAssociadoEmpresarial
+     * URL completa em PRD: https://apim.odontoprev.com.br/cadastroonline-pj/1.0/inativarAssociadoEmpresarial
      *
      * FLUXO DE FUNCIONAMENTO:
      * 1. Beneficiário deve estar ativo na OdontoPrev
@@ -303,7 +307,7 @@ public interface BeneficiarioOdontoprevFeignClient {
      * @param empresarialModelJson JSON com dados de inativação
      */
     @PostMapping(
-        value = "/cadastroonline-pj/1.0/inativarAssociadoEmpresarial",
+        value = "/inativarAssociadoEmpresarial",
         consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE
     )

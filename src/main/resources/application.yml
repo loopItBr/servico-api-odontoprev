@@ -57,6 +57,8 @@ odontoprev:
   api:
     base-url: ${ODONTOPREV_BASE_URL:https://apim-hml.odontoprev.com.br}
     base-url-auth: ${ODONTOPREV_AUTH_URL:https://apim-hml.odontoprev.com.br}
+    # URL base específica para fluxo de beneficiários (padrão: mesma do base-url)
+    base-url-beneficiario: ${ODONTOPREV_BASE_URL_BENEFICIARIO:${ODONTOPREV_BASE_URL:https://apim-hml.odontoprev.com.br}/cadastroonline-pj/1.0}
     path: ${ODONTOPREV_API_PATH:/cadastroonline-pj/1.0}
     codigo-grupo-gerencial: ${ODONTOPREV_CODIGO_GRUPO_GERENCIAL:787392}
 

@@ -31,6 +31,8 @@ odontoprev:
     base-url: https://apim-hml.odontoprev.com.br
     base-url-auth: https://apim-hml.odontoprev.com.br
     base-url-login: https://apim-hml.odontoprev.com.br
+    # URL base específica para fluxo de beneficiários em HML
+    base-url-beneficiario: https://apim-hml.odontoprev.com.br/cadastroonline-pj/1.0
     path: /empresa/2.0
     codigo-grupo-gerencial: 787392
     app-token: X2JlUWZkMW5PTnE5WWpyYVZwZkl5N2J0eVhJYTpCV25wMURLMlJkeXowYXNBVXU2QkFkSUdnM01h
