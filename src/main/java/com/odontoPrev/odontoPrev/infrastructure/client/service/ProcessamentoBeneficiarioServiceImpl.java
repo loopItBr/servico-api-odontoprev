@@ -1565,6 +1565,12 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 throw new IllegalArgumentException("maxTentativas não pode ser negativo: " + controle.getMaxTentativas());
             }
 
+            // Log do nome da tabela que será usada
+            log.error("🔍 [TBSYNC] Tentando salvar na tabela: TASY.TB_CONTROLE_SYNC_ODONTOPREV_BENEF");
+            log.error("🔍 [TBSYNC] Nome da entidade: {}", controle.getClass().getSimpleName());
+            log.error("🔍 [TBSYNC] Schema configurado: TASY");
+            log.error("🔍 [TBSYNC] Nome da tabela configurado: TB_CONTROLE_SYNC_ODONTOPREV_BENEF");
+            
             ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
             
             if (controleSalvo == null || controleSalvo.getId() == null) {
