@@ -1343,17 +1343,41 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                             controleExistente.setDadosJson(payloadJson);
                             controleExistente.setDataUltimaTentativa(LocalDateTime.now());
                             controleExistente.setStatusSync("PROCESSING"); // PROCESSING = 10 caracteres (máximo permitido)
+                            
+                            // CRÍTICO: Garantir que maxTentativas não seja nulo
+                            if (controleExistente.getMaxTentativas() == null) {
+                                controleExistente.setMaxTentativas(3);
+                            }
+                            
                             // Incrementar tentativas apenas se for ERRO (PENDING/PROCESSING já foram incrementados antes)
                             if ("ERRO".equals(statusSync)) {
                                 int tentativasAtuais = controleExistente.getTentativas() != null ? controleExistente.getTentativas() : 0;
-                                controleExistente.setTentativas(tentativasAtuais + 1);
+                                controleExistente.setTentativas(Math.max(0, tentativasAtuais + 1)); // Garantir que não seja negativo
                                 log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {}", 
                                         tentativasAtuais, controleExistente.getTentativas(), codigoBeneficiario);
                             }
-                            // Garantir que tentativas não seja nulo
-                            if (controleExistente.getTentativas() == null) {
+                            // Garantir que tentativas não seja nulo e não seja negativo
+                            if (controleExistente.getTentativas() == null || controleExistente.getTentativas() < 0) {
                                 controleExistente.setTentativas(0);
                             }
+                            
+                            // CRÍTICO: Validar e truncar campos de string antes de salvar
+                            if (controleExistente.getCodigoEmpresa() != null && controleExistente.getCodigoEmpresa().length() > 6) {
+                                controleExistente.setCodigoEmpresa(controleExistente.getCodigoEmpresa().substring(0, 6));
+                            }
+                            if (controleExistente.getCodigoBeneficiario() != null && controleExistente.getCodigoBeneficiario().length() > 15) {
+                                controleExistente.setCodigoBeneficiario(controleExistente.getCodigoBeneficiario().substring(0, 15));
+                            }
+                            if (controleExistente.getTipoLog() != null && controleExistente.getTipoLog().length() > 1) {
+                                controleExistente.setTipoLog(controleExistente.getTipoLog().substring(0, 1));
+                            }
+                            if (controleExistente.getTipoOperacao() != null && controleExistente.getTipoOperacao().length() > 10) {
+                                controleExistente.setTipoOperacao(controleExistente.getTipoOperacao().substring(0, 10));
+                            }
+                            
+                            log.info("📝 [TBSYNC] Atualizando registro existente - ID: {} | Matrícula: {} | Tentativas: {} | MaxTentativas: {} | Status: PROCESSING", 
+                                    controleExistente.getId(), codigoBeneficiario, controleExistente.getTentativas(), controleExistente.getMaxTentativas());
+                            
                             return controleSyncRepository.saveAndFlush(controleExistente);
                         } catch (Exception e) {
                             log.warn("⚠️ [TBSYNC] Erro ao atualizar registro existente, criando novo: {}", e.getMessage(), e);
@@ -1381,13 +1405,35 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
             }
             
+            // CRÍTICO: Validar e truncar campos para garantir que estejam dentro dos limites
+            // codigoEmpresa: máximo 6 caracteres
+            String codigoEmpresaTruncado = codigoEmpresa != null ? codigoEmpresa.substring(0, Math.min(6, codigoEmpresa.length())) : codigoEmpresa;
+            
+            // codigoBeneficiario: máximo 15 caracteres
+            String codigoBeneficiarioTruncado = codigoBeneficiario != null ? codigoBeneficiario.substring(0, Math.min(15, codigoBeneficiario.length())) : codigoBeneficiario;
+            
+            // tipoLog: máximo 1 caractere
+            String tipoLogTruncado = tipoLog != null ? tipoLog.substring(0, Math.min(1, tipoLog.length())) : tipoLog;
+            
+            // tipoOperacao: máximo 10 caracteres
+            String tipoOperacaoTruncado = tipoOperacao != null ? tipoOperacao.substring(0, Math.min(10, tipoOperacao.length())) : tipoOperacao;
+            
+            // endpointDestino: máximo 200 caracteres (mas vamos garantir)
+            String endpointDestinoTruncado = endpointDestino != null ? (endpointDestino.length() > 200 ? endpointDestino.substring(0, 200) : endpointDestino) : endpointDestino;
+            
+            log.info("📝 [TBSYNC] VALIDAÇÃO DE CAMPOS - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'PROCESSING' (10 chars)", 
+                    codigoEmpresaTruncado, codigoEmpresaTruncado != null ? codigoEmpresaTruncado.length() : 0,
+                    codigoBeneficiarioTruncado, codigoBeneficiarioTruncado != null ? codigoBeneficiarioTruncado.length() : 0,
+                    tipoLogTruncado, tipoLogTruncado != null ? tipoLogTruncado.length() : 0,
+                    tipoOperacaoTruncado, tipoOperacaoTruncado != null ? tipoOperacaoTruncado.length() : 0);
+            
             // Garantir que todos os campos obrigatórios estejam preenchidos
             ControleSyncBeneficiario controle = ControleSyncBeneficiario.builder()
-                    .codigoEmpresa(codigoEmpresa)
-                    .codigoBeneficiario(codigoBeneficiario)
-                    .tipoLog(tipoLog)
-                    .tipoOperacao(tipoOperacao)
-                    .endpointDestino(endpointDestino)
+                    .codigoEmpresa(codigoEmpresaTruncado)
+                    .codigoBeneficiario(codigoBeneficiarioTruncado)
+                    .tipoLog(tipoLogTruncado)
+                    .tipoOperacao(tipoOperacaoTruncado)
+                    .endpointDestino(endpointDestinoTruncado)
                     .statusSync("PROCESSING") // PROCESSING = 10 caracteres (máximo permitido pela coluna)
                     .dadosJson(payloadJson)
                     .tentativas(0) // Garantir que tentativas não seja nulo
@@ -1396,7 +1442,15 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     .build();
 
             log.info("📝 [TBSYNC] Criando novo registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres | Empresa: {}", 
-                    codigoBeneficiario, tipoOperacao, endpointDestino, payloadJson.length(), codigoEmpresa);
+                    codigoBeneficiarioTruncado, tipoOperacaoTruncado, endpointDestinoTruncado, payloadJson.length(), codigoEmpresaTruncado);
+            
+            // Log final antes de salvar para diagnóstico
+            log.info("📝 [TBSYNC] VALIDAÇÃO FINAL ANTES DE SALVAR (CRIAR) - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'PROCESSING' (10 chars) | Tentativas: {} | MaxTentativas: {}", 
+                    controle.getCodigoEmpresa(), controle.getCodigoEmpresa() != null ? controle.getCodigoEmpresa().length() : 0,
+                    controle.getCodigoBeneficiario(), controle.getCodigoBeneficiario() != null ? controle.getCodigoBeneficiario().length() : 0,
+                    controle.getTipoLog(), controle.getTipoLog() != null ? controle.getTipoLog().length() : 0,
+                    controle.getTipoOperacao(), controle.getTipoOperacao() != null ? controle.getTipoOperacao().length() : 0,
+                    controle.getTentativas(), controle.getMaxTentativas());
 
             ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
             
@@ -1521,25 +1575,34 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
         }
         
         try {
-            // VERIFICAÇÃO CRÍTICA: SEMPRE verificar se já existe registro de ERRO do mesmo tipo
-            // Mesmo se controle != null, pode ser um controle novo que não foi salvo ainda
-            // Se existir registro de ERRO já salvo, reutilizar e incrementar tentativas
-            var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
-                    codigoEmpresa, codigoBeneficiario);
-            
             ControleSyncBeneficiario controleErroExistente = null;
-            if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
-                for (ControleSyncBeneficiario controleExistente : controlesExistentes) {
-                    String statusSync = controleExistente.getStatusSync();
-                    String tipoOp = controleExistente.getTipoOperacao();
+            
+            // VERIFICAÇÃO CRÍTICA: Verificar se já existe registro de ERRO do mesmo tipo
+            // IMPORTANTE: Só fazer query se controle passado for null ou não tiver ID (não foi salvo ainda)
+            // Se controle já tem ID, significa que já foi salvo e podemos reutilizar
+            if (controle == null || controle.getId() == null) {
+                try {
+                    var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
+                            codigoEmpresa, codigoBeneficiario);
                     
-                    // Se já existe registro ERRO do mesmo tipo, reutilizar
-                    if (tipoOperacao.equals(tipoOp) && "ERRO".equals(statusSync)) {
-                        controleErroExistente = controleExistente;
-                        log.info("🔄 [TBSYNC] Encontrado registro de ERRO existente - ID: {} | Matrícula: {} | Tentativas atuais: {}", 
-                                controleExistente.getId(), codigoBeneficiario, controleExistente.getTentativas());
-                        break; // Usar o primeiro registro de ERRO encontrado
+                    if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
+                        for (ControleSyncBeneficiario controleExistente : controlesExistentes) {
+                            String statusSync = controleExistente.getStatusSync();
+                            String tipoOp = controleExistente.getTipoOperacao();
+                            
+                            // Se já existe registro ERRO do mesmo tipo, reutilizar
+                            if (tipoOperacao.equals(tipoOp) && "ERRO".equals(statusSync)) {
+                                controleErroExistente = controleExistente;
+                                log.info("🔄 [TBSYNC] Encontrado registro de ERRO existente - ID: {} | Matrícula: {} | Tentativas atuais: {}", 
+                                        controleExistente.getId(), codigoBeneficiario, controleExistente.getTentativas());
+                                break; // Usar o primeiro registro de ERRO encontrado
+                            }
+                        }
                     }
+                } catch (Exception queryException) {
+                    // Se a query falhar (sessão rollback-only), continuar sem buscar registros existentes
+                    log.warn("⚠️ [TBSYNC] Não foi possível buscar registros existentes (sessão pode estar rollback-only): {}", 
+                            queryException.getMessage());
                 }
             }
             
@@ -1579,14 +1642,36 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     // Mantém "{}" se não conseguir criar o request
                 }
                 
+                // CRÍTICO: Validar e truncar campos para garantir que estejam dentro dos limites
+                // codigoEmpresa: máximo 6 caracteres
+                String codigoEmpresaTruncado = codigoEmpresa != null ? codigoEmpresa.substring(0, Math.min(6, codigoEmpresa.length())) : codigoEmpresa;
+                
+                // codigoBeneficiario: máximo 15 caracteres
+                String codigoBeneficiarioTruncado = codigoBeneficiario != null ? codigoBeneficiario.substring(0, Math.min(15, codigoBeneficiario.length())) : codigoBeneficiario;
+                
+                // tipoLog: máximo 1 caractere
+                String tipoLogTruncado = tipoLog != null ? tipoLog.substring(0, Math.min(1, tipoLog.length())) : tipoLog;
+                
+                // tipoOperacao: máximo 10 caracteres
+                String tipoOperacaoTruncado = tipoOperacao != null ? tipoOperacao.substring(0, Math.min(10, tipoOperacao.length())) : tipoOperacao;
+                
+                // endpointDestino: máximo 200 caracteres
+                String endpointDestinoTruncado = endpointDestino != null ? (endpointDestino.length() > 200 ? endpointDestino.substring(0, 200) : endpointDestino) : endpointDestino;
+                
+                log.info("📝 [TBSYNC-ERRO] VALIDAÇÃO DE CAMPOS - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'ERRO' (4 chars)", 
+                        codigoEmpresaTruncado, codigoEmpresaTruncado != null ? codigoEmpresaTruncado.length() : 0,
+                        codigoBeneficiarioTruncado, codigoBeneficiarioTruncado != null ? codigoBeneficiarioTruncado.length() : 0,
+                        tipoLogTruncado, tipoLogTruncado != null ? tipoLogTruncado.length() : 0,
+                        tipoOperacaoTruncado, tipoOperacaoTruncado != null ? tipoOperacaoTruncado.length() : 0);
+                
                 // CRÍTICO: Garantir que todos os campos obrigatórios estejam preenchidos
                 controle = ControleSyncBeneficiario.builder()
-                        .codigoEmpresa(codigoEmpresa)
-                        .codigoBeneficiario(codigoBeneficiario)
-                        .tipoLog(tipoLog)
-                        .tipoOperacao(tipoOperacao)
-                        .endpointDestino(endpointDestino)
-                        .statusSync("ERRO")
+                        .codigoEmpresa(codigoEmpresaTruncado)
+                        .codigoBeneficiario(codigoBeneficiarioTruncado)
+                        .tipoLog(tipoLogTruncado)
+                        .tipoOperacao(tipoOperacaoTruncado)
+                        .endpointDestino(endpointDestinoTruncado)
+                        .statusSync("ERRO") // ERRO = 4 caracteres
                         .dadosJson(payloadJson)
                         .dataUltimaTentativa(LocalDateTime.now())
                         .erroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido")
@@ -1636,11 +1721,28 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 
                 // INCREMENTAR TENTATIVAS: Se o controle já existe, incrementar número de tentativas
                 int tentativasAtuais = controle.getTentativas() != null ? controle.getTentativas() : 0;
-                controle.setTentativas(tentativasAtuais + 1);
+                controle.setTentativas(Math.max(0, tentativasAtuais + 1)); // Garantir que não seja negativo
                 
                 // Garantir que tentativas não seja nulo após incremento
-                if (controle.getTentativas() == null) {
+                if (controle.getTentativas() == null || controle.getTentativas() < 0) {
                     controle.setTentativas(1);
+                }
+                
+                // CRÍTICO: Validar e truncar campos de string antes de salvar
+                if (controle.getCodigoEmpresa() != null && controle.getCodigoEmpresa().length() > 6) {
+                    controle.setCodigoEmpresa(controle.getCodigoEmpresa().substring(0, 6));
+                }
+                if (controle.getCodigoBeneficiario() != null && controle.getCodigoBeneficiario().length() > 15) {
+                    controle.setCodigoBeneficiario(controle.getCodigoBeneficiario().substring(0, 15));
+                }
+                if (controle.getTipoLog() != null && controle.getTipoLog().length() > 1) {
+                    controle.setTipoLog(controle.getTipoLog().substring(0, 1));
+                }
+                if (controle.getTipoOperacao() != null && controle.getTipoOperacao().length() > 10) {
+                    controle.setTipoOperacao(controle.getTipoOperacao().substring(0, 10));
+                }
+                if (controle.getStatusSync() != null && controle.getStatusSync().length() > 10) {
+                    controle.setStatusSync(controle.getStatusSync().substring(0, 10));
                 }
                 
                 log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {} | Status: ERRO | MaxTentativas: {}", 
@@ -1673,26 +1775,75 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                 return;
             }
             
-            if (controle.getTentativas() == null) {
+            if (controle.getTentativas() == null || controle.getTentativas() < 0) {
                 controle.setTentativas(1);
             }
             
-            if (controle.getMaxTentativas() == null) {
+            if (controle.getMaxTentativas() == null || controle.getMaxTentativas() < 0) {
                 controle.setMaxTentativas(3);
             }
-
-            ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
             
-            if (controleSalvo == null || controleSalvo.getId() == null) {
-                log.error("❌ [TBSYNC] Falha ao salvar registro de erro: ID não foi gerado - Matrícula: {}", codigoBeneficiario);
-            } else {
-                log.info("✅ [TBSYNC] Registro de erro salvo com sucesso - ID: {} | Matrícula: {} | Tentativas: {}", 
-                        controleSalvo.getId(), codigoBeneficiario, controleSalvo.getTentativas());
+            // CRÍTICO: Validar e truncar endpointDestino se necessário
+            if (controle.getEndpointDestino() != null && controle.getEndpointDestino().length() > 200) {
+                controle.setEndpointDestino(controle.getEndpointDestino().substring(0, 200));
+            }
+            
+            // Log final antes de salvar para diagnóstico
+            log.info("📝 [TBSYNC] VALIDAÇÃO FINAL ANTES DE SALVAR - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: '{}' ({} chars) | Tentativas: {} | MaxTentativas: {}", 
+                    controle.getCodigoEmpresa(), controle.getCodigoEmpresa() != null ? controle.getCodigoEmpresa().length() : 0,
+                    controle.getCodigoBeneficiario(), controle.getCodigoBeneficiario() != null ? controle.getCodigoBeneficiario().length() : 0,
+                    controle.getTipoLog(), controle.getTipoLog() != null ? controle.getTipoLog().length() : 0,
+                    controle.getTipoOperacao(), controle.getTipoOperacao() != null ? controle.getTipoOperacao().length() : 0,
+                    controle.getStatusSync(), controle.getStatusSync() != null ? controle.getStatusSync().length() : 0,
+                    controle.getTentativas(), controle.getMaxTentativas());
+
+            try {
+                ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
+                
+                if (controleSalvo == null || controleSalvo.getId() == null) {
+                    log.error("❌ [TBSYNC] Falha ao salvar registro de erro: ID não foi gerado - Matrícula: {}", codigoBeneficiario);
+                } else {
+                    log.info("✅ [TBSYNC] Registro de erro salvo com sucesso - ID: {} | Matrícula: {} | Tentativas: {}", 
+                            controleSalvo.getId(), codigoBeneficiario, controleSalvo.getTentativas());
+                }
+            } catch (Exception saveException) {
+                // Se falhar ao salvar (pode ser sessão rollback-only), tentar salvar em uma nova transação
+                log.warn("⚠️ [TBSYNC] Erro ao salvar registro de erro (primeira tentativa): {} - Tentando recuperar e salvar novamente", 
+                        saveException.getMessage());
+                
+                try {
+                    // Se o controle tem ID, tentar buscar novamente e atualizar
+                    if (controle.getId() != null) {
+                        var controleRecuperado = controleSyncRepository.findById(controle.getId());
+                        if (controleRecuperado.isPresent()) {
+                            ControleSyncBeneficiario controleAtualizado = controleRecuperado.get();
+                            controleAtualizado.setStatusSync("ERRO");
+                            controleAtualizado.setDataUltimaTentativa(LocalDateTime.now());
+                            controleAtualizado.setErroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido");
+                            if (controleAtualizado.getTentativas() == null || controleAtualizado.getTentativas() < 0) {
+                                controleAtualizado.setTentativas(1);
+                            } else {
+                                controleAtualizado.setTentativas(controleAtualizado.getTentativas() + 1);
+                            }
+                            if (controleAtualizado.getMaxTentativas() == null || controleAtualizado.getMaxTentativas() < 0) {
+                                controleAtualizado.setMaxTentativas(3);
+                            }
+                            controleSyncRepository.saveAndFlush(controleAtualizado);
+                            log.info("✅ [TBSYNC] Registro de erro recuperado e atualizado com sucesso - ID: {} | Matrícula: {}", 
+                                    controleAtualizado.getId(), codigoBeneficiario);
+                        }
+                    }
+                } catch (Exception recoveryException) {
+                    log.error("❌ [TBSYNC] Erro crítico ao registrar erro na TBSYNC para beneficiário {} (tentativa de recuperação falhou): {}", 
+                             codigoBeneficiario, recoveryException.getMessage(), recoveryException);
+                    // Não lançar exceção para não quebrar o fluxo principal
+                }
             }
         } catch (Exception e) {
             log.error("❌ [TBSYNC] Erro crítico ao registrar erro na TBSYNC para beneficiário {}: {}", 
                      codigoBeneficiario, e.getMessage(), e);
             log.error("❌ [TBSYNC] Stack trace: {}", java.util.Arrays.toString(e.getStackTrace()));
+            // Não lançar exceção para não quebrar o fluxo principal
         }
     }
 }
