@@ -1301,10 +1301,30 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      * evitando múltiplos registros para o mesmo beneficiário.
      */
     private ControleSyncBeneficiario criarRegistroControle(BeneficiarioOdontoprev beneficiario, String tipoOperacao, Object request) {
+        // VALIDAÇÕES CRÍTICAS: Garantir que todos os campos obrigatórios estejam preenchidos
+        if (beneficiario == null) {
+            throw new IllegalArgumentException("Beneficiário não pode ser nulo ao criar registro de controle");
+        }
+        
+        String codigoEmpresa = beneficiario.getCodigoEmpresa();
+        String codigoBeneficiario = beneficiario.getCodigoMatricula();
+        
+        if (codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) {
+            throw new IllegalArgumentException("Código da empresa não pode ser nulo ou vazio ao criar registro de controle");
+        }
+        
+        if (codigoBeneficiario == null || codigoBeneficiario.trim().isEmpty()) {
+            throw new IllegalArgumentException("Código do beneficiário não pode ser nulo ou vazio ao criar registro de controle");
+        }
+        
+        if (tipoOperacao == null || tipoOperacao.trim().isEmpty()) {
+            throw new IllegalArgumentException("Tipo de operação não pode ser nulo ou vazio ao criar registro de controle");
+        }
+        
         try {
             // VERIFICAÇÃO: Verificar se já existe registro PENDING, PROCESSANDO ou ERRO para evitar duplicação
             var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
-                    beneficiario.getCodigoEmpresa(), beneficiario.getCodigoMatricula());
+                    codigoEmpresa, codigoBeneficiario);
             
             if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
                 for (ControleSyncBeneficiario controleExistente : controlesExistentes) {
@@ -1315,7 +1335,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     if (tipoOperacao.equals(tipoOp) && 
                         ("PENDING".equals(statusSync) || "PROCESSANDO".equals(statusSync) || "ERRO".equals(statusSync))) {
                         log.info("🔄 [TBSYNC] Reutilizando registro existente {} - ID: {} | Matrícula: {} | Status: {} | Tentativas: {}", 
-                                statusSync, controleExistente.getId(), beneficiario.getCodigoMatricula(), statusSync, controleExistente.getTentativas());
+                                statusSync, controleExistente.getId(), codigoBeneficiario, statusSync, controleExistente.getTentativas());
                         
                         // Atualizar dados do registro existente
                         try {
@@ -1328,18 +1348,28 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                                 int tentativasAtuais = controleExistente.getTentativas() != null ? controleExistente.getTentativas() : 0;
                                 controleExistente.setTentativas(tentativasAtuais + 1);
                                 log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {}", 
-                                        tentativasAtuais, controleExistente.getTentativas(), beneficiario.getCodigoMatricula());
+                                        tentativasAtuais, controleExistente.getTentativas(), codigoBeneficiario);
+                            }
+                            // Garantir que tentativas não seja nulo
+                            if (controleExistente.getTentativas() == null) {
+                                controleExistente.setTentativas(0);
                             }
                             return controleSyncRepository.saveAndFlush(controleExistente);
                         } catch (Exception e) {
-                            log.warn("⚠️ [TBSYNC] Erro ao atualizar registro existente, criando novo: {}", e.getMessage());
+                            log.warn("⚠️ [TBSYNC] Erro ao atualizar registro existente, criando novo: {}", e.getMessage(), e);
                             // Continuar para criar novo registro
                         }
                     }
                 }
             }
             
-            String payloadJson = objectMapper.writeValueAsString(request);
+            String payloadJson;
+            try {
+                payloadJson = objectMapper.writeValueAsString(request);
+            } catch (Exception e) {
+                log.warn("⚠️ [TBSYNC] Erro ao serializar request, usando JSON vazio: {}", e.getMessage());
+                payloadJson = "{}";
+            }
             
             // Determinar tipoLog e endpoint baseado no tipo de operação e se é dependente
             String tipoLog = "I"; // I = Inclusão
@@ -1347,28 +1377,46 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             
             // Se é dependente, usar endpoint específico
             if ("D".equals(beneficiario.getIdentificacao())) {
+                tipoLog = "I"; // Dependente também é inclusão
                 endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
             }
             
+            // Garantir que todos os campos obrigatórios estejam preenchidos
             ControleSyncBeneficiario controle = ControleSyncBeneficiario.builder()
-                    .codigoEmpresa(beneficiario.getCodigoEmpresa())
-                    .codigoBeneficiario(beneficiario.getCodigoMatricula())
+                    .codigoEmpresa(codigoEmpresa)
+                    .codigoBeneficiario(codigoBeneficiario)
                     .tipoLog(tipoLog)
                     .tipoOperacao(tipoOperacao)
                     .endpointDestino(endpointDestino)
                     .statusSync("PROCESSANDO")
                     .dadosJson(payloadJson)
+                    .tentativas(0) // Garantir que tentativas não seja nulo
+                    .maxTentativas(3) // Garantir que maxTentativas não seja nulo
                     .dataUltimaTentativa(LocalDateTime.now())
                     .build();
 
-            log.info("📝 [TBSYNC] Criando novo registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres", 
-                    beneficiario.getCodigoMatricula(), tipoOperacao, endpointDestino, payloadJson.length());
+            log.info("📝 [TBSYNC] Criando novo registro de controle - Matrícula: {} | Tipo: {} | Endpoint: {} | DadosJson: {} caracteres | Empresa: {}", 
+                    codigoBeneficiario, tipoOperacao, endpointDestino, payloadJson.length(), codigoEmpresa);
 
-            return controleSyncRepository.saveAndFlush(controle);
+            ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
+            
+            if (controleSalvo == null || controleSalvo.getId() == null) {
+                throw new IllegalStateException("Falha ao criar registro de controle: ID não foi gerado");
+            }
+            
+            log.info("✅ [TBSYNC] Registro criado com sucesso - ID: {} | Matrícula: {}", 
+                    controleSalvo.getId(), codigoBeneficiario);
+            
+            return controleSalvo;
         } catch (Exception e) {
-            log.error("Erro ao criar registro de controle para beneficiário {}: {}", 
-                     beneficiario.getCodigoMatricula(), e.getMessage(), e);
-            return null;
+            log.error("❌ [TBSYNC] Erro ao criar registro de controle para beneficiário {}: {}", 
+                     codigoBeneficiario, e.getMessage(), e);
+            // Não retornar null, lançar exceção para que o erro seja tratado adequadamente
+            throw new ProcessamentoBeneficiarioException(
+                    "Falha ao criar registro de controle na TBSYNC: " + e.getMessage(),
+                    codigoBeneficiario,
+                    INCLUSAO
+            );
         }
     }
 
@@ -1378,23 +1426,64 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      * Atualiza o registro de controle com o resultado de sucesso.
      * IMPORTANTE: Usa saveAndFlush para garantir que o commit seja imediato
      * e visível para outras threads/processos, evitando duplicação.
+     * 
+     * CRÍTICO: Se a transação atual estiver marcada como rollback-only,
+     * tenta buscar o registro novamente e atualizar em uma nova transação.
      */
     private void registrarTentativaSucesso(ControleSyncBeneficiario controle, String responseJson) {
-        if (controle != null) {
-            try {
-                controle.setStatusSync("SUCESSO");
-                controle.setDataSucesso(LocalDateTime.now());
-                controle.setResponseApi(responseJson);
-                // IMPORTANTE: Usar saveAndFlush para garantir commit imediato e visibilidade
-                controleSyncRepository.saveAndFlush(controle);
-                log.info("✅ [TBSYNC] Registro atualizado como SUCESSO - ID: {} | Matrícula: {} | Status: SUCESSO | Data: {}", 
-                        controle.getId(), controle.getCodigoBeneficiario(), controle.getDataSucesso());
-            } catch (Exception e) {
-                log.error("❌ Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
-                throw e; // Relançar para não perder o erro
-            }
-        } else {
+        if (controle == null) {
             log.warn("⚠️ [TBSYNC] Tentativa de registrar sucesso em controle nulo");
+            return;
+        }
+        
+        if (controle.getId() == null) {
+            log.error("❌ [TBSYNC] Controle não possui ID, não é possível atualizar - Matrícula: {}", 
+                    controle.getCodigoBeneficiario());
+            return;
+        }
+        
+        try {
+            controle.setStatusSync("SUCESSO");
+            controle.setDataSucesso(LocalDateTime.now());
+            if (responseJson != null) {
+                controle.setResponseApi(responseJson);
+            }
+            // IMPORTANTE: Usar saveAndFlush para garantir commit imediato e visibilidade
+            controleSyncRepository.saveAndFlush(controle);
+            log.info("✅ [TBSYNC] Registro atualizado como SUCESSO - ID: {} | Matrícula: {} | Status: SUCESSO | Data: {}", 
+                    controle.getId(), controle.getCodigoBeneficiario(), controle.getDataSucesso());
+        } catch (Exception e) {
+            log.error("❌ [TBSYNC] Erro ao registrar sucesso no controle (primeira tentativa) - ID: {} | Matrícula: {} | Erro: {}", 
+                    controle.getId(), controle.getCodigoBeneficiario(), e.getMessage(), e);
+            
+            // TENTATIVA DE RECUPERAÇÃO: Se a transação atual está rollback-only, buscar o registro novamente
+            try {
+                log.info("🔄 [TBSYNC] Tentando recuperar registro para atualização - ID: {} | Matrícula: {}", 
+                        controle.getId(), controle.getCodigoBeneficiario());
+                
+                // Buscar o registro novamente do banco (fora da transação atual)
+                var controleRecuperado = controleSyncRepository.findById(controle.getId());
+                
+                if (controleRecuperado.isPresent()) {
+                    ControleSyncBeneficiario controleAtualizado = controleRecuperado.get();
+                    controleAtualizado.setStatusSync("SUCESSO");
+                    controleAtualizado.setDataSucesso(LocalDateTime.now());
+                    if (responseJson != null) {
+                        controleAtualizado.setResponseApi(responseJson);
+                    }
+                    controleSyncRepository.saveAndFlush(controleAtualizado);
+                    log.info("✅ [TBSYNC] Registro recuperado e atualizado com sucesso - ID: {} | Matrícula: {}", 
+                            controleAtualizado.getId(), controleAtualizado.getCodigoBeneficiario());
+                } else {
+                    log.error("❌ [TBSYNC] Registro não encontrado no banco para recuperação - ID: {} | Matrícula: {}", 
+                            controle.getId(), controle.getCodigoBeneficiario());
+                    throw e; // Relançar o erro original
+                }
+            } catch (Exception recoveryException) {
+                log.error("❌ [TBSYNC] Erro na tentativa de recuperação do registro - ID: {} | Matrícula: {} | Erro: {}", 
+                        controle.getId(), controle.getCodigoBeneficiario(), recoveryException.getMessage(), recoveryException);
+                throw e; // Relançar o erro original
+            }
         }
     }
 
@@ -1403,15 +1492,40 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
      *
      * Atualiza o registro de controle com o resultado de erro.
      * IMPORTANTE: Garante que dadosJson esteja preenchido com o payload enviado.
+     * CRÍTICO: Garante que todos os campos obrigatórios estejam preenchidos para evitar constraint violations.
      */
     private void registrarTentativaErro(BeneficiarioOdontoprev beneficiario, String tipoOperacao, 
                                       ControleSyncBeneficiario controle, String mensagemErro, Exception excecao) {
+        // VALIDAÇÕES CRÍTICAS: Garantir que todos os campos obrigatórios estejam preenchidos
+        if (beneficiario == null) {
+            log.error("❌ [TBSYNC] Beneficiário não pode ser nulo ao registrar erro");
+            return;
+        }
+        
+        String codigoEmpresa = beneficiario.getCodigoEmpresa();
+        String codigoBeneficiario = beneficiario.getCodigoMatricula();
+        
+        if (codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) {
+            log.error("❌ [TBSYNC] Código da empresa não pode ser nulo ou vazio ao registrar erro - Matrícula: {}", codigoBeneficiario);
+            return;
+        }
+        
+        if (codigoBeneficiario == null || codigoBeneficiario.trim().isEmpty()) {
+            log.error("❌ [TBSYNC] Código do beneficiário não pode ser nulo ou vazio ao registrar erro");
+            return;
+        }
+        
+        if (tipoOperacao == null || tipoOperacao.trim().isEmpty()) {
+            log.error("❌ [TBSYNC] Tipo de operação não pode ser nulo ou vazio ao registrar erro - Matrícula: {}", codigoBeneficiario);
+            return;
+        }
+        
         try {
             // VERIFICAÇÃO CRÍTICA: SEMPRE verificar se já existe registro de ERRO do mesmo tipo
             // Mesmo se controle != null, pode ser um controle novo que não foi salvo ainda
             // Se existir registro de ERRO já salvo, reutilizar e incrementar tentativas
             var controlesExistentes = controleSyncRepository.findByCodigoEmpresaAndCodigoBeneficiario(
-                    beneficiario.getCodigoEmpresa(), beneficiario.getCodigoMatricula());
+                    codigoEmpresa, codigoBeneficiario);
             
             ControleSyncBeneficiario controleErroExistente = null;
             if (controlesExistentes != null && !controlesExistentes.isEmpty()) {
@@ -1423,7 +1537,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     if (tipoOperacao.equals(tipoOp) && "ERRO".equals(statusSync)) {
                         controleErroExistente = controleExistente;
                         log.info("🔄 [TBSYNC] Encontrado registro de ERRO existente - ID: {} | Matrícula: {} | Tentativas atuais: {}", 
-                                controleExistente.getId(), beneficiario.getCodigoMatricula(), controleExistente.getTentativas());
+                                controleExistente.getId(), codigoBeneficiario, controleExistente.getTentativas());
                         break; // Usar o primeiro registro de ERRO encontrado
                     }
                 }
@@ -1437,6 +1551,7 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
             if (controle == null) {
                 // Se não existe controle, tenta criar o request para ter o JSON correto
                 String payloadJson = "{}";
+                String tipoLog = "I"; // I = Inclusão
                 String endpointDestino = "/cadastroonline-pj/1.0/incluir";
                 
                 try {
@@ -1445,13 +1560,13 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                         endpointDestino = "/cadastroonline-pj/1.0/incluirDependente";
                         
                         // Buscar código do associado titular para criar o request de dependente
-                        String codigoAssociadoTitular = buscarCodigoAssociadoTitular(beneficiario.getCodigoEmpresa());
+                        String codigoAssociadoTitular = buscarCodigoAssociadoTitular(codigoEmpresa);
                         if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
                             BeneficiarioDependenteInclusaoRequest request = converterParaDependenteRequest(beneficiario, codigoAssociadoTitular);
                             payloadJson = objectMapper.writeValueAsString(request);
                         } else {
                             log.warn("⚠️ Não foi possível buscar código do titular para criar request de dependente - Beneficiário: {}", 
-                                    beneficiario.getCodigoMatricula());
+                                    codigoBeneficiario);
                         }
                     } else {
                         // Tenta criar o request de titular mesmo com dados inválidos para ter o JSON
@@ -1460,35 +1575,37 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                     }
                 } catch (Exception e) {
                     log.warn("⚠️ Não foi possível criar request para beneficiário {}: {}", 
-                             beneficiario.getCodigoMatricula(), e.getMessage());
+                             codigoBeneficiario, e.getMessage());
                     // Mantém "{}" se não conseguir criar o request
                 }
                 
+                // CRÍTICO: Garantir que todos os campos obrigatórios estejam preenchidos
                 controle = ControleSyncBeneficiario.builder()
-                        .codigoEmpresa(beneficiario.getCodigoEmpresa())
-                        .codigoBeneficiario(beneficiario.getCodigoMatricula())
-                        .tipoLog("I") // I = Inclusão
+                        .codigoEmpresa(codigoEmpresa)
+                        .codigoBeneficiario(codigoBeneficiario)
+                        .tipoLog(tipoLog)
                         .tipoOperacao(tipoOperacao)
                         .endpointDestino(endpointDestino)
                         .statusSync("ERRO")
                         .dadosJson(payloadJson)
                         .dataUltimaTentativa(LocalDateTime.now())
-                        .erroMensagem(mensagemErro)
+                        .erroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido")
                         .tentativas(1) // Primeira tentativa
+                        .maxTentativas(3) // CRÍTICO: Garantir que maxTentativas não seja nulo
                         .build();
                 
-                log.info("📝 [TBSYNC] Criando novo registro de erro - Matrícula: {} | Endpoint: {} | DadosJson: {} caracteres", 
-                        beneficiario.getCodigoMatricula(), endpointDestino, payloadJson.length());
+                log.info("📝 [TBSYNC] Criando novo registro de erro - Matrícula: {} | Endpoint: {} | DadosJson: {} caracteres | Empresa: {}", 
+                        codigoBeneficiario, endpointDestino, payloadJson.length(), codigoEmpresa);
             } else {
                 // Se o controle já existe, verificar se dadosJson está vazio e tentar atualizar
                 if (controle.getDadosJson() == null || controle.getDadosJson().trim().isEmpty() || "{}".equals(controle.getDadosJson())) {
                     log.warn("⚠️ [TBSYNC] dadosJson vazio no controle existente - Tentando preencher - Matrícula: {}", 
-                            beneficiario.getCodigoMatricula());
+                            codigoBeneficiario);
                     
                     try {
                         String payloadJson = "{}";
                         if ("D".equals(beneficiario.getIdentificacao())) {
-                            String codigoAssociadoTitular = buscarCodigoAssociadoTitular(beneficiario.getCodigoEmpresa());
+                            String codigoAssociadoTitular = buscarCodigoAssociadoTitular(codigoEmpresa);
                             if (codigoAssociadoTitular != null && !codigoAssociadoTitular.trim().isEmpty()) {
                                 BeneficiarioDependenteInclusaoRequest request = converterParaDependenteRequest(beneficiario, codigoAssociadoTitular);
                                 payloadJson = objectMapper.writeValueAsString(request);
@@ -1501,27 +1618,81 @@ public class ProcessamentoBeneficiarioServiceImpl implements ProcessamentoBenefi
                         }
                         controle.setDadosJson(payloadJson);
                         log.info("✅ [TBSYNC] dadosJson preenchido no controle existente - Matrícula: {} | DadosJson: {} caracteres", 
-                                beneficiario.getCodigoMatricula(), payloadJson.length());
+                                codigoBeneficiario, payloadJson.length());
                     } catch (Exception e) {
                         log.warn("⚠️ [TBSYNC] Não foi possível preencher dadosJson no controle existente - Matrícula: {} | Erro: {}", 
-                                beneficiario.getCodigoMatricula(), e.getMessage());
+                                codigoBeneficiario, e.getMessage());
                     }
                 }
                 
                 controle.setStatusSync("ERRO");
                 controle.setDataUltimaTentativa(LocalDateTime.now());
-                controle.setErroMensagem(mensagemErro);
+                controle.setErroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido");
+                
+                // CRÍTICO: Garantir que maxTentativas não seja nulo
+                if (controle.getMaxTentativas() == null) {
+                    controle.setMaxTentativas(3);
+                }
                 
                 // INCREMENTAR TENTATIVAS: Se o controle já existe, incrementar número de tentativas
                 int tentativasAtuais = controle.getTentativas() != null ? controle.getTentativas() : 0;
                 controle.setTentativas(tentativasAtuais + 1);
-                log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {} | Status: ERRO", 
-                        tentativasAtuais, controle.getTentativas(), beneficiario.getCodigoMatricula());
+                
+                // Garantir que tentativas não seja nulo após incremento
+                if (controle.getTentativas() == null) {
+                    controle.setTentativas(1);
+                }
+                
+                log.info("📊 [TBSYNC] Incrementando tentativas de {} para {} - Matrícula: {} | Status: ERRO | MaxTentativas: {}", 
+                        tentativasAtuais, controle.getTentativas(), codigoBeneficiario, controle.getMaxTentativas());
             }
 
-            controleSyncRepository.saveAndFlush(controle);
+            // CRÍTICO: Verificar se todos os campos obrigatórios estão preenchidos antes de salvar
+            if (controle.getCodigoEmpresa() == null || controle.getCodigoEmpresa().trim().isEmpty()) {
+                log.error("❌ [TBSYNC] codigoEmpresa é nulo ou vazio - Não é possível salvar registro de erro");
+                return;
+            }
+            
+            if (controle.getCodigoBeneficiario() == null || controle.getCodigoBeneficiario().trim().isEmpty()) {
+                log.error("❌ [TBSYNC] codigoBeneficiario é nulo ou vazio - Não é possível salvar registro de erro");
+                return;
+            }
+            
+            if (controle.getTipoLog() == null || controle.getTipoLog().trim().isEmpty()) {
+                log.error("❌ [TBSYNC] tipoLog é nulo ou vazio - Não é possível salvar registro de erro");
+                return;
+            }
+            
+            if (controle.getTipoOperacao() == null || controle.getTipoOperacao().trim().isEmpty()) {
+                log.error("❌ [TBSYNC] tipoOperacao é nulo ou vazio - Não é possível salvar registro de erro");
+                return;
+            }
+            
+            if (controle.getStatusSync() == null || controle.getStatusSync().trim().isEmpty()) {
+                log.error("❌ [TBSYNC] statusSync é nulo ou vazio - Não é possível salvar registro de erro");
+                return;
+            }
+            
+            if (controle.getTentativas() == null) {
+                controle.setTentativas(1);
+            }
+            
+            if (controle.getMaxTentativas() == null) {
+                controle.setMaxTentativas(3);
+            }
+
+            ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
+            
+            if (controleSalvo == null || controleSalvo.getId() == null) {
+                log.error("❌ [TBSYNC] Falha ao salvar registro de erro: ID não foi gerado - Matrícula: {}", codigoBeneficiario);
+            } else {
+                log.info("✅ [TBSYNC] Registro de erro salvo com sucesso - ID: {} | Matrícula: {} | Tentativas: {}", 
+                        controleSalvo.getId(), codigoBeneficiario, controleSalvo.getTentativas());
+            }
         } catch (Exception e) {
-            log.error("Erro ao registrar erro no controle: {}", e.getMessage(), e);
+            log.error("❌ [TBSYNC] Erro crítico ao registrar erro na TBSYNC para beneficiário {}: {}", 
+                     codigoBeneficiario, e.getMessage(), e);
+            log.error("❌ [TBSYNC] Stack trace: {}", java.util.Arrays.toString(e.getStackTrace()));
         }
     }
 }
