@@ -1,7 +1,7 @@
 package com.odontoPrev.odontoPrev.infrastructure.client.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.BeneficiarioOdontoprevFeignClient;
+import com.odontoPrev.odontoPrev.infrastructure.client.BeneficiarioOdontoprevFeignClient;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoRequest;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.domain.service.TokenService;

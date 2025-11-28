@@ -9,8 +9,6 @@ import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.Beneficia
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponse;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioInclusaoResponseNew;
 import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.BeneficiarioDependenteInclusaoRequest;
-import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoRequest;
-import com.odontoPrev.odontoPrev.infrastructure.client.adapter.out.dto.EmpresaAtivacaoPlanoResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -317,34 +315,4 @@ public interface BeneficiarioOdontoprevFeignClient {
         @RequestPart("empresarialModel") String empresarialModelJson
     );
 
-    /**
-     * ATIVAÇÃO DO PLANO DA EMPRESA
-     * 
-     * Endpoint para ativar o plano odontológico de uma empresa após o cadastro.
-     * Este endpoint é chamado automaticamente após a sincronização bem-sucedida da empresa.
-     * 
-     * ENDPOINT: POST {{baseUrl}}/empresa/2.0/empresas/contrato/empresarial
-     * 
-     * AUTENTICAÇÃO:
-     * - Authorization: Bearer {TOKEN_OAUTH2} - Token OAuth2
-     * 
-     * FLUXO DE FUNCIONAMENTO:
-     * 1. Empresa deve estar cadastrada na OdontoPrev
-     * 2. Envia dados completos do contrato empresarial
-     * 3. OdontoPrev ativa os planos da empresa
-     * 4. Retorna confirmação da ativação
-     * 
-     * @param authorizationOAuth2 Token OAuth2 (Bearer token)
-     * @param request Dados do contrato empresarial para ativação
-     * @return Resposta da ativação do plano
-     */
-    @PostMapping(
-        value = "/empresa/2.0/empresas/contrato/empresarial",
-        consumes = MediaType.APPLICATION_JSON_VALUE,
-        produces = MediaType.APPLICATION_JSON_VALUE
-    )
-    EmpresaAtivacaoPlanoResponse ativarPlanoEmpresa(
-        @RequestHeader("Authorization") String authorizationOAuth2,
-        @RequestBody EmpresaAtivacaoPlanoRequest request
-    );
 }
