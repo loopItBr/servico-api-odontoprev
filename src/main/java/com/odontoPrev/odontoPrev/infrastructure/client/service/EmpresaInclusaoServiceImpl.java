@@ -66,7 +66,46 @@ public class EmpresaInclusaoServiceImpl {
         // 2) Converter para request do endpoint empresarial
         EmpresaAtivacaoPlanoRequest request = converterParaRequestEmpresarial(dadosEmpresa);
 
-        // 3) Criar controle PENDING com payload (usando codigoEmpresa de origem)
+        // 3) Verificar se já existe registro PENDING ou SUCCESS antes de criar novo controle
+        log.info("🔍 [INCLUSAO EMPRESA] Verificando se já existe registro de controle para empresa {}", codigoEmpresaOrigem);
+        Optional<ControleSync> controleExistente = controleSyncRepository
+                .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(
+                        codigoEmpresaOrigem, ControleSync.TipoControle.ADICAO.getCodigo());
+        
+        if (controleExistente.isPresent()) {
+            ControleSync controle = controleExistente.get();
+            ControleSync.StatusSync status = controle.getStatusSync();
+            
+            if (status == ControleSync.StatusSync.SUCCESS) {
+                log.warn("⚠️ [INCLUSAO EMPRESA] Empresa {} JÁ FOI INCLUÍDA COM SUCESSO (ID: {}) - PULANDO para evitar duplicação", 
+                        codigoEmpresaOrigem, controle.getId());
+                log.info("🔍 [INCLUSAO EMPRESA] Registro de sucesso encontrado - Data: {}", controle.getDataSucesso());
+                
+                // Retornar resposta simulada baseada no registro existente
+                if (controle.getResponseApi() != null && !controle.getResponseApi().trim().isEmpty()) {
+                    try {
+                        EmpresaAtivacaoPlanoResponse response = objectMapper.readValue(
+                                controle.getResponseApi(), EmpresaAtivacaoPlanoResponse.class);
+                        log.info("✅ [INCLUSAO EMPRESA] Retornando resposta do registro existente - codigoEmpresa: {}", 
+                                response.getCodigoEmpresa());
+                        return response;
+                    } catch (Exception e) {
+                        log.warn("⚠️ [INCLUSAO EMPRESA] Erro ao deserializar resposta existente: {}", e.getMessage());
+                    }
+                }
+                
+                throw new IllegalStateException("Empresa " + codigoEmpresaOrigem + " já foi incluída com sucesso anteriormente. ID do controle: " + controle.getId());
+            }
+            
+            if (status == ControleSync.StatusSync.PENDING) {
+                log.warn("⚠️ [INCLUSAO EMPRESA] Empresa {} JÁ TEM INCLUSÃO PENDENTE (ID: {}) - PULANDO para evitar duplicação", 
+                        codigoEmpresaOrigem, controle.getId());
+                log.info("🔍 [INCLUSAO EMPRESA] Registro pendente encontrado - Data: {}", controle.getDataCriacao());
+                throw new IllegalStateException("Empresa " + codigoEmpresaOrigem + " já tem inclusão pendente. ID do controle: " + controle.getId());
+            }
+        }
+        
+        // 4) Criar controle PENDING com payload (usando codigoEmpresa de origem)
         ControleSync controle = criarControleInclusaoPendente(codigoEmpresaOrigem, request);
 
         try {
@@ -104,16 +143,35 @@ public class EmpresaInclusaoServiceImpl {
             }
             log.info("📥 [INCLUSAO EMPRESA] ===== FIM DA RESPOSTA =====");
 
-            // 6) Executar procedure com NR_SEQUENCIA e codigoEmpresa retornado
+            // 6) Verificar se procedure já foi executada antes de executar novamente
             if (nrSequencia == null) {
                 log.warn("⚠️ [INCLUSAO EMPRESA] NR_SEQUENCIA não informado; pulando execução da procedure");
             } else if (response != null && response.getCodigoEmpresa() != null) {
-                log.info("🔧 [INCLUSAO EMPRESA] Condições atendidas para executar procedure - nrSequencia: {}, codigoEmpresa: '{}'", 
-                        nrSequencia, response.getCodigoEmpresa());
+                // Verificar se já existe registro SUCCESS para esta empresa (codigoEmpresaOrigem)
+                // Se já foi processada com sucesso, a procedure já foi executada
+                log.info("🔍 [INCLUSAO EMPRESA] Verificando se procedure já foi executada para empresa: '{}'", 
+                        codigoEmpresaOrigem);
                 
-                log.info("🚀 [INCLUSAO EMPRESA] Chamando procedure SS_PLS_CAD_CODEMPRESA_ODONTOPREV para empresa {}", codigoEmpresaOrigem);
-                executarProcedureAtualizarCodigoEmpresa(nrSequencia, response.getCodigoEmpresa());
-                log.info("✅ [INCLUSAO EMPRESA] Procedure executada com sucesso para empresa {}", codigoEmpresaOrigem);
+                Optional<ControleSync> controleProcedure = controleSyncRepository
+                        .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(
+                                codigoEmpresaOrigem, ControleSync.TipoControle.ADICAO.getCodigo());
+                
+                if (controleProcedure.isPresent() && 
+                    controleProcedure.get().getStatusSync() == ControleSync.StatusSync.SUCCESS &&
+                    controleProcedure.get().getResponseApi() != null &&
+                    controleProcedure.get().getResponseApi().contains(response.getCodigoEmpresa())) {
+                    log.warn("⚠️ [INCLUSAO EMPRESA] Procedure JÁ FOI EXECUTADA para empresa '{}' (ID: {}) - PULANDO para evitar duplicação", 
+                            codigoEmpresaOrigem, controleProcedure.get().getId());
+                    log.info("🔍 [INCLUSAO EMPRESA] Registro de sucesso encontrado - Data: {}, codigoEmpresaApi: '{}'", 
+                            controleProcedure.get().getDataSucesso(), response.getCodigoEmpresa());
+                } else {
+                    log.info("🔧 [INCLUSAO EMPRESA] Condições atendidas para executar procedure - nrSequencia: {}, codigoEmpresa: '{}'", 
+                            nrSequencia, response.getCodigoEmpresa());
+                    
+                    log.info("🚀 [INCLUSAO EMPRESA] Chamando procedure SS_PLS_CAD_CODEMPRESA_ODONTOPREV para empresa {}", codigoEmpresaOrigem);
+                    executarProcedureAtualizarCodigoEmpresa(nrSequencia, response.getCodigoEmpresa());
+                    log.info("✅ [INCLUSAO EMPRESA] Procedure executada com sucesso para empresa {}", codigoEmpresaOrigem);
+                }
             } else {
                 log.warn("⚠️ [INCLUSAO EMPRESA] Condições NÃO atendidas para executar procedure");
                 log.warn("📊 [INCLUSAO EMPRESA] nrSequencia: {}, response: {}, codigoEmpresa: '{}'", 

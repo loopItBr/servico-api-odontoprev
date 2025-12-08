@@ -248,7 +248,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                 // Atualizar registro existente
                 controle = controleExistente.get();
                 controle.setDadosJson(payloadJson);
-                controle.setStatusSync("PROCESSING"); // PROCESSING = 10 caracteres (máximo permitido)
+                controle.setStatusSync("PENDING"); // PENDING = 7 caracteres (padrão para novos registros)
                 controle.setTentativas(controle.getTentativas() + 1);
                 controle.setDataUltimaTentativa(LocalDateTime.now());
                 controle.setResponseApi(null); // Limpar resposta anterior
@@ -265,7 +265,7 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                         .tipoOperacao("EXCLUSAO")
                         .endpointDestino("/cadastroonline-pj/1.0/inativar")
                         .dadosJson(payloadJson)
-                        .statusSync("PROCESSING") // PROCESSING = 10 caracteres (máximo permitido)
+                        .statusSync("PENDING") // PENDING = 7 caracteres (padrão para novos registros)
                         .tentativas(1)
                         .maxTentativas(3)
                         .dataUltimaTentativa(LocalDateTime.now())
@@ -274,7 +274,37 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                 log.info("🆕 [CONTROLE] Criando novo registro de controle para beneficiário {}", codigoMatricula);
             }
 
-            ControleSyncBeneficiario controleSalvo = controleSyncRepository.save(controle);
+            // Truncar campos antes de salvar
+            if (controle.getCodigoEmpresa() != null && controle.getCodigoEmpresa().length() > 6) {
+                controle.setCodigoEmpresa(controle.getCodigoEmpresa().substring(0, 6));
+            }
+            if (controle.getCodigoBeneficiario() != null && controle.getCodigoBeneficiario().length() > 15) {
+                controle.setCodigoBeneficiario(controle.getCodigoBeneficiario().substring(0, 15));
+            }
+            if (controle.getTipoLog() != null && controle.getTipoLog().length() > 1) {
+                controle.setTipoLog(controle.getTipoLog().substring(0, 1));
+            }
+            if (controle.getTipoOperacao() != null && controle.getTipoOperacao().length() > 10) {
+                controle.setTipoOperacao(controle.getTipoOperacao().substring(0, 10));
+            }
+            if (controle.getEndpointDestino() != null && controle.getEndpointDestino().length() > 200) {
+                controle.setEndpointDestino(controle.getEndpointDestino().substring(0, 200));
+            }
+            
+            // Garantir que tentativas e maxTentativas sejam não-negativos
+            if (controle.getTentativas() == null || controle.getTentativas() < 0) {
+                controle.setTentativas(0);
+            }
+            if (controle.getMaxTentativas() == null || controle.getMaxTentativas() < 0) {
+                controle.setMaxTentativas(3);
+            }
+            
+            // Garantir que statusSync seja válido
+            if (controle.getStatusSync() != null && controle.getStatusSync().length() > 10) {
+                controle.setStatusSync(controle.getStatusSync().substring(0, 10));
+            }
+            
+            ControleSyncBeneficiario controleSalvo = controleSyncRepository.saveAndFlush(controle);
             log.info("✅ [CONTROLE] Registro de controle processado - ID: {}, Status: {}, Tipo: {}", 
                     controleSalvo.getId(), controleSalvo.getStatusSync(),
                     controleSalvo.getTentativas() > 1 ? "ATUALIZAÇÃO" : "CRIAÇÃO");
@@ -291,17 +321,82 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
      * REGISTRA TENTATIVA DE SUCESSO
      *
      * Atualiza o registro de controle com o resultado de sucesso.
+     * IMPORTANTE: Usa saveAndFlush para garantir que o commit seja imediato
+     * e visível para outras threads/processos, evitando duplicação.
+     * 
+     * CRÍTICO: Se a transação atual estiver marcada como rollback-only,
+     * tenta buscar o registro novamente e atualizar em uma nova transação.
      */
     private void atualizarStatusSucesso(BeneficiarioOdontoprev beneficiario, ControleSyncBeneficiario controle) {
-        if (controle != null) {
+        if (controle == null) {
+            log.warn("⚠️ [TBSYNC] Tentativa de registrar sucesso em controle nulo");
+            return;
+        }
+        
+        if (controle.getId() == null) {
+            log.error("❌ [TBSYNC] Controle não possui ID, não é possível atualizar - Matrícula: {}", 
+                    controle.getCodigoBeneficiario());
+            return;
+        }
+        
+        try {
+            // Truncar campos antes de salvar
+            if (controle.getCodigoEmpresa() != null && controle.getCodigoEmpresa().length() > 6) {
+                controle.setCodigoEmpresa(controle.getCodigoEmpresa().substring(0, 6));
+            }
+            if (controle.getCodigoBeneficiario() != null && controle.getCodigoBeneficiario().length() > 15) {
+                controle.setCodigoBeneficiario(controle.getCodigoBeneficiario().substring(0, 15));
+            }
+            if (controle.getTipoLog() != null && controle.getTipoLog().length() > 1) {
+                controle.setTipoLog(controle.getTipoLog().substring(0, 1));
+            }
+            if (controle.getTipoOperacao() != null && controle.getTipoOperacao().length() > 10) {
+                controle.setTipoOperacao(controle.getTipoOperacao().substring(0, 10));
+            }
+            
+            // Garantir que tentativas e maxTentativas sejam não-negativos
+            if (controle.getTentativas() == null || controle.getTentativas() < 0) {
+                controle.setTentativas(0);
+            }
+            if (controle.getMaxTentativas() == null || controle.getMaxTentativas() < 0) {
+                controle.setMaxTentativas(3);
+            }
+            
+            controle.setStatusSync("SUCCESS"); // SUCCESS = 7 caracteres (padrão em inglês)
+            controle.setDataSucesso(LocalDateTime.now());
+            controle.setResponseApi("Inativação realizada com sucesso");
+            
+            // IMPORTANTE: Usar saveAndFlush para garantir commit imediato e visibilidade
+            controleSyncRepository.saveAndFlush(controle);
+            log.info("✅ [TBSYNC] Status do beneficiário {} atualizado para SUCCESS no controle de sincronização - ID: {}", 
+                    beneficiario.getCodigoMatricula(), controle.getId());
+        } catch (Exception e) {
+            log.error("❌ [TBSYNC] Erro ao registrar sucesso no controle (primeira tentativa) - ID: {} | Matrícula: {} | Erro: {}", 
+                    controle.getId(), controle.getCodigoBeneficiario(), e.getMessage(), e);
+            
+            // TENTATIVA DE RECUPERAÇÃO: Se a transação atual está rollback-only, buscar o registro novamente
             try {
-                controle.setStatusSync("SUCESSO");
-                controle.setDataSucesso(LocalDateTime.now());
-                controle.setResponseApi("Inativação realizada com sucesso");
-                controleSyncRepository.save(controle);
-                log.info("Status do beneficiário {} atualizado para SUCESSO no controle de sincronização", beneficiario.getCodigoMatricula());
-            } catch (Exception e) {
-                log.error("Erro ao registrar sucesso no controle: {}", e.getMessage(), e);
+                log.info("🔄 [TBSYNC] Tentando recuperar registro para atualização - ID: {} | Matrícula: {}", 
+                        controle.getId(), controle.getCodigoBeneficiario());
+                
+                // Buscar o registro novamente do banco (fora da transação atual)
+                var controleRecuperado = controleSyncRepository.findById(controle.getId());
+                
+                if (controleRecuperado.isPresent()) {
+                    ControleSyncBeneficiario controleAtualizado = controleRecuperado.get();
+                    controleAtualizado.setStatusSync("SUCCESS");
+                    controleAtualizado.setDataSucesso(LocalDateTime.now());
+                    controleAtualizado.setResponseApi("Inativação realizada com sucesso");
+                    controleSyncRepository.saveAndFlush(controleAtualizado);
+                    log.info("✅ [TBSYNC] Registro recuperado e atualizado com sucesso - ID: {} | Matrícula: {}", 
+                            controleAtualizado.getId(), controleAtualizado.getCodigoBeneficiario());
+                } else {
+                    log.error("❌ [TBSYNC] Registro não encontrado no banco para recuperação - ID: {} | Matrícula: {}", 
+                            controle.getId(), controle.getCodigoBeneficiario());
+                }
+            } catch (Exception recoveryException) {
+                log.error("❌ [TBSYNC] Erro na tentativa de recuperação do registro - ID: {} | Matrícula: {} | Erro: {}", 
+                        controle.getId(), controle.getCodigoBeneficiario(), recoveryException.getMessage(), recoveryException);
             }
         }
     }
@@ -310,10 +405,31 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
      * REGISTRA TENTATIVA DE ERRO
      *
      * Atualiza o registro de controle com o resultado de erro.
+     * IMPORTANTE: Garante que dadosJson esteja preenchido com o payload enviado.
+     * CRÍTICO: Garante que todos os campos obrigatórios estejam preenchidos para evitar constraint violations.
      */
     private void atualizarStatusErro(BeneficiarioOdontoprev beneficiario, String mensagemErro, ControleSyncBeneficiario controle) {
+        // VALIDAÇÕES CRÍTICAS: Garantir que todos os campos obrigatórios estejam preenchidos
+        if (beneficiario == null) {
+            log.error("❌ [TBSYNC] Beneficiário não pode ser nulo ao registrar erro");
+            return;
+        }
+        
+        String codigoEmpresa = beneficiario.getCodigoEmpresa();
+        String codigoBeneficiario = beneficiario.getCodigoMatricula();
+        
+        if (codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) {
+            log.error("❌ [TBSYNC] Código da empresa não pode ser nulo ou vazio ao registrar erro - Matrícula: {}", codigoBeneficiario);
+            return;
+        }
+        
+        if (codigoBeneficiario == null || codigoBeneficiario.trim().isEmpty()) {
+            log.error("❌ [TBSYNC] Código do beneficiário não pode ser nulo ou vazio ao registrar erro");
+            return;
+        }
+        
         try {
-            if (controle == null) {
+            if (controle == null || controle.getId() == null) {
                 // Se não existe controle, tenta criar o request para ter o JSON correto
                 String payloadJson = "{}";
                 try {
@@ -321,33 +437,151 @@ public class ProcessamentoBeneficiarioExclusaoServiceImpl implements Processamen
                     EmpresarialModelInativacao request = converterParaEmpresarialModel(beneficiario);
                     payloadJson = objectMapper.writeValueAsString(request);
                 } catch (Exception e) {
-                    log.debug("Não foi possível criar request para beneficiário {}: {}", 
+                    log.debug("⚠️ Não foi possível criar request para beneficiário {}: {}", 
                              beneficiario.getCodigoMatricula(), e.getMessage());
                     // Mantém "{}" se não conseguir criar o request
                 }
                 
+                // CRÍTICO: Validar e truncar campos para garantir que estejam dentro dos limites
+                // codigoEmpresa: máximo 6 caracteres
+                String codigoEmpresaTruncado = codigoEmpresa != null ? codigoEmpresa.substring(0, Math.min(6, codigoEmpresa.length())) : codigoEmpresa;
+                
+                // codigoBeneficiario: máximo 15 caracteres
+                String codigoBeneficiarioTruncado = codigoBeneficiario != null ? codigoBeneficiario.substring(0, Math.min(15, codigoBeneficiario.length())) : codigoBeneficiario;
+                
+                // tipoLog: máximo 1 caractere (E = Exclusão)
+                String tipoLogTruncado = "E";
+                
+                // tipoOperacao: máximo 10 caracteres
+                String tipoOperacaoTruncado = "EXCLUSAO".substring(0, Math.min(10, "EXCLUSAO".length()));
+                
+                // endpointDestino: máximo 200 caracteres
+                String endpointDestino = "/cadastroonline-pj/1.0/inativar";
+                String endpointDestinoTruncado = endpointDestino.length() > 200 ? endpointDestino.substring(0, 200) : endpointDestino;
+                
+                log.info("📝 [TBSYNC-ERRO] VALIDAÇÃO DE CAMPOS - Empresa: '{}' ({} chars) | Beneficiário: '{}' ({} chars) | TipoLog: '{}' ({} chars) | TipoOp: '{}' ({} chars) | Status: 'ERROR' (5 chars)", 
+                        codigoEmpresaTruncado, codigoEmpresaTruncado != null ? codigoEmpresaTruncado.length() : 0,
+                        codigoBeneficiarioTruncado, codigoBeneficiarioTruncado != null ? codigoBeneficiarioTruncado.length() : 0,
+                        tipoLogTruncado, tipoLogTruncado != null ? tipoLogTruncado.length() : 0,
+                        tipoOperacaoTruncado, tipoOperacaoTruncado != null ? tipoOperacaoTruncado.length() : 0);
+                
                 controle = ControleSyncBeneficiario.builder()
-                        .codigoEmpresa(beneficiario.getCodigoEmpresa())
-                        .codigoBeneficiario(beneficiario.getCodigoMatricula())
-                        .tipoLog("E") // E = Exclusão
-                        .tipoOperacao("EXCLUSAO")
-                        .endpointDestino("/cadastroonline-pj/1.0/inativar")
+                        .codigoEmpresa(codigoEmpresaTruncado)
+                        .codigoBeneficiario(codigoBeneficiarioTruncado)
+                        .tipoLog(tipoLogTruncado) // E = Exclusão
+                        .tipoOperacao(tipoOperacaoTruncado)
+                        .endpointDestino(endpointDestinoTruncado)
                         .dadosJson(payloadJson)
-                        .statusSync("ERRO")
+                        .statusSync("ERROR") // ERROR = 5 caracteres (padrão em inglês)
                         .tentativas(1)
-                        .erroMensagem(mensagemErro)
+                        .maxTentativas(3) // CRÍTICO: Garantir que maxTentativas não seja nulo
+                        .erroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido")
                         .dataUltimaTentativa(LocalDateTime.now())
                         .build();
             } else {
-                controle.setStatusSync("ERRO");
+                // Truncar campos antes de atualizar
+                if (controle.getCodigoEmpresa() != null && controle.getCodigoEmpresa().length() > 6) {
+                    controle.setCodigoEmpresa(controle.getCodigoEmpresa().substring(0, 6));
+                }
+                if (controle.getCodigoBeneficiario() != null && controle.getCodigoBeneficiario().length() > 15) {
+                    controle.setCodigoBeneficiario(controle.getCodigoBeneficiario().substring(0, 15));
+                }
+                if (controle.getTipoLog() != null && controle.getTipoLog().length() > 1) {
+                    controle.setTipoLog(controle.getTipoLog().substring(0, 1));
+                }
+                if (controle.getTipoOperacao() != null && controle.getTipoOperacao().length() > 10) {
+                    controle.setTipoOperacao(controle.getTipoOperacao().substring(0, 10));
+                }
+                if (controle.getEndpointDestino() != null && controle.getEndpointDestino().length() > 200) {
+                    controle.setEndpointDestino(controle.getEndpointDestino().substring(0, 200));
+                }
+                
+                // Garantir que tentativas e maxTentativas sejam não-negativos
+                if (controle.getTentativas() == null || controle.getTentativas() < 0) {
+                    controle.setTentativas(0);
+                }
+                if (controle.getMaxTentativas() == null || controle.getMaxTentativas() < 0) {
+                    controle.setMaxTentativas(3);
+                }
+                
+                controle.setStatusSync("ERROR"); // ERROR = 5 caracteres (padrão em inglês)
                 controle.setDataUltimaTentativa(LocalDateTime.now());
-                controle.setErroMensagem(mensagemErro);
+                controle.setErroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido");
+                
+                // INCREMENTAR TENTATIVAS: Se o controle já existe, incrementar número de tentativas
+                int tentativasAtuais = controle.getTentativas() != null ? controle.getTentativas() : 0;
+                controle.setTentativas(Math.max(0, tentativasAtuais + 1)); // Garantir que não seja negativo
             }
 
-            controleSyncRepository.save(controle);
-            log.info("Status do beneficiário {} atualizado para ERRO no controle de sincronização: {}", beneficiario.getCodigoMatricula(), mensagemErro);
+            // Log do nome da tabela que será usada
+            log.error("🔍 [TBSYNC] Tentando salvar na tabela: TASY.TB_CONTROLE_SYNC_ODONTOPREV_BENEF");
+            log.error("🔍 [TBSYNC] Nome da entidade: {}", controle.getClass().getSimpleName());
+            log.error("🔍 [TBSYNC] Schema configurado: TASY");
+            log.error("🔍 [TBSYNC] Nome da tabela configurado: TB_CONTROLE_SYNC_ODONTOPREV_BENEF");
+            
+            controleSyncRepository.saveAndFlush(controle);
+            log.info("✅ [TBSYNC] Status do beneficiário {} atualizado para ERROR no controle de sincronização - ID: {} | Mensagem: {}", 
+                    beneficiario.getCodigoMatricula(), controle.getId(), mensagemErro);
         } catch (Exception e) {
-            log.error("Erro ao registrar erro no controle: {}", e.getMessage(), e);
+            log.error("❌ [TBSYNC] Erro ao registrar erro no controle (primeira tentativa) - Matrícula: {} | Erro: {}", 
+                    codigoBeneficiario, e.getMessage(), e);
+            
+            // TENTATIVA DE RECUPERAÇÃO: Se a transação atual está rollback-only, buscar o registro novamente
+            if (controle != null && controle.getId() != null) {
+                try {
+                    log.info("🔄 [TBSYNC] Tentando recuperar registro para atualização - ID: {} | Matrícula: {}", 
+                            controle.getId(), codigoBeneficiario);
+                    
+                    // Buscar o registro novamente do banco (fora da transação atual)
+                    var controleRecuperado = controleSyncRepository.findById(controle.getId());
+                    
+                    if (controleRecuperado.isPresent()) {
+                        ControleSyncBeneficiario controleAtualizado = controleRecuperado.get();
+                        
+                        // Truncar campos
+                        if (controleAtualizado.getCodigoEmpresa() != null && controleAtualizado.getCodigoEmpresa().length() > 6) {
+                            controleAtualizado.setCodigoEmpresa(controleAtualizado.getCodigoEmpresa().substring(0, 6));
+                        }
+                        if (controleAtualizado.getCodigoBeneficiario() != null && controleAtualizado.getCodigoBeneficiario().length() > 15) {
+                            controleAtualizado.setCodigoBeneficiario(controleAtualizado.getCodigoBeneficiario().substring(0, 15));
+                        }
+                        if (controleAtualizado.getTipoLog() != null && controleAtualizado.getTipoLog().length() > 1) {
+                            controleAtualizado.setTipoLog(controleAtualizado.getTipoLog().substring(0, 1));
+                        }
+                        if (controleAtualizado.getTipoOperacao() != null && controleAtualizado.getTipoOperacao().length() > 10) {
+                            controleAtualizado.setTipoOperacao(controleAtualizado.getTipoOperacao().substring(0, 10));
+                        }
+                        if (controleAtualizado.getEndpointDestino() != null && controleAtualizado.getEndpointDestino().length() > 200) {
+                            controleAtualizado.setEndpointDestino(controleAtualizado.getEndpointDestino().substring(0, 200));
+                        }
+                        
+                        // Garantir que tentativas e maxTentativas sejam não-negativos
+                        if (controleAtualizado.getTentativas() == null || controleAtualizado.getTentativas() < 0) {
+                            controleAtualizado.setTentativas(0);
+                        }
+                        if (controleAtualizado.getMaxTentativas() == null || controleAtualizado.getMaxTentativas() < 0) {
+                            controleAtualizado.setMaxTentativas(3);
+                        }
+                        
+                        controleAtualizado.setStatusSync("ERROR");
+                        controleAtualizado.setDataUltimaTentativa(LocalDateTime.now());
+                        controleAtualizado.setErroMensagem(mensagemErro != null ? mensagemErro : "Erro desconhecido");
+                        
+                        int tentativasAtuais = controleAtualizado.getTentativas() != null ? controleAtualizado.getTentativas() : 0;
+                        controleAtualizado.setTentativas(Math.max(0, tentativasAtuais + 1));
+                        
+                        controleSyncRepository.saveAndFlush(controleAtualizado);
+                        log.info("✅ [TBSYNC] Registro recuperado e atualizado com sucesso - ID: {} | Matrícula: {}", 
+                                controleAtualizado.getId(), controleAtualizado.getCodigoBeneficiario());
+                    } else {
+                        log.error("❌ [TBSYNC] Registro não encontrado no banco para recuperação - ID: {} | Matrícula: {}", 
+                                controle.getId(), codigoBeneficiario);
+                    }
+                } catch (Exception recoveryException) {
+                    log.error("❌ [TBSYNC] Erro na tentativa de recuperação do registro - ID: {} | Matrícula: {} | Erro: {}", 
+                            controle.getId(), codigoBeneficiario, recoveryException.getMessage(), recoveryException);
+                }
+            }
         }
     }
 }

@@ -131,12 +131,43 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             log.info("✅ [PROCESSAMENTO EMPRESA] Dados encontrados para empresa {}: CNPJ={}, Nome={}", 
                     codigoEmpresa, dadosCompletos.getCnpj(), dadosCompletos.getNomeFantasia());
             
-            // VALIDAÇÃO: Verificar se empresa já possui codigoEmpresa (já foi sincronizada)
+            // VALIDAÇÃO 1: Verificar se empresa já possui codigoEmpresa (já foi sincronizada)
             if (dadosCompletos.getCodigoEmpresa() != null && !dadosCompletos.getCodigoEmpresa().trim().isEmpty()) {
                 log.warn("⚠️ [PROCESSAMENTO EMPRESA] Empresa {} JÁ POSSUI codigoEmpresa: {} - PULANDO processamento para evitar duplicação", 
                         codigoEmpresa, dadosCompletos.getCodigoEmpresa());
                 log.info("🔍 [PROCESSAMENTO EMPRESA] Empresa já foi sincronizada anteriormente. Para reprocessar, limpe o codigoEmpresa na view.");
                 return;
+            }
+            
+            // VALIDAÇÃO 2: Verificar se já existe registro PENDING ou SUCCESS na tabela de controle
+            log.info("🔍 [PROCESSAMENTO EMPRESA] VALIDAÇÃO 2 - Verificando se já existe registro de controle para empresa {}", codigoEmpresa);
+            Optional<ControleSync> controleExistente = controleSyncRepository
+                    .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(
+                            codigoEmpresa, ControleSync.TipoControle.ADICAO.getCodigo());
+            
+            if (controleExistente.isPresent()) {
+                ControleSync controle = controleExistente.get();
+                ControleSync.StatusSync status = controle.getStatusSync();
+                
+                if (status == ControleSync.StatusSync.SUCCESS) {
+                    log.warn("⚠️ [PROCESSAMENTO EMPRESA] Empresa {} JÁ FOI PROCESSADA COM SUCESSO (ID: {}) - PULANDO para evitar duplicação", 
+                            codigoEmpresa, controle.getId());
+                    log.info("🔍 [PROCESSAMENTO EMPRESA] Registro de sucesso encontrado - Data: {}, Endpoint: {}", 
+                            controle.getDataSucesso(), controle.getEndpointDestino());
+                    return;
+                }
+                
+                if (status == ControleSync.StatusSync.PENDING) {
+                    log.warn("⚠️ [PROCESSAMENTO EMPRESA] Empresa {} JÁ TEM PROCESSAMENTO PENDENTE (ID: {}) - PULANDO para evitar duplicação", 
+                            codigoEmpresa, controle.getId());
+                    log.info("🔍 [PROCESSAMENTO EMPRESA] Registro pendente encontrado - Data: {}, Endpoint: {}", 
+                            controle.getDataCriacao(), controle.getEndpointDestino());
+                    return;
+                }
+                
+                // Se está em ERROR, permite reprocessar (atualizará o registro existente)
+                log.info("🔄 [PROCESSAMENTO EMPRESA] Empresa {} tem registro em ERROR (ID: {}) - Permitindo reprocessamento", 
+                        codigoEmpresa, controle.getId());
             }
             
             // PASSO 2: Cria ou atualiza registro de controle para auditoria
@@ -174,14 +205,30 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
             EmpresaAtivacaoPlanoResponse responsePost = empresaInclusaoService.incluirEmpresa(codigoEmpresa, dadosCompletos.getNrSeqContrato());
             log.info("✅ [FLUXO INCLUSÃO] POST executado com sucesso para empresa {}", codigoEmpresa);
             
-            // PASSO 2: Procedure - Cadastrar código da empresa
-            log.info("🔧 [FLUXO INCLUSÃO] PASSO 2 - Executando procedure para empresa {}", codigoEmpresa);
+            // PASSO 2: Procedure - Cadastrar código da empresa (com verificação de duplicação)
+            log.info("🔧 [FLUXO INCLUSÃO] PASSO 2 - Verificando se procedure já foi executada para empresa {}", codigoEmpresa);
             String codigoEmpresaApi = responsePost.getCodigoEmpresa();
             log.info("📋 [FLUXO INCLUSÃO] ANTES da procedure - codigoEmpresaApi: '{}'", codigoEmpresaApi);
             
-            executarProcedureAtualizarCodigoEmpresa(dadosCompletos.getNrSeqContrato(), codigoEmpresaApi);
+            // Verificar se já existe registro SUCCESS para esta empresa
+            // Se já foi processada com sucesso e a response contém o mesmo codigoEmpresaApi, a procedure já foi executada
+            Optional<ControleSync> controleExistente = controleSyncRepository
+                    .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(
+                            codigoEmpresa, ControleSync.TipoControle.ADICAO.getCodigo());
             
-            log.info("✅ [FLUXO INCLUSÃO] DEPOIS da procedure - procedure executada com sucesso para empresa {}", codigoEmpresa);
+            if (controleExistente.isPresent() && 
+                controleExistente.get().getStatusSync() == ControleSync.StatusSync.SUCCESS &&
+                controleExistente.get().getResponseApi() != null &&
+                controleExistente.get().getResponseApi().contains(codigoEmpresaApi)) {
+                log.warn("⚠️ [FLUXO INCLUSÃO] Procedure JÁ FOI EXECUTADA para empresa '{}' (ID: {}) - PULANDO para evitar duplicação", 
+                        codigoEmpresa, controleExistente.get().getId());
+                log.info("🔍 [FLUXO INCLUSÃO] Registro de sucesso encontrado - Data: {}, codigoEmpresaApi: '{}'", 
+                        controleExistente.get().getDataSucesso(), codigoEmpresaApi);
+            } else {
+                log.info("🔧 [FLUXO INCLUSÃO] Executando procedure para empresa {}", codigoEmpresa);
+                executarProcedureAtualizarCodigoEmpresa(dadosCompletos.getNrSeqContrato(), codigoEmpresaApi);
+                log.info("✅ [FLUXO INCLUSÃO] DEPOIS da procedure - procedure executada com sucesso para empresa {}", codigoEmpresa);
+            }
             
             // PASSO 3: GET - Buscar dados da empresa na API
             log.info("📥 [FLUXO INCLUSÃO] PASSO 3 - Executando GET para buscar dados da empresa {}", codigoEmpresa);
