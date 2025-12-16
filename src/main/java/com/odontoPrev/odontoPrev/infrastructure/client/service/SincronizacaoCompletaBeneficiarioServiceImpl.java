@@ -811,18 +811,60 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                     if (beneficiario.getCpf() == null || beneficiario.getCpf().trim().isEmpty()) {
                         throw new IllegalArgumentException("CPF é obrigatório e está vazio na view");
                     }
-                    if (beneficiario.getCodigoEmpresa() == null || beneficiario.getCodigoEmpresa().trim().isEmpty()) {
-                        throw new IllegalArgumentException("Código da empresa é obrigatório e está vazio na view");
+                    
+                    // CORREÇÃO: Para dependentes, buscar código da empresa do titular se não estiver na view
+                    String codigoEmpresa = beneficiario.getCodigoEmpresa();
+                    if ((codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) && isDependente) {
+                        log.warn("⚠️ DEPENDENTE SEM CÓDIGO DE EMPRESA - Tentando buscar do titular - Matrícula: {} | CPF: {}", 
+                                beneficiario.getCodigoMatricula(), beneficiario.getCpf());
+                        
+                        // Extrair matrícula do titular da matrícula do dependente (formato: "0070178-01" -> "0070178")
+                        String matriculaDependente = beneficiario.getCodigoMatricula();
+                        String matriculaTitular = null;
+                        if (matriculaDependente != null && matriculaDependente.contains("-")) {
+                            matriculaTitular = matriculaDependente.substring(0, matriculaDependente.indexOf("-"));
+                            log.info("🔍 Matrícula do titular extraída: {} (de dependente: {})", matriculaTitular, matriculaDependente);
+                        }
+                        
+                        // Buscar código da empresa do titular na view
+                        if (matriculaTitular != null) {
+                            var titularView = inclusaoRepository.findByCodigoMatricula(matriculaTitular);
+                            if (titularView != null && titularView.getCodigoEmpresa() != null) {
+                                codigoEmpresa = titularView.getCodigoEmpresa();
+                                log.info("✅ Código da empresa encontrado do titular: {} (matrícula titular: {})", 
+                                        codigoEmpresa, matriculaTitular);
+                                // Atualizar o beneficiário com o código da empresa encontrado
+                                // Nota: Não podemos modificar diretamente a entidade da view, mas podemos usar na conversão
+                            } else {
+                                log.error("❌ Titular não encontrado na view - Matrícula: {}", matriculaTitular);
+                            }
+                        }
+                    }
+                    
+                    if (codigoEmpresa == null || codigoEmpresa.trim().isEmpty()) {
+                        throw new IllegalArgumentException("Código da empresa é obrigatório e está vazio na view. Para dependentes, não foi possível encontrar o código da empresa do titular.");
                     }
                     
                     // DEBUG: Log dos valores da view antes da conversão
-                    log.info("🔍 [DEBUG VIEW] Antes da conversão - Matrícula: {} | codigoAssociadoTitular: '{}' | usuario: {}", 
+                    log.info("🔍 [DEBUG VIEW] Antes da conversão - Matrícula: {} | codigoAssociadoTitular: '{}' | usuario: {} | codigoEmpresa: '{}'", 
                             beneficiario.getCodigoMatricula(), 
                             beneficiario.getCodigoAssociadoTitular(),
-                            beneficiario.getUsuario());
+                            beneficiario.getUsuario(),
+                            codigoEmpresa);
+                    
+                    // CORREÇÃO: Se encontramos código da empresa do titular, será usado após a conversão
+                    if (isDependente && codigoEmpresa != null && (beneficiario.getCodigoEmpresa() == null || beneficiario.getCodigoEmpresa().trim().isEmpty())) {
+                        log.info("✅ Usando código da empresa do titular para dependente: {}", codigoEmpresa);
+                    }
                     
                     // Tentar converter a view para entidade de domínio
                     beneficiarioDomínio = beneficiarioViewMapper.fromInclusaoView(beneficiario);
+                    
+                    // CORREÇÃO: Se o código da empresa foi encontrado do titular, atualizar na entidade de domínio
+                    if (isDependente && codigoEmpresa != null && beneficiarioDomínio != null) {
+                        beneficiarioDomínio.setCodigoEmpresa(codigoEmpresa);
+                        log.info("✅ Código da empresa atualizado na entidade de domínio: {}", codigoEmpresa);
+                    }
                     
                     // Validação pós-conversão para garantir que a conversão foi bem-sucedida
                     if (beneficiarioDomínio == null) {
@@ -1498,9 +1540,41 @@ public class SincronizacaoCompletaBeneficiarioServiceImpl implements Sincronizac
                     .dataUltimaTentativa(LocalDateTime.now())
                     .build();
             
-            ControleSyncBeneficiario controleSalvo = controleSyncRepository.save(controle);
-            log.info("✅ [TBSYNC] Erro registrado na TBSYNC com ID: {} para beneficiário {} | Endpoint: {} | DadosJson: {} caracteres", 
-                    controleSalvo.getId(), codigoMatricula, endpointFinal, payloadFinal.length());
+            // CORREÇÃO: Tratar especificamente erro ORA-00942 (tabela não existe)
+            try {
+                ControleSyncBeneficiario controleSalvo = controleSyncRepository.save(controle);
+                log.info("✅ [TBSYNC] Erro registrado na TBSYNC com ID: {} para beneficiário {} | Endpoint: {} | DadosJson: {} caracteres", 
+                        controleSalvo.getId(), codigoMatricula, endpointFinal, payloadFinal.length());
+            } catch (org.springframework.dao.DataAccessException dataEx) {
+                // Verificar se é erro de tabela não encontrada (ORA-00942)
+                String mensagemErroDataEx = dataEx.getMessage() != null ? dataEx.getMessage() : "";
+                Throwable causa = dataEx.getCause();
+                boolean isTabelaNaoExiste = mensagemErroDataEx.contains("ORA-00942") || 
+                                          mensagemErroDataEx.contains("table or view does not exist") ||
+                                          (causa != null && (causa.getMessage() != null && 
+                                           (causa.getMessage().contains("ORA-00942") || 
+                                            causa.getMessage().contains("table or view does not exist"))));
+                
+                if (isTabelaNaoExiste) {
+                    log.error("❌ [TBSYNC] TABELA TB_CONTROLE_SYNC_ODONTOPREV_BENEF NÃO EXISTE NO BANCO - Não é possível registrar erro na TBSYNC");
+                    log.error("❌ [TBSYNC] Verifique se a tabela TASY.TB_CONTROLE_SYNC_ODONTOPREV_BENEF existe e se o usuário tem permissão");
+                    log.error("❌ [TBSYNC] Erro do beneficiário: {} | Matrícula: {} | Mensagem: {}", 
+                            mensagemErroDataEx, codigoMatricula, erroMensagemFinal);
+                    // Não relançar - apenas logar o erro
+                } else {
+                    // Outro tipo de erro de acesso a dados - relançar
+                    throw dataEx;
+                }
+            } catch (Exception e) {
+                // Log detalhado do erro mas não relançar para não parar o processamento
+                log.error("❌ [TBSYNC] Erro crítico ao registrar erro na TBSYNC para beneficiário {}: {} | Causa: {}", 
+                         beneficiario != null && beneficiario.getCodigoMatricula() != null ? beneficiario.getCodigoMatricula() : "NULL", 
+                         e.getMessage(),
+                         e.getCause() != null ? e.getCause().getMessage() : "N/A");
+                if (e.getStackTrace() != null && e.getStackTrace().length > 0) {
+                    log.error("❌ [TBSYNC] Stack trace: {}", e.getStackTrace()[0].toString());
+                }
+            }
         } catch (Exception e) {
             // Log detalhado do erro mas não relançar para não parar o processamento
             log.error("❌ [TBSYNC] Erro crítico ao registrar erro na TBSYNC para beneficiário {}: {} | Causa: {}", 
