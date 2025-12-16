@@ -139,7 +139,8 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                 return;
             }
             
-            // VALIDAÇÃO 2: Verificar se já existe registro PENDING ou SUCCESS na tabela de controle
+            // VALIDAÇÃO 2: Verificar se já existe registro SUCCESS na tabela de controle
+            // IMPORTANTE: PENDING não bloqueia - pode ser um registro antigo que precisa ser reprocessado
             log.info("🔍 [PROCESSAMENTO EMPRESA] VALIDAÇÃO 2 - Verificando se já existe registro de controle para empresa {}", codigoEmpresa);
             Optional<ControleSync> controleExistente = controleSyncRepository
                     .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(
@@ -149,6 +150,7 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                 ControleSync controle = controleExistente.get();
                 ControleSync.StatusSync status = controle.getStatusSync();
                 
+                // APENAS bloquear se já foi processado com SUCESSO
                 if (status == ControleSync.StatusSync.SUCCESS) {
                     log.warn("⚠️ [PROCESSAMENTO EMPRESA] Empresa {} JÁ FOI PROCESSADA COM SUCESSO (ID: {}) - PULANDO para evitar duplicação", 
                             codigoEmpresa, controle.getId());
@@ -157,17 +159,16 @@ public class ProcessamentoEmpresaServiceImpl implements ProcessamentoEmpresaServ
                     return;
                 }
                 
+                // PENDING ou ERROR: permitir reprocessar (pode ser registro antigo ou que precisa retentar)
                 if (status == ControleSync.StatusSync.PENDING) {
-                    log.warn("⚠️ [PROCESSAMENTO EMPRESA] Empresa {} JÁ TEM PROCESSAMENTO PENDENTE (ID: {}) - PULANDO para evitar duplicação", 
+                    log.info("🔄 [PROCESSAMENTO EMPRESA] Empresa {} tem registro PENDING (ID: {}) - Permitindo reprocessamento", 
                             codigoEmpresa, controle.getId());
-                    log.info("🔍 [PROCESSAMENTO EMPRESA] Registro pendente encontrado - Data: {}, Endpoint: {}", 
-                            controle.getDataCriacao(), controle.getEndpointDestino());
-                    return;
+                    log.info("🔍 [PROCESSAMENTO EMPRESA] Registro pendente encontrado - Data: {}, será atualizado durante processamento", 
+                            controle.getDataCriacao());
+                } else if (status == ControleSync.StatusSync.ERROR) {
+                    log.info("🔄 [PROCESSAMENTO EMPRESA] Empresa {} tem registro em ERROR (ID: {}) - Permitindo reprocessamento", 
+                            codigoEmpresa, controle.getId());
                 }
-                
-                // Se está em ERROR, permite reprocessar (atualizará o registro existente)
-                log.info("🔄 [PROCESSAMENTO EMPRESA] Empresa {} tem registro em ERROR (ID: {}) - Permitindo reprocessamento", 
-                        codigoEmpresa, controle.getId());
             }
             
             // PASSO 2: Cria ou atualiza registro de controle para auditoria

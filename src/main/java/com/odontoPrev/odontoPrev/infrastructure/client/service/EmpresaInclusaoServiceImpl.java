@@ -66,7 +66,8 @@ public class EmpresaInclusaoServiceImpl {
         // 2) Converter para request do endpoint empresarial
         EmpresaAtivacaoPlanoRequest request = converterParaRequestEmpresarial(dadosEmpresa);
 
-        // 3) Verificar se já existe registro PENDING ou SUCCESS antes de criar novo controle
+        // 3) Verificar se já existe registro SUCCESS antes de criar novo controle
+        // IMPORTANTE: PENDING não bloqueia - pode ser um registro antigo que precisa ser reprocessado
         log.info("🔍 [INCLUSAO EMPRESA] Verificando se já existe registro de controle para empresa {}", codigoEmpresaOrigem);
         Optional<ControleSync> controleExistente = controleSyncRepository
                 .findFirstByCodigoEmpresaAndTipoControleOrderByDataCriacaoDesc(
@@ -76,8 +77,9 @@ public class EmpresaInclusaoServiceImpl {
             ControleSync controle = controleExistente.get();
             ControleSync.StatusSync status = controle.getStatusSync();
             
+            // APENAS bloquear se já foi processado com SUCESSO
             if (status == ControleSync.StatusSync.SUCCESS) {
-                log.warn("⚠️ [INCLUSAO EMPRESA] Empresa {} JÁ FOI INCLUÍDA COM SUCESSO (ID: {}) - PULANDO para evitar duplicação", 
+                log.warn("⚠️ [INCLUSAO EMPRESA] Empresa {} JÁ FOI INCLUÍDA COM SUCESSO (ID: {}) - Retornando resposta existente", 
                         codigoEmpresaOrigem, controle.getId());
                 log.info("🔍 [INCLUSAO EMPRESA] Registro de sucesso encontrado - Data: {}", controle.getDataSucesso());
                 
@@ -97,11 +99,13 @@ public class EmpresaInclusaoServiceImpl {
                 throw new IllegalStateException("Empresa " + codigoEmpresaOrigem + " já foi incluída com sucesso anteriormente. ID do controle: " + controle.getId());
             }
             
+            // PENDING ou ERROR: permitir continuar (será atualizado durante o processamento)
             if (status == ControleSync.StatusSync.PENDING) {
-                log.warn("⚠️ [INCLUSAO EMPRESA] Empresa {} JÁ TEM INCLUSÃO PENDENTE (ID: {}) - PULANDO para evitar duplicação", 
+                log.info("🔄 [INCLUSAO EMPRESA] Empresa {} tem registro PENDING (ID: {}) - Continuando processamento (será atualizado)", 
                         codigoEmpresaOrigem, controle.getId());
-                log.info("🔍 [INCLUSAO EMPRESA] Registro pendente encontrado - Data: {}", controle.getDataCriacao());
-                throw new IllegalStateException("Empresa " + codigoEmpresaOrigem + " já tem inclusão pendente. ID do controle: " + controle.getId());
+            } else if (status == ControleSync.StatusSync.ERROR) {
+                log.info("🔄 [INCLUSAO EMPRESA] Empresa {} tem registro ERROR (ID: {}) - Continuando processamento (retentativa)", 
+                        codigoEmpresaOrigem, controle.getId());
             }
         }
         
